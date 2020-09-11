@@ -19,9 +19,10 @@ func NewClient(tableName string) Client {
 	}
 }
 
-// Get one instance from the database, the input struct
-// must be passed by reference.
-func (c Client) Get(
+// Find one instance from the database, the input struct
+// must be passed by reference and the query should
+// return only one result.
+func (c Client) Find(
 	ctx context.Context,
 	item interface{},
 	query string,

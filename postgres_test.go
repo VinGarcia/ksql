@@ -16,7 +16,7 @@ type User struct {
 	CreatedAt time.Time
 }
 
-func TestGet(t *testing.T) {
+func TestFind(t *testing.T) {
 	err := createTable()
 	if err != nil {
 		t.Fatal("could not create test table!")
@@ -32,7 +32,7 @@ func TestGet(t *testing.T) {
 			tableName: "users",
 		}
 		u := User{}
-		err := c.Get(ctx, &u, `SELECT * FROM users WHERE id=1;`)
+		err := c.Find(ctx, &u, `SELECT * FROM users WHERE id=1;`)
 		assert.Equal(t, err, nil)
 		assert.Equal(t, User{}, u)
 	})
@@ -51,7 +51,7 @@ func TestGet(t *testing.T) {
 			tableName: "users",
 		}
 		u := User{}
-		err = c.Get(ctx, &u, `SELECT * FROM users WHERE name='Bia';`)
+		err = c.Find(ctx, &u, `SELECT * FROM users WHERE name='Bia';`)
 
 		assert.Equal(t, err, nil)
 		assert.Equal(t, "Bia", u.Name)
