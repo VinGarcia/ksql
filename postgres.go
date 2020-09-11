@@ -52,3 +52,18 @@ func (c Client) Insert(
 
 	return nil
 }
+
+// Delete deletes one or more instances from the database by id
+func (c Client) Delete(
+	ctx context.Context,
+	entities ...interface{},
+) error {
+	for _, entity := range entities {
+		r := c.db.Table(c.tableName).Delete(entity)
+		if r.Error != nil {
+			return r.Error
+		}
+	}
+
+	return nil
+}
