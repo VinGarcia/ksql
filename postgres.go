@@ -26,8 +26,9 @@ func (c Client) Find(
 	ctx context.Context,
 	item interface{},
 	query string,
+	params ...interface{},
 ) error {
-	it := c.db.Raw(query)
+	it := c.db.Raw(query, params...)
 	it.Scan(item)
 	return it.Error
 }

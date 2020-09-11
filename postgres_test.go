@@ -51,7 +51,7 @@ func TestFind(t *testing.T) {
 			tableName: "users",
 		}
 		u := User{}
-		err = c.Find(ctx, &u, `SELECT * FROM users WHERE name='Bia';`)
+		err = c.Find(ctx, &u, `SELECT * FROM users WHERE name=?;`, "Bia")
 
 		assert.Equal(t, err, nil)
 		assert.Equal(t, "Bia", u.Name)
