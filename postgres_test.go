@@ -2,8 +2,6 @@ package gpostgres
 
 import (
 	"context"
-	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
@@ -29,7 +27,10 @@ func TestGet(t *testing.T) {
 		defer db.Close()
 
 		ctx := context.Background()
-		c := Client{db: db}
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
 		u := User{}
 		err := c.Get(ctx, &u, `SELECT * FROM users WHERE id=1;`)
 		assert.Equal(t, err, nil)
@@ -46,7 +47,8 @@ func TestGet(t *testing.T) {
 
 		ctx := context.Background()
 		c := Client{
-			db: db,
+			db:        db,
+			tableName: "users",
 		}
 		u := User{}
 		err = c.Get(ctx, &u, `SELECT * FROM users WHERE name='Bia';`)
@@ -66,11 +68,11 @@ func TestInsert(t *testing.T) {
 	t.Run("should ignore empty lists of users", func(t *testing.T) {
 		db := connectDB(t)
 		defer db.Close()
-		db.LogMode(true)
 
 		ctx := context.Background()
 		c := Client{
-			db: db,
+			db:        db,
+			tableName: "users",
 		}
 
 		user := User{}
@@ -84,7 +86,8 @@ func TestInsert(t *testing.T) {
 
 		ctx := context.Background()
 		c := Client{
-			db: db,
+			db:        db,
+			tableName: "users",
 		}
 
 		u := User{
@@ -95,24 +98,11 @@ func TestInsert(t *testing.T) {
 		assert.Equal(t, err, nil)
 
 		result := User{}
-		fmt.Println("ID:  ", u.ID)
 		it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
 		it.Scan(&result)
 		assert.Equal(t, it.Error, nil)
 		assert.Equal(t, u.Name, result.Name)
 		assert.Equal(t, u.CreatedAt.Format(time.RFC3339), result.CreatedAt.Format(time.RFC3339))
-	})
-}
-
-func TestGetMetadata(t *testing.T) {
-	t.Run("it should get the struct name correctly", func(t *testing.T) {
-		c := &Client{
-			metadata: map[reflect.Type]*metaCache{},
-		}
-
-		m, err := c.getMetadata(User{})
-		assert.Equal(t, nil, err)
-		assert.Equal(t, "users", m.TableName)
 	})
 }
 

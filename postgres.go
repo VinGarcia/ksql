@@ -2,32 +2,25 @@ package gpostgres
 
 import (
 	"context"
-	"fmt"
-	"reflect"
-	"strings"
 
 	"github.com/jinzhu/gorm"
 )
 
-type metaCache struct {
-	TableName string
-}
-
-type TableNamer interface {
-	TableName() string
-}
-
+// Client ...
 type Client struct {
-	db       *gorm.DB
-	metadata map[reflect.Type]*metaCache
+	tableName string
+	db        *gorm.DB
 }
 
-func NewClient() Client {
+// NewClient ...
+func NewClient(tableName string) Client {
 	return Client{
-		metadata: map[reflect.Type]*metaCache{},
+		tableName: tableName,
 	}
 }
 
+// Get one instance from the database, the input struct
+// must be passed by reference.
 func (c Client) Get(
 	ctx context.Context,
 	item interface{},
@@ -38,6 +31,10 @@ func (c Client) Get(
 	return it.Error
 }
 
+// Insert one or more instances on the database
+//
+// If the original instances have been passed by reference
+// the ID is automatically updated after insertion is completed.
 func (c Client) Insert(
 	ctx context.Context,
 	items ...interface{},
@@ -46,53 +43,12 @@ func (c Client) Insert(
 		return nil
 	}
 
-	m, err := c.getMetadata(items[0])
-	if err != nil {
-		return err
-	}
-
-	vItems := reflect.ValueOf(items)
-	for i := 0; i < vItems.Len(); i++ {
-		v := vItems.Index(i).Elem()
-		if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
-			return fmt.Errorf("entity type must be a pointer to struct, not: %T", v.Interface())
-		}
-
-		r := c.db.Table(m.TableName).Create(v.Interface())
+	for _, item := range items {
+		r := c.db.Table(c.tableName).Create(item)
 		if r.Error != nil {
 			return r.Error
 		}
 	}
 
 	return nil
-}
-
-func (c *Client) getMetadata(entity interface{}) (*metaCache, error) {
-	t := reflect.TypeOf(entity)
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	if t.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("entity type must be a struct or a struct pointer, not: %T", entity)
-	}
-
-	metadata, found := c.metadata[t]
-	if found {
-		return metadata, nil
-	}
-
-	metadata = &metaCache{}
-
-	if tNamer, ok := entity.(TableNamer); ok {
-		metadata.TableName = tNamer.TableName()
-	} else {
-		n := t.Name()
-		if n[len(n)-1] != 's' {
-			n += "s"
-		}
-
-		metadata.TableName = strings.ToLower(n)
-	}
-
-	return metadata, nil
 }
