@@ -2,6 +2,7 @@ package gpostgres
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jinzhu/gorm"
 )
@@ -29,6 +30,16 @@ func (c Client) Find(
 	params ...interface{},
 ) error {
 	it := c.db.Raw(query, params...)
+	it.Scan(item)
+	return it.Error
+}
+
+func (c Client) GetByID(
+	ctx context.Context,
+	item interface{},
+	id interface{},
+) error {
+	it := c.db.Raw(fmt.Sprintf("select * from %s where id = ?", c.tableName), id)
 	it.Scan(item)
 	return it.Error
 }

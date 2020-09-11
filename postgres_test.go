@@ -59,6 +59,50 @@ func TestFind(t *testing.T) {
 	})
 }
 
+func TestGetByID(t *testing.T) {
+	err := createTable()
+	if err != nil {
+		t.Fatal("could not create test table!")
+	}
+
+	t.Run("should return 0 results correctly", func(t *testing.T) {
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+		u := User{}
+		err := c.GetByID(ctx, &u, 999)
+		assert.Equal(t, err, nil)
+		assert.Equal(t, User{}, u)
+	})
+
+	t.Run("should return a user correctly", func(t *testing.T) {
+		db := connectDB(t)
+		defer db.Close()
+
+		bia := &User{
+			Name: "Bia",
+		}
+		db.Create(&bia)
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+		result := User{}
+		err = c.GetByID(ctx, &result, bia.ID)
+
+		assert.Equal(t, err, nil)
+		assert.Equal(t, "Bia", result.Name)
+		assert.Equal(t, bia.ID, result.ID)
+	})
+}
+
 func TestInsert(t *testing.T) {
 	err := createTable()
 	if err != nil {
