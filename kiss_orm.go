@@ -46,6 +46,7 @@ func (c Client) Find(
 	return it.Error
 }
 
+// GetByID recovers a single entity from the database by the ID field.
 func (c Client) GetByID(
 	ctx context.Context,
 	item interface{},

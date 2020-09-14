@@ -2,10 +2,15 @@ package slices
 
 import "reflect"
 
+// ToInterfaceSlicer describes objects that
+// can be converted to a list of interfaces
 type ToInterfaceSlicer interface {
 	ToInterfaceSlice() []interface{}
 }
 
+// ToInterfaceSlice converts any slice into a slice of empty interfaces.
+//
+// If the input argument is not a slice it panics.
 func ToInterfaceSlice(slice interface{}) (resp []interface{}) {
 	if iSlicer, ok := slice.(ToInterfaceSlicer); ok {
 		return iSlicer.ToInterfaceSlice()
