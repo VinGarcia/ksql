@@ -70,10 +70,10 @@ func (c Client) Insert(
 // Delete deletes one or more instances from the database by id
 func (c Client) Delete(
 	ctx context.Context,
-	entities ...interface{},
+	ids ...interface{},
 ) error {
-	for _, entity := range entities {
-		r := c.db.Table(c.tableName).Delete(entity)
+	for _, id := range ids {
+		r := c.db.Table(c.tableName).Delete(id)
 		if r.Error != nil {
 			return r.Error
 		}
@@ -111,7 +111,7 @@ func (c Client) Update(
 var tagNamesCache = map[reflect.Type]map[int]string{}
 
 // structToMap converts any type to a map based on the
-// tag named `sql`, i.e. `sql:"map_key_name"`
+// tag named `gorm`, i.e. `gorm:"map_key_name"`
 //
 // This function is efficient in the fact that it caches
 // the slower steps of the reflection required to do perform
@@ -145,6 +145,7 @@ func structToMap(obj interface{}) (map[string]interface{}, error) {
 
 			field = field.Elem()
 		}
+
 		m[names[i]] = field.Interface()
 	}
 
@@ -159,7 +160,7 @@ func structToMap(obj interface{}) (map[string]interface{}, error) {
 func getTagNames(t reflect.Type) map[int]string {
 	resp := map[int]string{}
 	for i := 0; i < t.NumField(); i++ {
-		name := t.Field(i).Tag.Get("sql")
+		name := t.Field(i).Tag.Get("gorm")
 		if name == "" {
 			continue
 		}

@@ -11,9 +11,9 @@ import (
 )
 
 type User struct {
-	ID        uint
-	Name      string
-	CreatedAt time.Time
+	ID        uint      `gorm:"id"`
+	Name      string    `gorm:"name"`
+	CreatedAt time.Time `gorm:"created_at"`
 }
 
 func TestFind(t *testing.T) {
@@ -155,7 +155,7 @@ func TestDelete(t *testing.T) {
 		t.Fatal("could not create test table!")
 	}
 
-	t.Run("should ignore empty lists of users", func(t *testing.T) {
+	t.Run("should ignore empty lists of ids", func(t *testing.T) {
 		db := connectDB(t)
 		defer db.Close()
 
@@ -169,7 +169,7 @@ func TestDelete(t *testing.T) {
 		assert.Equal(t, err, nil)
 	})
 
-	t.Run("should delete one user correctly", func(t *testing.T) {
+	t.Run("should delete one id correctly", func(t *testing.T) {
 		db := connectDB(t)
 		defer db.Close()
 
@@ -186,11 +186,17 @@ func TestDelete(t *testing.T) {
 		err := c.Insert(ctx, &u)
 		assert.Equal(t, err, nil)
 
-		err = c.Delete(ctx, &u)
-		assert.Equal(t, err, nil)
-
+		assert.NotEqual(t, 0, u.ID)
 		result := User{}
 		it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
+		it.Scan(&result)
+		assert.Equal(t, u.ID, result.ID)
+
+		err = c.Delete(ctx, u.ID)
+		assert.Equal(t, err, nil)
+
+		result = User{}
+		it = c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
 		it.Scan(&result)
 
 		assert.Equal(t, it.Error, nil)
@@ -201,8 +207,8 @@ func TestDelete(t *testing.T) {
 
 func TestStructToMap(t *testing.T) {
 	type S1 struct {
-		Name string `sql:"name_attr"`
-		Age  int    `sql:"age_attr"`
+		Name string `gorm:"name_attr"`
+		Age  int    `gorm:"age_attr"`
 	}
 	t.Run("should convert plain structs to maps", func(t *testing.T) {
 		m, err := structToMap(S1{
@@ -231,8 +237,8 @@ func TestStructToMap(t *testing.T) {
 	})
 
 	type S2 struct {
-		Name *string `sql:"name"`
-		Age  *int    `sql:"age"`
+		Name *string `gorm:"name"`
+		Age  *int    `gorm:"age"`
 	}
 
 	t.Run("should not ignore not nil pointers", func(t *testing.T) {
