@@ -199,6 +199,68 @@ func TestDelete(t *testing.T) {
 	})
 }
 
+func TestStructToMap(t *testing.T) {
+	type S1 struct {
+		Name string `sql:"name_attr"`
+		Age  int    `sql:"age_attr"`
+	}
+	t.Run("should convert plain structs to maps", func(t *testing.T) {
+		m, err := structToMap(S1{
+			Name: "my name",
+			Age:  22,
+		})
+
+		assert.Equal(t, nil, err)
+		assert.Equal(t, map[string]interface{}{
+			"name_attr": "my name",
+			"age_attr":  22,
+		}, m)
+	})
+
+	t.Run("should not ignore zero value attrs, if they are not pointers", func(t *testing.T) {
+		m, err := structToMap(S1{
+			Name: "",
+			Age:  0,
+		})
+
+		assert.Equal(t, nil, err)
+		assert.Equal(t, map[string]interface{}{
+			"name_attr": "",
+			"age_attr":  0,
+		}, m)
+	})
+
+	type S2 struct {
+		Name *string `sql:"name"`
+		Age  *int    `sql:"age"`
+	}
+
+	t.Run("should not ignore not nil pointers", func(t *testing.T) {
+		str := ""
+		age := 0
+		m, err := structToMap(S2{
+			Name: &str,
+			Age:  &age,
+		})
+
+		assert.Equal(t, nil, err)
+		assert.Equal(t, map[string]interface{}{
+			"name": "",
+			"age":  0,
+		}, m)
+	})
+
+	t.Run("should ignore nil pointers", func(t *testing.T) {
+		m, err := structToMap(S2{
+			Name: nil,
+			Age:  nil,
+		})
+
+		assert.Equal(t, nil, err)
+		assert.Equal(t, map[string]interface{}{}, m)
+	})
+}
+
 func createTable() error {
 	db, err := gorm.Open("sqlite3", "/tmp/test.db")
 	if err != nil {

@@ -138,8 +138,12 @@ func structToMap(obj interface{}) (map[string]interface{}, error) {
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
 		ft := field.Type()
-		if ft.Kind() == reflect.Ptr && field.IsNil() {
-			continue
+		if ft.Kind() == reflect.Ptr {
+			if field.IsNil() {
+				continue
+			}
+
+			field = field.Elem()
 		}
 		m[names[i]] = field.Interface()
 	}
