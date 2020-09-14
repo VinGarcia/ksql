@@ -15,10 +15,21 @@ type Client struct {
 }
 
 // NewClient ...
-func NewClient(tableName string) Client {
-	return Client{
-		tableName: tableName,
+func NewClient(dbDriver string, connectionString string, maxOpenConns int) (Client, error) {
+	db, err := gorm.Open(dbDriver, connectionString)
+	if err != nil {
+		return Client{}, err
 	}
+
+	if err = db.DB().Ping(); err != nil {
+		return Client{}, err
+	}
+
+	db.DB().SetMaxOpenConns(maxOpenConns)
+
+	return Client{
+		db: db,
+	}, nil
 }
 
 // Find one instance from the database, the input struct
