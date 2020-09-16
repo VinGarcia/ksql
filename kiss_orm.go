@@ -32,6 +32,14 @@ func NewClient(dbDriver string, connectionString string, maxOpenConns int) (Clie
 	}, nil
 }
 
+// ChangeTable returns a new Client configured to use a new table
+func (c Client) ChangeTable(ctx context.Context, tableName string) (*Client, error) {
+	return &Client{
+		db:        c.db,
+		tableName: tableName,
+	}, nil
+}
+
 // Find one instance from the database, the input struct
 // must be passed by reference and the query should
 // return only one result.
