@@ -1,4 +1,4 @@
-module github.com/vingarcia/kiss-orm
+module github.com/vingarcia/kissorm
 
 go 1.14
 
