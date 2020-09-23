@@ -205,6 +205,58 @@ func TestDelete(t *testing.T) {
 	})
 }
 
+func TestUpdate(t *testing.T) {
+	err := createTable()
+	if err != nil {
+		t.Fatal("could not create test table!")
+	}
+
+	t.Run("should ignore empty lists of ids", func(t *testing.T) {
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+
+		u := User{
+			Name: "Thay",
+		}
+		err := c.Insert(ctx, &u)
+		assert.Equal(t, err, nil)
+		assert.NotEqual(t, 0, u.ID)
+
+		// Empty update, should do nothing:
+		err = c.Update(ctx)
+		assert.Equal(t, err, nil)
+
+		result := User{}
+		err = c.GetByID(ctx, &result, u.ID)
+		assert.Equal(t, err, nil)
+
+		assert.Equal(t, "Thay", result.Name)
+	})
+
+	t.Run("should update one user correctly", func(t *testing.T) {
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "non_existing_table",
+		}
+
+		err = c.Update(ctx, User{
+			ID:   1,
+			Name: "Thayane",
+		})
+		assert.NotEqual(t, err, nil)
+	})
+}
+
 func TestStructToMap(t *testing.T) {
 	type S1 struct {
 		Name string `gorm:"name_attr"`
