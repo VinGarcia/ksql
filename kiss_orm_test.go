@@ -1,4 +1,4 @@
-package gpostgres
+package kissorm
 
 import (
 	"context"

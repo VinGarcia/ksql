@@ -1,4 +1,4 @@
-package gpostgres
+package kissorm
 
 import (
 	"context"
@@ -8,19 +8,27 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
+// ORMProvider describes the public behavior of this ORM
+type ORMProvider interface {
+	Find(ctx context.Context, item interface{}, query string, params ...interface{}) error
+	GetByID(ctx context.Context, item interface{}, id interface{}) error
+	Insert(ctx context.Context, items ...interface{}) error
+	Delete(ctx context.Context, ids ...interface{}) error
+	Update(ctx context.Context, intems ...interface{}) error
+}
+
 // Client ...
 type Client struct {
 	tableName string
 	db        *gorm.DB
 }
 
-// NewClient ...
-func NewClient(dbDriver string, connectionString string, maxOpenConns int) (Client, error) {
+// NewClient instantiates a new client
+func NewClient(dbDriver string, connectionString string, maxOpenConns int, tableName string) (Client, error) {
 	db, err := gorm.Open(dbDriver, connectionString)
 	if err != nil {
 		return Client{}, err
 	}
-
 	if err = db.DB().Ping(); err != nil {
 		return Client{}, err
 	}
@@ -28,16 +36,17 @@ func NewClient(dbDriver string, connectionString string, maxOpenConns int) (Clie
 	db.DB().SetMaxOpenConns(maxOpenConns)
 
 	return Client{
-		db: db,
+		db:        db,
+		tableName: tableName,
 	}, nil
 }
 
-// ChangeTable returns a new Client configured to use a new table
-func (c Client) ChangeTable(ctx context.Context, tableName string) (*Client, error) {
+// ChangeTable creates a new client configured to query on a different table
+func (c Client) ChangeTable(ctx context.Context, tableName string) ORMProvider {
 	return &Client{
 		db:        c.db,
 		tableName: tableName,
-	}, nil
+	}
 }
 
 // Find one instance from the database, the input struct
@@ -115,7 +124,7 @@ func (c Client) Update(
 			return err
 		}
 
-		r := c.db.Table(c.tableName).Updates(m)
+		r := c.db.Table(c.tableName).Model(item).Updates(m)
 		if r.Error != nil {
 			return r.Error
 		}
@@ -128,10 +137,15 @@ func (c Client) Update(
 // because the total number of types on a program
 // should be finite. So keeping a single cache here
 // works fine.
-var tagNamesCache = map[reflect.Type]map[int]string{}
+var tagInfoCache = map[reflect.Type]StructInfo{}
 
-// structToMap converts any type to a map based on the
-// tag named `gorm`, i.e. `gorm:"map_key_name"`
+type StructInfo struct {
+	Names map[int]string
+	Index map[string]int
+}
+
+// structToMap converts any struct type to a map based on
+// the tag named `gorm`, i.e. `gorm:"map_key_name"`
 //
 // This function is efficient in the fact that it caches
 // the slower steps of the reflection required to do perform
@@ -148,14 +162,17 @@ func structToMap(obj interface{}) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("input must be a struct or struct pointer")
 	}
 
-	names, found := tagNamesCache[t]
+	info, found := tagInfoCache[t]
 	if !found {
-		names = getTagNames(t)
-		tagNamesCache[t] = names
+		info = getTagNames(t)
+		tagInfoCache[t] = info
 	}
 
 	m := map[string]interface{}{}
 	for i := 0; i < v.NumField(); i++ {
+		if info.Names[i] == "id" {
+			continue
+		}
 		field := v.Field(i)
 		ft := field.Type()
 		if ft.Kind() == reflect.Ptr {
@@ -166,7 +183,7 @@ func structToMap(obj interface{}) (map[string]interface{}, error) {
 			field = field.Elem()
 		}
 
-		m[names[i]] = field.Interface()
+		m[info.Names[i]] = field.Interface()
 	}
 
 	return m, nil
@@ -177,15 +194,71 @@ func structToMap(obj interface{}) (map[string]interface{}, error) {
 //
 // This should save several calls to `Field(i).Tag.Get("foo")`
 // which improves performance by a lot.
-func getTagNames(t reflect.Type) map[int]string {
-	resp := map[int]string{}
+func getTagNames(t reflect.Type) StructInfo {
+	info := StructInfo{
+		Names: map[int]string{},
+		Index: map[string]int{},
+	}
 	for i := 0; i < t.NumField(); i++ {
 		name := t.Field(i).Tag.Get("gorm")
 		if name == "" {
 			continue
 		}
-		resp[i] = name
+		info.Names[i] = name
+		info.Index[name] = i
 	}
 
-	return resp
+	return info
+}
+
+// UpdateStructWith is meant to be used on unit tests to mock
+// the response from the database.
+//
+// The first argument is any struct you are passing to a kissorm func,
+// and the second is a map representing a database row you want
+// to use to update this struct.
+func UpdateStructWith(entity interface{}, db_row map[string]interface{}) error {
+	v := reflect.ValueOf(entity)
+	t := v.Type()
+
+	if t.Kind() != reflect.Ptr {
+		return fmt.Errorf(
+			"UpdateStructWith: expected input to be a pointer to struct but got %T",
+			entity,
+		)
+	}
+
+	t = t.Elem()
+	v = v.Elem()
+
+	if t.Kind() != reflect.Struct {
+		return fmt.Errorf(
+			"UpdateStructWith: expected input to be a kind of struct but got %T",
+			entity,
+		)
+	}
+
+	info, found := tagInfoCache[t]
+	if !found {
+		info = getTagNames(t)
+		tagInfoCache[t] = info
+	}
+
+	for colName, attr := range db_row {
+		attrValue := reflect.ValueOf(attr)
+		field := v.Field(info.Index[colName])
+		fieldType := t.Field(info.Index[colName]).Type
+
+		if !attrValue.Type().ConvertibleTo(fieldType) {
+			return fmt.Errorf(
+				"UpdateStructWith: cannot convert atribute %s of type %v to type %T",
+				colName,
+				fieldType,
+				entity,
+			)
+		}
+		field.Set(attrValue.Convert(fieldType))
+	}
+
+	return nil
 }
