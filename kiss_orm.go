@@ -2,6 +2,7 @@ package kissorm
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"reflect"
 
@@ -15,9 +16,14 @@ type ORMProvider interface {
 	Insert(ctx context.Context, items ...interface{}) error
 	Delete(ctx context.Context, ids ...interface{}) error
 	Update(ctx context.Context, intems ...interface{}) error
+	Query(ctx context.Context, query string, params ...interface{}) (Iterator, error)
+	QueryNext(ctx context.Context, rawIt Iterator, item interface{}) (done bool, err error)
 }
 
-type Iterator interface{}
+// Iterator ...
+type Iterator interface {
+	Close() error
+}
 
 // Client ...
 type Client struct {
@@ -61,7 +67,10 @@ func (c Client) Find(
 	params ...interface{},
 ) error {
 	it := c.db.Raw(query, params...)
-	it.Scan(item)
+	if it.Error != nil {
+		return it.Error
+	}
+	it = it.Scan(item)
 	return it.Error
 }
 
@@ -73,7 +82,11 @@ func (c Client) Query(
 	params ...interface{},
 ) (Iterator, error) {
 	it := c.db.Raw(query, params...)
-	return it, it.Error
+	if it.Error != nil {
+		return nil, it.Error
+	}
+
+	return it.Rows()
 }
 
 // QueryNext parses the next row of a query
@@ -83,13 +96,18 @@ func (c Client) QueryNext(
 	ctx context.Context,
 	rawIt Iterator,
 	item interface{},
-) error {
-	it, ok := rawIt.(*gorm.DB)
+) (done bool, err error) {
+	rows, ok := rawIt.(*sql.Rows)
 	if !ok {
-		return fmt.Errorf("invalid iterator received on QueryNext()")
+		return false, fmt.Errorf("invalid iterator received on QueryNext()")
 	}
-	it.Scan(item)
-	return it.Error
+
+	if !rows.Next() {
+		rows.Close()
+		return true, rows.Err()
+	}
+
+	return false, c.db.ScanRows(rows, item)
 }
 
 // GetByID recovers a single entity from the database by the ID field.
@@ -99,7 +117,10 @@ func (c Client) GetByID(
 	id interface{},
 ) error {
 	it := c.db.Raw(fmt.Sprintf("select * from %s where id = ?", c.tableName), id)
-	it.Scan(item)
+	if it.Error != nil {
+		return it.Error
+	}
+	it = it.Scan(item)
 	return it.Error
 }
 

@@ -33,7 +33,7 @@ func TestFind(t *testing.T) {
 		}
 		u := User{}
 		err := c.Find(ctx, &u, `SELECT * FROM users WHERE id=1;`)
-		assert.Equal(t, err, nil)
+		assert.NotEqual(t, nil, err)
 		assert.Equal(t, User{}, u)
 	})
 
@@ -76,7 +76,7 @@ func TestGetByID(t *testing.T) {
 		}
 		u := User{}
 		err := c.GetByID(ctx, &u, 999)
-		assert.Equal(t, err, nil)
+		assert.NotEqual(t, nil, err)
 		assert.Equal(t, User{}, u)
 	})
 
@@ -316,6 +316,102 @@ func TestStructToMap(t *testing.T) {
 
 		assert.Equal(t, nil, err)
 		assert.Equal(t, map[string]interface{}{}, m)
+	})
+}
+
+func TestQuery(t *testing.T) {
+	t.Run("should execute query one correctly", func(t *testing.T) {
+		err := createTable()
+		if err != nil {
+			t.Fatal("could not create test table!")
+		}
+
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+
+		_ = c.Insert(ctx, &User{Name: "User1"})
+
+		it, err := c.Query(ctx, `select * from users where name = ?;`, "User1")
+		assert.Equal(t, nil, err)
+
+		u := User{}
+		_, err = c.QueryNext(ctx, it, &u)
+		it.Close()
+
+		assert.Equal(t, nil, err)
+		assert.NotEqual(t, 0, u.ID)
+		assert.Equal(t, "User1", u.Name)
+	})
+
+	t.Run("should execute query many correctly", func(t *testing.T) {
+		err := createTable()
+		if err != nil {
+			t.Fatal("could not create test table!")
+		}
+
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+
+		_ = c.Insert(ctx, &User{Name: "User1"})
+		_ = c.Insert(ctx, &User{Name: "User2"})
+		_ = c.Insert(ctx, &User{Name: "User3"})
+
+		it, err := c.Query(ctx, `select * from users where name in (?,?);`, "User1", "User3")
+		assert.Equal(t, nil, err)
+
+		// var results []User
+		u := User{}
+		u2 := User{}
+		u3 := User{}
+		done, err := c.QueryNext(ctx, it, &u)
+		assert.Equal(t, false, done)
+		assert.Equal(t, nil, err)
+
+		done, err = c.QueryNext(ctx, it, &u2)
+		assert.Equal(t, false, done)
+		assert.Equal(t, nil, err)
+
+		done, err = c.QueryNext(ctx, it, &u3)
+		assert.Equal(t, true, done)
+		assert.Equal(t, nil, err)
+
+		assert.NotEqual(t, 0, u.ID)
+		assert.Equal(t, "User1", u.Name)
+		assert.NotEqual(t, 0, u2.ID)
+		assert.Equal(t, "User3", u2.Name)
+	})
+
+	t.Run("should return error for an invalid iterator", func(t *testing.T) {
+		err := createTable()
+		if err != nil {
+			t.Fatal("could not create test table!")
+		}
+
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+
+		u := User{}
+		_, err = c.QueryNext(ctx, Iterator(nil), &u)
+
+		assert.NotEqual(t, nil, err)
 	})
 }
 
