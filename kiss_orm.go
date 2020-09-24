@@ -17,6 +17,8 @@ type ORMProvider interface {
 	Update(ctx context.Context, intems ...interface{}) error
 }
 
+type Iterator interface{}
+
 // Client ...
 type Client struct {
 	tableName string
@@ -59,6 +61,33 @@ func (c Client) Find(
 	params ...interface{},
 ) error {
 	it := c.db.Raw(query, params...)
+	it.Scan(item)
+	return it.Error
+}
+
+// Query build an iterator for querying several
+// results from the database
+func (c Client) Query(
+	ctx context.Context,
+	query string,
+	params ...interface{},
+) (Iterator, error) {
+	it := c.db.Raw(query, params...)
+	return it, it.Error
+}
+
+// QueryNext parses the next row of a query
+// and updates the item argument that must be
+// passed by reference.
+func (c Client) QueryNext(
+	ctx context.Context,
+	rawIt Iterator,
+	item interface{},
+) error {
+	it, ok := rawIt.(*gorm.DB)
+	if !ok {
+		return fmt.Errorf("invalid iterator received on QueryNext()")
+	}
 	it.Scan(item)
 	return it.Error
 }
