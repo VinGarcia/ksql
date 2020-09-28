@@ -74,6 +74,22 @@ func (c Client) Find(
 	return it.Error
 }
 
+type iterator struct {
+	isClosed bool
+	rows     *sql.Rows
+}
+
+// Close ...
+func (i *iterator) Close() error {
+	if i.isClosed {
+		return nil
+	}
+	i.isClosed = true
+	return i.rows.Close()
+}
+
+var noopCloser = iterator{isClosed: true}
+
 // Query build an iterator for querying several
 // results from the database
 func (c Client) Query(
@@ -83,10 +99,18 @@ func (c Client) Query(
 ) (Iterator, error) {
 	it := c.db.Raw(query, params...)
 	if it.Error != nil {
-		return nil, it.Error
+		return &noopCloser, it.Error
 	}
 
-	return it.Rows()
+	rows, err := it.Rows()
+	if err != nil {
+		return &noopCloser, err
+	}
+
+	return &iterator{
+		isClosed: false,
+		rows:     rows,
+	}, nil
 }
 
 // QueryNext parses the next row of a query
@@ -97,17 +121,21 @@ func (c Client) QueryNext(
 	rawIt Iterator,
 	item interface{},
 ) (done bool, err error) {
-	rows, ok := rawIt.(*sql.Rows)
+	it, ok := rawIt.(*iterator)
 	if !ok {
 		return false, fmt.Errorf("invalid iterator received on QueryNext()")
 	}
 
-	if !rows.Next() {
-		rows.Close()
-		return true, rows.Err()
+	if it.isClosed {
+		return false, fmt.Errorf("received closed iterator")
 	}
 
-	return false, c.db.ScanRows(rows, item)
+	if !it.rows.Next() {
+		it.Close()
+		return true, it.rows.Err()
+	}
+
+	return false, c.db.ScanRows(it.rows, item)
 }
 
 // GetByID recovers a single entity from the database by the ID field.

@@ -413,6 +413,60 @@ func TestQuery(t *testing.T) {
 
 		assert.NotEqual(t, nil, err)
 	})
+
+	t.Run("should return noop closer when syntax error occurs", func(t *testing.T) {
+		err := createTable()
+		if err != nil {
+			t.Fatal("could not create test table!")
+		}
+
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+
+		it, err := c.Query(ctx, `select * users`)
+		assert.NotEqual(t, nil, err)
+		assert.Equal(t, &noopCloser, it)
+	})
+
+	t.Run("should return error if queryNext receives a closed iterator", func(t *testing.T) {
+		err := createTable()
+		if err != nil {
+			t.Fatal("could not create test table!")
+		}
+
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+
+		it, err := c.Query(ctx, `select * from users`)
+		assert.Equal(t, nil, err)
+		err = it.Close()
+		assert.Equal(t, nil, err)
+		u := User{}
+		_, err = c.QueryNext(ctx, it, &u)
+
+		assert.NotEqual(t, nil, err)
+	})
+}
+
+func TestIterator(t *testing.T) {
+	t.Run("should return no errors if it's closed multiple times", func(t *testing.T) {
+		it := iterator{isClosed: true}
+		err := it.Close()
+		assert.Equal(t, nil, err)
+		assert.Equal(t, true, it.isClosed)
+	})
 }
 
 func createTable() error {
