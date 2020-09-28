@@ -263,7 +263,7 @@ func TestStructToMap(t *testing.T) {
 		Age  int    `gorm:"age_attr"`
 	}
 	t.Run("should convert plain structs to maps", func(t *testing.T) {
-		m, err := structToMap(S1{
+		m, err := StructToMap(S1{
 			Name: "my name",
 			Age:  22,
 		})
@@ -276,7 +276,7 @@ func TestStructToMap(t *testing.T) {
 	})
 
 	t.Run("should not ignore zero value attrs, if they are not pointers", func(t *testing.T) {
-		m, err := structToMap(S1{
+		m, err := StructToMap(S1{
 			Name: "",
 			Age:  0,
 		})
@@ -296,7 +296,7 @@ func TestStructToMap(t *testing.T) {
 	t.Run("should not ignore not nil pointers", func(t *testing.T) {
 		str := ""
 		age := 0
-		m, err := structToMap(S2{
+		m, err := StructToMap(S2{
 			Name: &str,
 			Age:  &age,
 		})
@@ -309,7 +309,7 @@ func TestStructToMap(t *testing.T) {
 	})
 
 	t.Run("should ignore nil pointers", func(t *testing.T) {
-		m, err := structToMap(S2{
+		m, err := StructToMap(S2{
 			Name: nil,
 			Age:  nil,
 		})

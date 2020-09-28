@@ -15,7 +15,7 @@ type ORMProvider interface {
 	GetByID(ctx context.Context, item interface{}, id interface{}) error
 	Insert(ctx context.Context, items ...interface{}) error
 	Delete(ctx context.Context, ids ...interface{}) error
-	Update(ctx context.Context, intems ...interface{}) error
+	Update(ctx context.Context, items ...interface{}) error
 	Query(ctx context.Context, query string, params ...interface{}) (Iterator, error)
 	QueryNext(ctx context.Context, rawIt Iterator, item interface{}) (done bool, err error)
 }
@@ -169,11 +169,11 @@ func (c Client) Update(
 	items ...interface{},
 ) error {
 	for _, item := range items {
-		m, err := structToMap(item)
+		m, err := StructToMap(item)
 		if err != nil {
 			return err
 		}
-
+		delete(m, "id")
 		r := c.db.Table(c.tableName).Model(item).Updates(m)
 		if r.Error != nil {
 			return r.Error
@@ -187,20 +187,20 @@ func (c Client) Update(
 // because the total number of types on a program
 // should be finite. So keeping a single cache here
 // works fine.
-var tagInfoCache = map[reflect.Type]StructInfo{}
+var tagInfoCache = map[reflect.Type]structInfo{}
 
-type StructInfo struct {
+type structInfo struct {
 	Names map[int]string
 	Index map[string]int
 }
 
-// structToMap converts any struct type to a map based on
+// StructToMap converts any struct type to a map based on
 // the tag named `gorm`, i.e. `gorm:"map_key_name"`
 //
 // This function is efficient in the fact that it caches
 // the slower steps of the reflection required to do perform
 // this task.
-func structToMap(obj interface{}) (map[string]interface{}, error) {
+func StructToMap(obj interface{}) (map[string]interface{}, error) {
 	v := reflect.ValueOf(obj)
 	t := v.Type()
 
@@ -220,9 +220,6 @@ func structToMap(obj interface{}) (map[string]interface{}, error) {
 
 	m := map[string]interface{}{}
 	for i := 0; i < v.NumField(); i++ {
-		if info.Names[i] == "id" {
-			continue
-		}
 		field := v.Field(i)
 		ft := field.Type()
 		if ft.Kind() == reflect.Ptr {
@@ -244,8 +241,8 @@ func structToMap(obj interface{}) (map[string]interface{}, error) {
 //
 // This should save several calls to `Field(i).Tag.Get("foo")`
 // which improves performance by a lot.
-func getTagNames(t reflect.Type) StructInfo {
-	info := StructInfo{
+func getTagNames(t reflect.Type) structInfo {
+	info := structInfo{
 		Names: map[int]string{},
 		Index: map[string]int{},
 	}
@@ -267,7 +264,7 @@ func getTagNames(t reflect.Type) StructInfo {
 // The first argument is any struct you are passing to a kissorm func,
 // and the second is a map representing a database row you want
 // to use to update this struct.
-func UpdateStructWith(entity interface{}, db_row map[string]interface{}) error {
+func UpdateStructWith(entity interface{}, dbRow map[string]interface{}) error {
 	v := reflect.ValueOf(entity)
 	t := v.Type()
 
@@ -294,7 +291,7 @@ func UpdateStructWith(entity interface{}, db_row map[string]interface{}) error {
 		tagInfoCache[t] = info
 	}
 
-	for colName, attr := range db_row {
+	for colName, attr := range dbRow {
 		attrValue := reflect.ValueOf(attr)
 		field := v.Field(info.Index[colName])
 		fieldType := t.Field(info.Index[colName]).Type
