@@ -90,7 +90,7 @@ func (i *iterator) Close() error {
 
 var noopCloser = iterator{isClosed: true}
 
-// Query build an iterator for querying several
+// Query builds an iterator for querying several
 // results from the database
 func (c Client) Query(
 	ctx context.Context,
