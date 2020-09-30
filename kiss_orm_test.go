@@ -57,6 +57,34 @@ func TestFind(t *testing.T) {
 		assert.Equal(t, "Bia", u.Name)
 		assert.NotEqual(t, 0, u.ID)
 	})
+
+	t.Run("should return multiple users correctly", func(t *testing.T) {
+		db := connectDB(t)
+		defer db.Close()
+
+		db.Create(&User{
+			Name: "João Garcia",
+		})
+
+		db.Create(&User{
+			Name: "Bia Garcia",
+		})
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+		users := []User{}
+		err = c.Find(ctx, &users, `SELECT * FROM users WHERE name like ?;`, "% Garcia")
+
+		assert.Equal(t, err, nil)
+		assert.Equal(t, 2, len(users))
+		assert.Equal(t, "João Garcia", users[0].Name)
+		assert.NotEqual(t, 0, users[0].ID)
+		assert.Equal(t, "Bia Garcia", users[1].Name)
+		assert.NotEqual(t, 0, users[1].ID)
+	})
 }
 
 func TestInsert(t *testing.T) {
