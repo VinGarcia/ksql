@@ -12,7 +12,6 @@ import (
 // ORMProvider describes the public behavior of this ORM
 type ORMProvider interface {
 	Find(ctx context.Context, item interface{}, query string, params ...interface{}) error
-	GetByID(ctx context.Context, item interface{}, id interface{}) error
 	Insert(ctx context.Context, items ...interface{}) error
 	Delete(ctx context.Context, ids ...interface{}) error
 	Update(ctx context.Context, items ...interface{}) error
@@ -136,20 +135,6 @@ func (c Client) QueryNext(
 	}
 
 	return false, c.db.ScanRows(it.rows, item)
-}
-
-// GetByID recovers a single entity from the database by the ID field.
-func (c Client) GetByID(
-	ctx context.Context,
-	item interface{},
-	id interface{},
-) error {
-	it := c.db.Raw(fmt.Sprintf("select * from %s where id = ?", c.tableName), id)
-	if it.Error != nil {
-		return it.Error
-	}
-	it = it.Scan(item)
-	return it.Error
 }
 
 // Insert one or more instances on the database
