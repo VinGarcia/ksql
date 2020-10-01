@@ -311,8 +311,8 @@ func FillStructWith(entity interface{}, dbRow map[string]interface{}) error {
 // FillSliceWith is meant to be used on unit tests to mock
 // the response from the database.
 //
-// The first argument is any struct you are passing to a kissorm func,
-// and the second is a map representing a database row you want
+// The first argument is any slice of structs you are passing to a kissorm func,
+// and the second is a slice of maps representing the database rows you want
 // to use to update this struct.
 func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error {
 	slicePtrValue := reflect.ValueOf(entities)
