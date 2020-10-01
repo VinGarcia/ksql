@@ -9,21 +9,6 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
-// ORMProvider describes the public behavior of this ORM
-type ORMProvider interface {
-	Find(ctx context.Context, item interface{}, query string, params ...interface{}) error
-	Insert(ctx context.Context, items ...interface{}) error
-	Delete(ctx context.Context, ids ...interface{}) error
-	Update(ctx context.Context, items ...interface{}) error
-	Query(ctx context.Context, query string, params ...interface{}) (Iterator, error)
-	QueryNext(ctx context.Context, rawIt Iterator, item interface{}) (done bool, err error)
-}
-
-// Iterator ...
-type Iterator interface {
-	Close() error
-}
-
 // Client ...
 type Client struct {
 	tableName string
@@ -271,19 +256,19 @@ func getTagNames(t reflect.Type) structInfo {
 	return info
 }
 
-// UpdateStructWith is meant to be used on unit tests to mock
+// FillStructWith is meant to be used on unit tests to mock
 // the response from the database.
 //
 // The first argument is any struct you are passing to a kissorm func,
 // and the second is a map representing a database row you want
 // to use to update this struct.
-func UpdateStructWith(entity interface{}, dbRow map[string]interface{}) error {
+func FillStructWith(entity interface{}, dbRow map[string]interface{}) error {
 	v := reflect.ValueOf(entity)
 	t := v.Type()
 
 	if t.Kind() != reflect.Ptr {
 		return fmt.Errorf(
-			"UpdateStructWith: expected input to be a pointer to struct but got %T",
+			"FillStructWith: expected input to be a pointer to struct but got %T",
 			entity,
 		)
 	}
@@ -293,7 +278,7 @@ func UpdateStructWith(entity interface{}, dbRow map[string]interface{}) error {
 
 	if t.Kind() != reflect.Struct {
 		return fmt.Errorf(
-			"UpdateStructWith: expected input to be a kind of struct but got %T",
+			"FillStructWith: expected input kind to be a struct but got %T",
 			entity,
 		)
 	}
@@ -311,7 +296,7 @@ func UpdateStructWith(entity interface{}, dbRow map[string]interface{}) error {
 
 		if !attrValue.Type().ConvertibleTo(fieldType) {
 			return fmt.Errorf(
-				"UpdateStructWith: cannot convert atribute %s of type %v to type %T",
+				"FillStructWith: cannot convert atribute %s of type %v to type %T",
 				colName,
 				fieldType,
 				entity,
@@ -319,6 +304,74 @@ func UpdateStructWith(entity interface{}, dbRow map[string]interface{}) error {
 		}
 		field.Set(attrValue.Convert(fieldType))
 	}
+
+	return nil
+}
+
+// FillSliceWith is meant to be used on unit tests to mock
+// the response from the database.
+//
+// The first argument is any struct you are passing to a kissorm func,
+// and the second is a map representing a database row you want
+// to use to update this struct.
+func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error {
+	slicePtrValue := reflect.ValueOf(entities)
+	slicePtrType := slicePtrValue.Type()
+
+	if slicePtrType.Kind() != reflect.Ptr {
+		return fmt.Errorf(
+			"FillListWith: expected input to be a pointer to struct but got %T",
+			entities,
+		)
+	}
+
+	t := slicePtrType.Elem()
+	v := slicePtrValue.Elem()
+
+	if t.Kind() != reflect.Slice {
+		return fmt.Errorf(
+			"FillListWith: expected input kind to be a slice but got %T",
+			entities,
+		)
+	}
+
+	elemType := t.Elem()
+	isPtr := elemType.Kind() == reflect.Ptr
+
+	if isPtr {
+		elemType = elemType.Elem()
+	}
+
+	info, found := tagInfoCache[elemType]
+	if !found {
+		info = getTagNames(elemType)
+		tagInfoCache[elemType] = info
+	}
+
+	if elemType.Kind() != reflect.Struct {
+		return fmt.Errorf(
+			"FillListWith: expected input to be a slice of structs but got %T",
+			entities,
+		)
+	}
+
+	for idx, row := range dbRows {
+		if v.Len() <= idx {
+			var elemValue reflect.Value
+			elemValue = reflect.New(elemType)
+			if !isPtr {
+				elemValue = elemValue.Elem()
+			}
+			v = reflect.Append(v, elemValue)
+		}
+
+		err := FillStructWith(v.Index(idx).Addr().Interface(), row)
+		if err != nil {
+			return err
+		}
+	}
+
+	slicePtrValue.Elem().Set(v)
 
 	return nil
 }

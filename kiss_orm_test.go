@@ -455,6 +455,29 @@ func TestIterator(t *testing.T) {
 	})
 }
 
+func TestFillSliceWith(t *testing.T) {
+	t.Run("should fill a list correctly", func(t *testing.T) {
+		var users []User
+		err := FillSliceWith(&users, []map[string]interface{}{
+			{
+				"name": "Jorge",
+			},
+			{
+				"name": "Luciana",
+			},
+			{
+				"name": "Breno",
+			},
+		})
+
+		assert.Equal(t, nil, err)
+		assert.Equal(t, 3, len(users))
+		assert.Equal(t, "Jorge", users[0].Name)
+		assert.Equal(t, "Luciana", users[1].Name)
+		assert.Equal(t, "Breno", users[2].Name)
+	})
+}
+
 func createTable() error {
 	db, err := gorm.Open("sqlite3", "/tmp/test.db")
 	if err != nil {
