@@ -305,8 +305,8 @@ func TestStructToMap(t *testing.T) {
 	})
 }
 
-func TestQuery(t *testing.T) {
-	t.Run("should execute query one correctly", func(t *testing.T) {
+func TestQueryChunks(t *testing.T) {
+	t.Run("should query a single row correctly", func(t *testing.T) {
 		err := createTable()
 		if err != nil {
 			t.Fatal("could not create test table!")
@@ -323,135 +323,28 @@ func TestQuery(t *testing.T) {
 
 		_ = c.Insert(ctx, &User{Name: "User1"})
 
-		it, err := c.Query(ctx, `select * from users where name = ?;`, "User1")
-		assert.Equal(t, nil, err)
+		var length int
+		var u User
+		var users []User
+		err = c.QueryChunks(ctx, ChunkParser{
+			Query:  `select * from users where name = ?;`,
+			Params: []interface{}{"User1"},
 
-		u := User{}
-		_, err = c.QueryNext(ctx, it, &u)
-		it.Close()
+			ChunkSize: 100,
+			Chunk:     &users,
+			ForEachChunk: func() error {
+				length = len(users)
+				if length > 0 {
+					u = users[0]
+				}
+				return nil
+			},
+		})
 
 		assert.Equal(t, nil, err)
+		assert.Equal(t, 1, length)
 		assert.NotEqual(t, 0, u.ID)
 		assert.Equal(t, "User1", u.Name)
-	})
-
-	t.Run("should execute query many correctly", func(t *testing.T) {
-		err := createTable()
-		if err != nil {
-			t.Fatal("could not create test table!")
-		}
-
-		db := connectDB(t)
-		defer db.Close()
-
-		ctx := context.Background()
-		c := Client{
-			db:        db,
-			tableName: "users",
-		}
-
-		_ = c.Insert(ctx, &User{Name: "User1"})
-		_ = c.Insert(ctx, &User{Name: "User2"})
-		_ = c.Insert(ctx, &User{Name: "User3"})
-
-		it, err := c.Query(ctx, `select * from users where name in (?,?);`, "User1", "User3")
-		assert.Equal(t, nil, err)
-
-		// var results []User
-		u := User{}
-		u2 := User{}
-		u3 := User{}
-		done, err := c.QueryNext(ctx, it, &u)
-		assert.Equal(t, false, done)
-		assert.Equal(t, nil, err)
-
-		done, err = c.QueryNext(ctx, it, &u2)
-		assert.Equal(t, false, done)
-		assert.Equal(t, nil, err)
-
-		done, err = c.QueryNext(ctx, it, &u3)
-		assert.Equal(t, true, done)
-		assert.Equal(t, nil, err)
-
-		assert.NotEqual(t, 0, u.ID)
-		assert.Equal(t, "User1", u.Name)
-		assert.NotEqual(t, 0, u2.ID)
-		assert.Equal(t, "User3", u2.Name)
-	})
-
-	t.Run("should return error for an invalid iterator", func(t *testing.T) {
-		err := createTable()
-		if err != nil {
-			t.Fatal("could not create test table!")
-		}
-
-		db := connectDB(t)
-		defer db.Close()
-
-		ctx := context.Background()
-		c := Client{
-			db:        db,
-			tableName: "users",
-		}
-
-		u := User{}
-		_, err = c.QueryNext(ctx, Iterator(nil), &u)
-
-		assert.NotEqual(t, nil, err)
-	})
-
-	t.Run("should return noop closer when syntax error occurs", func(t *testing.T) {
-		err := createTable()
-		if err != nil {
-			t.Fatal("could not create test table!")
-		}
-
-		db := connectDB(t)
-		defer db.Close()
-
-		ctx := context.Background()
-		c := Client{
-			db:        db,
-			tableName: "users",
-		}
-
-		it, err := c.Query(ctx, `select * users`)
-		assert.NotEqual(t, nil, err)
-		assert.Equal(t, &noopCloser, it)
-	})
-
-	t.Run("should return error if queryNext receives a closed iterator", func(t *testing.T) {
-		err := createTable()
-		if err != nil {
-			t.Fatal("could not create test table!")
-		}
-
-		db := connectDB(t)
-		defer db.Close()
-
-		ctx := context.Background()
-		c := Client{
-			db:        db,
-			tableName: "users",
-		}
-
-		it, err := c.Query(ctx, `select * from users`)
-		assert.Equal(t, nil, err)
-		err = it.Close()
-		assert.Equal(t, nil, err)
-		u := User{}
-		_, err = c.QueryNext(ctx, it, &u)
-
-		assert.NotEqual(t, nil, err)
-	})
-}
-
-func TestIterator(t *testing.T) {
-	t.Run("should return no errors if it's closed multiple times", func(t *testing.T) {
-		it := iterator{isClosed: true}
-		err := it.Close()
-		assert.Equal(t, nil, err)
-		assert.Equal(t, true, it.isClosed)
 	})
 }
 
