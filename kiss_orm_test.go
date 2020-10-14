@@ -86,6 +86,37 @@ func TestQuery(t *testing.T) {
 		assert.Equal(t, "Bia Garcia", users[1].Name)
 		assert.NotEqual(t, 0, users[1].ID)
 	})
+
+	t.Run("should report error if input is not a pointer to a slice of structs", func(t *testing.T) {
+		db := connectDB(t)
+		defer db.Close()
+
+		db.Create(&User{
+			Name: "Andréa Sá",
+		})
+
+		db.Create(&User{
+			Name: "Caio Sá",
+		})
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+		err = c.Query(ctx, &User{}, `SELECT * FROM users WHERE name like ?;`, "% Sá")
+		assert.NotEqual(t, nil, err)
+
+		err = c.Query(ctx, []User{}, `SELECT * FROM users WHERE name like ?;`, "% Sá")
+		assert.NotEqual(t, nil, err)
+
+		var i int
+		err = c.Query(ctx, &i, `SELECT * FROM users WHERE name like ?;`, "% Sá")
+		assert.NotEqual(t, nil, err)
+
+		err = c.Query(ctx, &[]int{}, `SELECT * FROM users WHERE name like ?;`, "% Sá")
+		assert.NotEqual(t, nil, err)
+	})
 }
 
 func TestQueryOne(t *testing.T) {
@@ -129,7 +160,7 @@ func TestQueryOne(t *testing.T) {
 		assert.NotEqual(t, 0, u.ID)
 	})
 
-	t.Run("should report error if input is no a pointer to struct", func(t *testing.T) {
+	t.Run("should report error if input is not a pointer to struct", func(t *testing.T) {
 		db := connectDB(t)
 		defer db.Close()
 
@@ -146,9 +177,11 @@ func TestQueryOne(t *testing.T) {
 			db:        db,
 			tableName: "users",
 		}
-		users := []User{}
-		err = c.QueryOne(ctx, &users, `SELECT * FROM users WHERE name like ?;`, "% Sá")
 
+		err = c.QueryOne(ctx, &[]User{}, `SELECT * FROM users WHERE name like ?;`, "% Sá")
+		assert.NotEqual(t, nil, err)
+
+		err = c.QueryOne(ctx, User{}, `SELECT * FROM users WHERE name like ?;`, "% Sá")
 		assert.NotEqual(t, nil, err)
 	})
 }
