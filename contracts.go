@@ -5,8 +5,11 @@ import (
 	"fmt"
 )
 
-// EntityNotFound ...
+// EntityNotFoundErr ...
 var EntityNotFoundErr error = fmt.Errorf("kissorm: the query returned no results")
+
+// AbortIteration ...
+var AbortIteration error = fmt.Errorf("kissorm: abort iteration, should only be used inside QueryChunks function")
 
 // ORMProvider describes the public behavior of this ORM
 type ORMProvider interface {

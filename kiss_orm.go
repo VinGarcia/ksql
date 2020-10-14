@@ -144,8 +144,12 @@ func (c Client) QueryChunks(
 	}
 
 	slice := sliceRef.Elem()
+	if slice.Len() > parser.ChunkSize {
+		slice = slice.Slice(0, parser.ChunkSize)
+	}
+
 	var idx = 0
-	for ; rows.Next(); idx++ {
+	for rows.Next() {
 		if slice.Len() <= idx {
 			var elemValue reflect.Value
 			elemValue = reflect.New(structType)
@@ -160,13 +164,19 @@ func (c Client) QueryChunks(
 			return err
 		}
 
-		if idx == parser.ChunkSize-1 {
-			idx = 0
-			sliceRef.Elem().Set(slice)
-			err = parser.ForEachChunk()
-			if err != nil {
-				return err
+		if idx < parser.ChunkSize-1 {
+			idx++
+			continue
+		}
+
+		idx = 0
+		sliceRef.Elem().Set(slice)
+		err = parser.ForEachChunk()
+		if err != nil {
+			if err == AbortIteration {
+				return nil
 			}
+			return err
 		}
 	}
 
@@ -176,6 +186,9 @@ func (c Client) QueryChunks(
 		sliceRef.Elem().Set(slice.Slice(0, idx))
 		err = parser.ForEachChunk()
 		if err != nil {
+			if err == AbortIteration {
+				return nil
+			}
 			return err
 		}
 	}

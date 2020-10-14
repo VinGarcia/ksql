@@ -445,6 +445,225 @@ func TestQueryChunks(t *testing.T) {
 		assert.NotEqual(t, 0, u.ID)
 		assert.Equal(t, "User1", u.Name)
 	})
+
+	t.Run("should query one chunk correctly", func(t *testing.T) {
+		err := createTable()
+		if err != nil {
+			t.Fatal("could not create test table!")
+		}
+
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+
+		_ = c.Insert(ctx, &User{Name: "User1"})
+		_ = c.Insert(ctx, &User{Name: "User2"})
+
+		var users []User
+		err = c.QueryChunks(ctx, ChunkParser{
+			Query:  `select * from users where name like ? order by name asc;`,
+			Params: []interface{}{"User%"},
+
+			ChunkSize: 2,
+			Chunk:     &users,
+			ForEachChunk: func() error {
+				return nil
+			},
+		})
+
+		assert.Equal(t, nil, err)
+		assert.Equal(t, 2, len(users))
+		assert.NotEqual(t, 0, users[0].ID)
+		assert.Equal(t, "User1", users[0].Name)
+		assert.NotEqual(t, 0, users[1].ID)
+		assert.Equal(t, "User2", users[1].Name)
+	})
+
+	t.Run("should query chunks of 1 correctly", func(t *testing.T) {
+		err := createTable()
+		if err != nil {
+			t.Fatal("could not create test table!")
+		}
+
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+
+		_ = c.Insert(ctx, &User{Name: "User1"})
+		_ = c.Insert(ctx, &User{Name: "User2"})
+
+		var lengths []int
+		var users []User
+		var buffer []User
+		err = c.QueryChunks(ctx, ChunkParser{
+			Query:  `select * from users where name like ? order by name asc;`,
+			Params: []interface{}{"User%"},
+
+			ChunkSize: 1,
+			Chunk:     &buffer,
+			ForEachChunk: func() error {
+				lengths = append(lengths, len(buffer))
+				users = append(users, buffer...)
+				return nil
+			},
+		})
+
+		assert.Equal(t, nil, err)
+		assert.Equal(t, 2, len(users))
+		assert.NotEqual(t, 0, users[0].ID)
+		assert.Equal(t, "User1", users[0].Name)
+		assert.NotEqual(t, 0, users[1].ID)
+		assert.Equal(t, "User2", users[1].Name)
+		assert.Equal(t, []int{1, 1}, lengths)
+	})
+
+	t.Run("should load partially filled chunks correctly", func(t *testing.T) {
+		err := createTable()
+		if err != nil {
+			t.Fatal("could not create test table!")
+		}
+
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+
+		_ = c.Insert(ctx, &User{Name: "User1"})
+		_ = c.Insert(ctx, &User{Name: "User2"})
+		_ = c.Insert(ctx, &User{Name: "User3"})
+
+		var lengths []int
+		var users []User
+		var buffer []User
+		err = c.QueryChunks(ctx, ChunkParser{
+			Query:  `select * from users where name like ? order by name asc;`,
+			Params: []interface{}{"User%"},
+
+			ChunkSize: 2,
+			Chunk:     &buffer,
+			ForEachChunk: func() error {
+				lengths = append(lengths, len(buffer))
+				users = append(users, buffer...)
+				return nil
+			},
+		})
+
+		assert.Equal(t, nil, err)
+		assert.Equal(t, 3, len(users))
+		assert.NotEqual(t, 0, users[0].ID)
+		assert.Equal(t, "User1", users[0].Name)
+		assert.NotEqual(t, 0, users[1].ID)
+		assert.Equal(t, "User2", users[1].Name)
+		assert.NotEqual(t, 0, users[2].ID)
+		assert.Equal(t, "User3", users[2].Name)
+		assert.Equal(t, []int{2, 1}, lengths)
+	})
+
+	t.Run("should abort the first iteration when the callback returns an AbortIteration", func(t *testing.T) {
+		err := createTable()
+		if err != nil {
+			t.Fatal("could not create test table!")
+		}
+
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+
+		_ = c.Insert(ctx, &User{Name: "User1"})
+		_ = c.Insert(ctx, &User{Name: "User2"})
+		_ = c.Insert(ctx, &User{Name: "User3"})
+
+		var lengths []int
+		var users []User
+		var buffer []User
+		err = c.QueryChunks(ctx, ChunkParser{
+			Query:  `select * from users where name like ? order by name asc;`,
+			Params: []interface{}{"User%"},
+
+			ChunkSize: 2,
+			Chunk:     &buffer,
+			ForEachChunk: func() error {
+				lengths = append(lengths, len(buffer))
+				users = append(users, buffer...)
+				return AbortIteration
+			},
+		})
+
+		assert.Equal(t, nil, err)
+		assert.Equal(t, 2, len(users))
+		assert.NotEqual(t, 0, users[0].ID)
+		assert.Equal(t, "User1", users[0].Name)
+		assert.NotEqual(t, 0, users[1].ID)
+		assert.Equal(t, "User2", users[1].Name)
+		assert.Equal(t, []int{2}, lengths)
+	})
+
+	t.Run("should abort the last iteration when the callback returns an AbortIteration", func(t *testing.T) {
+		err := createTable()
+		if err != nil {
+			t.Fatal("could not create test table!")
+		}
+
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+
+		_ = c.Insert(ctx, &User{Name: "User1"})
+		_ = c.Insert(ctx, &User{Name: "User2"})
+		_ = c.Insert(ctx, &User{Name: "User3"})
+
+		returnVals := []error{nil, AbortIteration}
+		var lengths []int
+		var users []User
+		var buffer []User
+		err = c.QueryChunks(ctx, ChunkParser{
+			Query:  `select * from users where name like ? order by name asc;`,
+			Params: []interface{}{"User%"},
+
+			ChunkSize: 2,
+			Chunk:     &buffer,
+			ForEachChunk: func() error {
+				lengths = append(lengths, len(buffer))
+				users = append(users, buffer...)
+
+				return shiftErrSlice(&returnVals)
+			},
+		})
+
+		assert.Equal(t, nil, err)
+		assert.Equal(t, 3, len(users))
+		assert.NotEqual(t, 0, users[0].ID)
+		assert.Equal(t, "User1", users[0].Name)
+		assert.NotEqual(t, 0, users[1].ID)
+		assert.Equal(t, "User2", users[1].Name)
+		assert.NotEqual(t, 0, users[2].ID)
+		assert.Equal(t, "User3", users[2].Name)
+		assert.Equal(t, []int{2, 1}, lengths)
+	})
 }
 
 func TestFillSliceWith(t *testing.T) {
@@ -489,4 +708,10 @@ func connectDB(t *testing.T) *gorm.DB {
 		t.Fatal(err.Error())
 	}
 	return db
+}
+
+func shiftErrSlice(errs *[]error) error {
+	err := (*errs)[0]
+	*errs = (*errs)[1:]
+	return err
 }
