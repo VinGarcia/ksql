@@ -45,20 +45,68 @@ func (c Client) ChangeTable(ctx context.Context, tableName string) ORMProvider {
 	}
 }
 
-// Find one instance from the database, the input struct
-// must be passed by reference and the query should
-// return only one result.
-func (c Client) Find(
+// Query queries several rows from the database,
+// the input should be a slice of structs passed
+// by reference and it will be filled with all the results.
+//
+// Note: it is very important to make sure the query will
+// return a small number of results, otherwise you risk
+// of overloading the available memory.
+func (c Client) Query(
 	ctx context.Context,
-	item interface{},
+	records interface{},
 	query string,
 	params ...interface{},
 ) error {
+	t := reflect.TypeOf(records)
+	if t.Kind() != reflect.Ptr {
+		return fmt.Errorf("kissorm: expected to receive a pointer to slice of structs, but got: %T", records)
+	}
+	t = t.Elem()
+	if t.Kind() != reflect.Slice {
+		return fmt.Errorf("kissorm: expected to receive a pointer to slice of structs, but got: %T", records)
+	}
+	if t.Elem().Kind() != reflect.Struct {
+		return fmt.Errorf("kissorm: expected to receive a pointer to slice of structs, but got: %T", records)
+	}
+
 	it := c.db.Raw(query, params...)
 	if it.Error != nil {
 		return it.Error
 	}
-	it = it.Scan(item)
+	it = it.Scan(records)
+	return it.Error
+}
+
+// QueryOne queries one instance from the database,
+// the input struct must be passed by reference
+// and the query should return only one result.
+//
+// QueryOne returns a EntityNotFoundErr if
+// the query returns no results.
+func (c Client) QueryOne(
+	ctx context.Context,
+	record interface{},
+	query string,
+	params ...interface{},
+) error {
+	t := reflect.TypeOf(record)
+	if t.Kind() != reflect.Ptr {
+		return fmt.Errorf("kissorm: expected to receive a pointer to struct, but got: %T", record)
+	}
+	t = t.Elem()
+	if t.Kind() != reflect.Struct {
+		return fmt.Errorf("kissorm: expected to receive a pointer to struct, but got: %T", record)
+	}
+
+	it := c.db.Raw(query, params...)
+	if it.Error != nil {
+		return it.Error
+	}
+	it = it.Scan(record)
+	if it.Error != nil && it.Error.Error() == "record not found" {
+		return EntityNotFoundErr
+	}
 	return it.Error
 }
 
@@ -141,14 +189,14 @@ func (c Client) QueryChunks(
 // the ID is automatically updated after insertion is completed.
 func (c Client) Insert(
 	ctx context.Context,
-	items ...interface{},
+	records ...interface{},
 ) error {
-	if len(items) == 0 {
+	if len(records) == 0 {
 		return nil
 	}
 
-	for _, item := range items {
-		r := c.db.Table(c.tableName).Create(item)
+	for _, record := range records {
+		r := c.db.Table(c.tableName).Create(record)
 		if r.Error != nil {
 			return r.Error
 		}
@@ -177,15 +225,15 @@ func (c Client) Delete(
 // Partial updates are supported, i.e. it will ignore nil pointer attributes
 func (c Client) Update(
 	ctx context.Context,
-	items ...interface{},
+	records ...interface{},
 ) error {
-	for _, item := range items {
-		m, err := StructToMap(item)
+	for _, record := range records {
+		m, err := StructToMap(record)
 		if err != nil {
 			return err
 		}
 		delete(m, "id")
-		r := c.db.Table(c.tableName).Model(item).Updates(m)
+		r := c.db.Table(c.tableName).Model(record).Updates(m)
 		if r.Error != nil {
 			return r.Error
 		}

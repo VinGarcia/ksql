@@ -2,14 +2,20 @@ package kissorm
 
 import (
 	"context"
+	"fmt"
 )
+
+// EntityNotFound ...
+var EntityNotFoundErr error = fmt.Errorf("kissorm: the query returned no results")
 
 // ORMProvider describes the public behavior of this ORM
 type ORMProvider interface {
-	Find(ctx context.Context, item interface{}, query string, params ...interface{}) error
-	Insert(ctx context.Context, items ...interface{}) error
+	Insert(ctx context.Context, records ...interface{}) error
 	Delete(ctx context.Context, ids ...interface{}) error
-	Update(ctx context.Context, items ...interface{}) error
+	Update(ctx context.Context, records ...interface{}) error
+
+	Query(ctx context.Context, records interface{}, query string, params ...interface{}) error
+	QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error
 	QueryChunks(ctx context.Context, parser ChunkParser) error
 }
 
@@ -23,11 +29,11 @@ type ChunkParser struct {
 	Chunk     interface{} // Must be a pointer to a slice of structs
 
 	// The closure that will be called right after
-	// filling the Chunk with ChunkSize items
+	// filling the Chunk with ChunkSize records
 	//
 	// Each chunk consecutively parsed will overwrite the
 	// same slice, so don't keep references to it, if you
 	// need some data to be preserved after all chunks are
-	// processed copy the items by value.
+	// processed copy the records by value.
 	ForEachChunk func() error
 }

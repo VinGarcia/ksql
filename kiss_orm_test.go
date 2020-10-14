@@ -16,7 +16,7 @@ type User struct {
 	CreatedAt time.Time `gorm:"created_at"`
 }
 
-func TestFind(t *testing.T) {
+func TestQuery(t *testing.T) {
 	err := createTable()
 	if err != nil {
 		t.Fatal("could not create test table!")
@@ -31,10 +31,10 @@ func TestFind(t *testing.T) {
 			db:        db,
 			tableName: "users",
 		}
-		u := User{}
-		err := c.Find(ctx, &u, `SELECT * FROM users WHERE id=1;`)
-		assert.NotEqual(t, nil, err)
-		assert.Equal(t, User{}, u)
+		var users []User
+		err := c.Query(ctx, &users, `SELECT * FROM users WHERE id=1;`)
+		assert.Equal(t, nil, err)
+		assert.Equal(t, []User{}, users)
 	})
 
 	t.Run("should return a user correctly", func(t *testing.T) {
@@ -50,12 +50,13 @@ func TestFind(t *testing.T) {
 			db:        db,
 			tableName: "users",
 		}
-		u := User{}
-		err = c.Find(ctx, &u, `SELECT * FROM users WHERE name=?;`, "Bia")
+		var users []User
+		err = c.Query(ctx, &users, `SELECT * FROM users WHERE name=?;`, "Bia")
 
-		assert.Equal(t, err, nil)
-		assert.Equal(t, "Bia", u.Name)
-		assert.NotEqual(t, 0, u.ID)
+		assert.Equal(t, nil, err)
+		assert.Equal(t, 1, len(users))
+		assert.Equal(t, "Bia", users[0].Name)
+		assert.NotEqual(t, 0, users[0].ID)
 	})
 
 	t.Run("should return multiple users correctly", func(t *testing.T) {
@@ -75,15 +76,80 @@ func TestFind(t *testing.T) {
 			db:        db,
 			tableName: "users",
 		}
-		users := []User{}
-		err = c.Find(ctx, &users, `SELECT * FROM users WHERE name like ?;`, "% Garcia")
+		var users []User
+		err = c.Query(ctx, &users, `SELECT * FROM users WHERE name like ?;`, "% Garcia")
 
-		assert.Equal(t, err, nil)
+		assert.Equal(t, nil, err)
 		assert.Equal(t, 2, len(users))
 		assert.Equal(t, "João Garcia", users[0].Name)
 		assert.NotEqual(t, 0, users[0].ID)
 		assert.Equal(t, "Bia Garcia", users[1].Name)
 		assert.NotEqual(t, 0, users[1].ID)
+	})
+}
+
+func TestQueryOne(t *testing.T) {
+	err := createTable()
+	if err != nil {
+		t.Fatal("could not create test table!")
+	}
+
+	t.Run("should return EntityNotFoundErr when there are no results", func(t *testing.T) {
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+		u := User{}
+		err := c.QueryOne(ctx, &u, `SELECT * FROM users WHERE id=1;`)
+		assert.Equal(t, EntityNotFoundErr, err)
+	})
+
+	t.Run("should return a user correctly", func(t *testing.T) {
+		db := connectDB(t)
+		defer db.Close()
+
+		db.Create(&User{
+			Name: "Bia",
+		})
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+		u := User{}
+		err = c.QueryOne(ctx, &u, `SELECT * FROM users WHERE name=?;`, "Bia")
+
+		assert.Equal(t, nil, err)
+		assert.Equal(t, "Bia", u.Name)
+		assert.NotEqual(t, 0, u.ID)
+	})
+
+	t.Run("should report error if input is no a pointer to struct", func(t *testing.T) {
+		db := connectDB(t)
+		defer db.Close()
+
+		db.Create(&User{
+			Name: "Andréa Sá",
+		})
+
+		db.Create(&User{
+			Name: "Caio Sá",
+		})
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+		users := []User{}
+		err = c.QueryOne(ctx, &users, `SELECT * FROM users WHERE name like ?;`, "% Sá")
+
+		assert.NotEqual(t, nil, err)
 	})
 }
 
@@ -104,7 +170,7 @@ func TestInsert(t *testing.T) {
 		}
 
 		err = c.Insert(ctx)
-		assert.Equal(t, err, nil)
+		assert.Equal(t, nil, err)
 	})
 
 	t.Run("should insert one user correctly", func(t *testing.T) {
@@ -122,12 +188,12 @@ func TestInsert(t *testing.T) {
 		}
 
 		err := c.Insert(ctx, &u)
-		assert.Equal(t, err, nil)
+		assert.Equal(t, nil, err)
 
 		result := User{}
 		it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
 		it.Scan(&result)
-		assert.Equal(t, it.Error, nil)
+		assert.Equal(t, nil, it.Error)
 		assert.Equal(t, u.Name, result.Name)
 		assert.Equal(t, u.CreatedAt.Format(time.RFC3339), result.CreatedAt.Format(time.RFC3339))
 	})
@@ -150,7 +216,7 @@ func TestDelete(t *testing.T) {
 		}
 
 		err = c.Delete(ctx)
-		assert.Equal(t, err, nil)
+		assert.Equal(t, nil, err)
 	})
 
 	t.Run("should delete one id correctly", func(t *testing.T) {
@@ -168,7 +234,7 @@ func TestDelete(t *testing.T) {
 		}
 
 		err := c.Insert(ctx, &u)
-		assert.Equal(t, err, nil)
+		assert.Equal(t, nil, err)
 
 		assert.NotEqual(t, 0, u.ID)
 		result := User{}
@@ -177,13 +243,13 @@ func TestDelete(t *testing.T) {
 		assert.Equal(t, u.ID, result.ID)
 
 		err = c.Delete(ctx, u.ID)
-		assert.Equal(t, err, nil)
+		assert.Equal(t, nil, err)
 
 		result = User{}
 		it = c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
 		it.Scan(&result)
 
-		assert.Equal(t, it.Error, nil)
+		assert.Equal(t, nil, it.Error)
 		assert.Equal(t, uint(0), result.ID)
 		assert.Equal(t, "", result.Name)
 	})
@@ -209,18 +275,18 @@ func TestUpdate(t *testing.T) {
 			Name: "Thay",
 		}
 		err := c.Insert(ctx, &u)
-		assert.Equal(t, err, nil)
+		assert.Equal(t, nil, err)
 		assert.NotEqual(t, 0, u.ID)
 
 		// Empty update, should do nothing:
 		err = c.Update(ctx)
-		assert.Equal(t, err, nil)
+		assert.Equal(t, nil, err)
 
 		result := User{}
 		it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
 		it.Scan(&result)
 		it.Close()
-		assert.Equal(t, err, nil)
+		assert.Equal(t, nil, err)
 
 		assert.Equal(t, "Thay", result.Name)
 	})
@@ -239,7 +305,7 @@ func TestUpdate(t *testing.T) {
 			ID:   1,
 			Name: "Thayane",
 		})
-		assert.NotEqual(t, err, nil)
+		assert.NotEqual(t, nil, err)
 	})
 }
 
