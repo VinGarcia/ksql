@@ -125,7 +125,7 @@ func TestQueryOne(t *testing.T) {
 		t.Fatal("could not create test table!")
 	}
 
-	t.Run("should return EntityNotFoundErr when there are no results", func(t *testing.T) {
+	t.Run("should return RecordNotFoundErr when there are no results", func(t *testing.T) {
 		db := connectDB(t)
 		defer db.Close()
 
@@ -136,7 +136,7 @@ func TestQueryOne(t *testing.T) {
 		}
 		u := User{}
 		err := c.QueryOne(ctx, &u, `SELECT * FROM users WHERE id=1;`)
-		assert.Equal(t, EntityNotFoundErr, err)
+		assert.Equal(t, ErrRecordNotFound, err)
 	})
 
 	t.Run("should return a user correctly", func(t *testing.T) {
@@ -573,7 +573,7 @@ func TestQueryChunks(t *testing.T) {
 		assert.Equal(t, []int{2, 1}, lengths)
 	})
 
-	t.Run("should abort the first iteration when the callback returns an AbortIteration", func(t *testing.T) {
+	t.Run("should abort the first iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
 		err := createTable()
 		if err != nil {
 			t.Fatal("could not create test table!")
@@ -604,7 +604,7 @@ func TestQueryChunks(t *testing.T) {
 			ForEachChunk: func() error {
 				lengths = append(lengths, len(buffer))
 				users = append(users, buffer...)
-				return AbortIteration
+				return ErrAbortIteration
 			},
 		})
 
@@ -617,7 +617,7 @@ func TestQueryChunks(t *testing.T) {
 		assert.Equal(t, []int{2}, lengths)
 	})
 
-	t.Run("should abort the last iteration when the callback returns an AbortIteration", func(t *testing.T) {
+	t.Run("should abort the last iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
 		err := createTable()
 		if err != nil {
 			t.Fatal("could not create test table!")
@@ -636,7 +636,7 @@ func TestQueryChunks(t *testing.T) {
 		_ = c.Insert(ctx, &User{Name: "User2"})
 		_ = c.Insert(ctx, &User{Name: "User3"})
 
-		returnVals := []error{nil, AbortIteration}
+		returnVals := []error{nil, ErrAbortIteration}
 		var lengths []int
 		var users []User
 		var buffer []User

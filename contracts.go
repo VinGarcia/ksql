@@ -5,11 +5,11 @@ import (
 	"fmt"
 )
 
-// EntityNotFoundErr ...
-var EntityNotFoundErr error = fmt.Errorf("kissorm: the query returned no results")
+// ErrRecordNotFound ...
+var ErrRecordNotFound error = fmt.Errorf("kissorm: the query returned no results")
 
-// AbortIteration ...
-var AbortIteration error = fmt.Errorf("kissorm: abort iteration, should only be used inside QueryChunks function")
+// ErrAbortIteration ...
+var ErrAbortIteration error = fmt.Errorf("kissorm: abort iteration, should only be used inside QueryChunks function")
 
 // ORMProvider describes the public behavior of this ORM
 type ORMProvider interface {
@@ -22,6 +22,7 @@ type ORMProvider interface {
 	QueryChunks(ctx context.Context, parser ChunkParser) error
 }
 
+// ChunkParser stores the arguments of the QueryChunks function
 type ChunkParser struct {
 	// The Query and Params are used together to build a query with
 	// protection from injection, just like when using the Find function.

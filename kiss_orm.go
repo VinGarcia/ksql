@@ -82,7 +82,7 @@ func (c Client) Query(
 // the input struct must be passed by reference
 // and the query should return only one result.
 //
-// QueryOne returns a EntityNotFoundErr if
+// QueryOne returns a ErrRecordNotFound if
 // the query returns no results.
 func (c Client) QueryOne(
 	ctx context.Context,
@@ -105,7 +105,7 @@ func (c Client) QueryOne(
 	}
 	it = it.Scan(record)
 	if it.Error != nil && it.Error.Error() == "record not found" {
-		return EntityNotFoundErr
+		return ErrRecordNotFound
 	}
 	return it.Error
 }
@@ -173,7 +173,7 @@ func (c Client) QueryChunks(
 		sliceRef.Elem().Set(slice)
 		err = parser.ForEachChunk()
 		if err != nil {
-			if err == AbortIteration {
+			if err == ErrAbortIteration {
 				return nil
 			}
 			return err
@@ -186,7 +186,7 @@ func (c Client) QueryChunks(
 		sliceRef.Elem().Set(slice.Slice(0, idx))
 		err = parser.ForEachChunk()
 		if err != nil {
-			if err == AbortIteration {
+			if err == ErrAbortIteration {
 				return nil
 			}
 			return err
@@ -336,14 +336,14 @@ func getTagNames(t reflect.Type) structInfo {
 // The first argument is any struct you are passing to a kissorm func,
 // and the second is a map representing a database row you want
 // to use to update this struct.
-func FillStructWith(entity interface{}, dbRow map[string]interface{}) error {
-	v := reflect.ValueOf(entity)
+func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
+	v := reflect.ValueOf(record)
 	t := v.Type()
 
 	if t.Kind() != reflect.Ptr {
 		return fmt.Errorf(
 			"FillStructWith: expected input to be a pointer to struct but got %T",
-			entity,
+			record,
 		)
 	}
 
@@ -353,7 +353,7 @@ func FillStructWith(entity interface{}, dbRow map[string]interface{}) error {
 	if t.Kind() != reflect.Struct {
 		return fmt.Errorf(
 			"FillStructWith: expected input kind to be a struct but got %T",
-			entity,
+			record,
 		)
 	}
 
@@ -373,7 +373,7 @@ func FillStructWith(entity interface{}, dbRow map[string]interface{}) error {
 				"FillStructWith: cannot convert atribute %s of type %v to type %T",
 				colName,
 				fieldType,
-				entity,
+				record,
 			)
 		}
 		field.Set(attrValue.Convert(fieldType))
