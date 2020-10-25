@@ -8,11 +8,13 @@ import (
 	"github.com/ditointernet/go-assert"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
+	"github.com/vingarcia/kissorm/nullable"
 )
 
 type User struct {
 	ID        uint      `gorm:"id"`
 	Name      string    `gorm:"name"`
+	Age       int       `gorm:"age"`
 	CreatedAt time.Time `gorm:"created_at"`
 }
 
@@ -325,6 +327,145 @@ func TestUpdate(t *testing.T) {
 	})
 
 	t.Run("should update one user correctly", func(t *testing.T) {
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+
+		u := User{
+			Name: "Letícia",
+		}
+		r := c.db.Table(c.tableName).Create(&u)
+		assert.Equal(t, nil, r.Error)
+		assert.NotEqual(t, 0, u.ID)
+
+		err = c.Update(ctx, User{
+			ID:   u.ID,
+			Name: "Thayane",
+		})
+		assert.Equal(t, nil, err)
+
+		var result User
+		it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
+		it.Scan(&result)
+		assert.Equal(t, nil, it.Error)
+		assert.Equal(t, "Thayane", result.Name)
+	})
+
+	t.Run("should update one user correctly", func(t *testing.T) {
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+
+		u := User{
+			Name: "Letícia",
+		}
+		r := c.db.Table(c.tableName).Create(&u)
+		assert.Equal(t, nil, r.Error)
+		assert.NotEqual(t, 0, u.ID)
+
+		err = c.Update(ctx, User{
+			ID:   u.ID,
+			Name: "Thayane",
+		})
+		assert.Equal(t, nil, err)
+
+		var result User
+		it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
+		it.Scan(&result)
+		assert.Equal(t, nil, it.Error)
+		assert.Equal(t, "Thayane", result.Name)
+	})
+
+	t.Run("should ignore null pointers on partial updates", func(t *testing.T) {
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+
+		type partialUser struct {
+			ID   uint   `gorm:"id"`
+			Name string `gorm:"name"`
+			Age  *int   `gorm:"age"`
+		}
+		u := partialUser{
+			Name: "Letícia",
+			Age:  nullable.Int(22),
+		}
+		r := c.db.Table(c.tableName).Create(&u)
+		assert.Equal(t, nil, r.Error)
+		assert.NotEqual(t, 0, u.ID)
+
+		err = c.Update(ctx, partialUser{
+			ID: u.ID,
+			// Should be updated because it is not null, just empty:
+			Name: "",
+			// Should not be updated because it is null:
+			Age: nil,
+		})
+		assert.Equal(t, nil, err)
+
+		var result User
+		it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
+		it.Scan(&result)
+		assert.Equal(t, nil, it.Error)
+		assert.Equal(t, "", result.Name)
+		assert.Equal(t, 22, result.Age)
+	})
+
+	t.Run("should update valid pointers on partial updates", func(t *testing.T) {
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+
+		type partialUser struct {
+			ID   uint   `gorm:"id"`
+			Name string `gorm:"name"`
+			Age  *int   `gorm:"age"`
+		}
+		u := partialUser{
+			Name: "Letícia",
+			Age:  nullable.Int(22),
+		}
+		r := c.db.Table(c.tableName).Create(&u)
+		assert.Equal(t, nil, r.Error)
+		assert.NotEqual(t, 0, u.ID)
+
+		// Should update all fields:
+		err = c.Update(ctx, partialUser{
+			ID:   u.ID,
+			Name: "Thay",
+			Age:  nullable.Int(42),
+		})
+		assert.Equal(t, nil, err)
+
+		var result User
+		it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
+		it.Scan(&result)
+		assert.Equal(t, nil, it.Error)
+		assert.Equal(t, "Thay", result.Name)
+		assert.Equal(t, 42, result.Age)
+	})
+
+	t.Run("should report database errors correctly", func(t *testing.T) {
 		db := connectDB(t)
 		defer db.Close()
 
