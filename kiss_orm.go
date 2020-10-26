@@ -247,7 +247,7 @@ func (c Client) Update(
 			return err
 		}
 
-		_, err = c.db.DB().Exec(query, params...)
+		_, err = c.db.DB().ExecContext(ctx, query, params...)
 		if err != nil {
 			return err
 		}
