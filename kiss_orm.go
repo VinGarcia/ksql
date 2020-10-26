@@ -312,16 +312,19 @@ type structInfo struct {
 // StructToMap converts any struct type to a map based on
 // the tag named `gorm`, i.e. `gorm:"map_key_name"`
 //
+// Valid pointers are dereferenced and copied to the map,
+// null pointers are ignored.
+//
 // This function is efficient in the fact that it caches
-// the slower steps of the reflection required to do perform
+// the slower steps of the reflection required to perform
 // this task.
 func StructToMap(obj interface{}) (map[string]interface{}, error) {
 	v := reflect.ValueOf(obj)
 	t := v.Type()
 
 	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
 		v = v.Elem()
+		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct {
 		return nil, fmt.Errorf("input must be a struct or struct pointer")
