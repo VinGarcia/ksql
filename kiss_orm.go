@@ -268,7 +268,7 @@ func buildUpdateQuery(
 	numAttrs := len(recordMap)
 	numIDs := len(idFieldNames)
 	args = make([]interface{}, numAttrs+numIDs)
-	whereArgs := args[numAttrs-1:]
+	whereArgs := args[numAttrs-len(idFieldNames):]
 
 	var whereQuery []string
 	for i, fieldName := range idFieldNames {
