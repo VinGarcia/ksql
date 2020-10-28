@@ -565,14 +565,12 @@ func TestQueryChunks(t *testing.T) {
 
 		var length int
 		var u User
-		var users []User
 		err = c.QueryChunks(ctx, ChunkParser{
 			Query:  `select * from users where name = ?;`,
 			Params: []interface{}{"User1"},
 
 			ChunkSize: 100,
-			Chunk:     &users,
-			ForEachChunk: func() error {
+			ForEachChunk: func(users []User) error {
 				length = len(users)
 				if length > 0 {
 					u = users[0]
@@ -605,20 +603,23 @@ func TestQueryChunks(t *testing.T) {
 		_ = c.Insert(ctx, &User{Name: "User1"})
 		_ = c.Insert(ctx, &User{Name: "User2"})
 
+		var lengths []int
 		var users []User
 		err = c.QueryChunks(ctx, ChunkParser{
 			Query:  `select * from users where name like ? order by name asc;`,
 			Params: []interface{}{"User%"},
 
 			ChunkSize: 2,
-			Chunk:     &users,
-			ForEachChunk: func() error {
+			ForEachChunk: func(buffer []User) error {
+				users = append(users, buffer...)
+				lengths = append(lengths, len(buffer))
 				return nil
 			},
 		})
 
 		assert.Equal(t, nil, err)
-		assert.Equal(t, 2, len(users))
+		assert.Equal(t, 1, len(lengths))
+		assert.Equal(t, 2, lengths[0])
 		assert.NotEqual(t, 0, users[0].ID)
 		assert.Equal(t, "User1", users[0].Name)
 		assert.NotEqual(t, 0, users[1].ID)
@@ -645,14 +646,12 @@ func TestQueryChunks(t *testing.T) {
 
 		var lengths []int
 		var users []User
-		var buffer []User
 		err = c.QueryChunks(ctx, ChunkParser{
 			Query:  `select * from users where name like ? order by name asc;`,
 			Params: []interface{}{"User%"},
 
 			ChunkSize: 1,
-			Chunk:     &buffer,
-			ForEachChunk: func() error {
+			ForEachChunk: func(buffer []User) error {
 				lengths = append(lengths, len(buffer))
 				users = append(users, buffer...)
 				return nil
@@ -689,14 +688,12 @@ func TestQueryChunks(t *testing.T) {
 
 		var lengths []int
 		var users []User
-		var buffer []User
 		err = c.QueryChunks(ctx, ChunkParser{
 			Query:  `select * from users where name like ? order by name asc;`,
 			Params: []interface{}{"User%"},
 
 			ChunkSize: 2,
-			Chunk:     &buffer,
-			ForEachChunk: func() error {
+			ForEachChunk: func(buffer []User) error {
 				lengths = append(lengths, len(buffer))
 				users = append(users, buffer...)
 				return nil
@@ -735,14 +732,12 @@ func TestQueryChunks(t *testing.T) {
 
 		var lengths []int
 		var users []User
-		var buffer []User
 		err = c.QueryChunks(ctx, ChunkParser{
 			Query:  `select * from users where name like ? order by name asc;`,
 			Params: []interface{}{"User%"},
 
 			ChunkSize: 2,
-			Chunk:     &buffer,
-			ForEachChunk: func() error {
+			ForEachChunk: func(buffer []User) error {
 				lengths = append(lengths, len(buffer))
 				users = append(users, buffer...)
 				return ErrAbortIteration
@@ -780,14 +775,12 @@ func TestQueryChunks(t *testing.T) {
 		returnVals := []error{nil, ErrAbortIteration}
 		var lengths []int
 		var users []User
-		var buffer []User
 		err = c.QueryChunks(ctx, ChunkParser{
 			Query:  `select * from users where name like ? order by name asc;`,
 			Params: []interface{}{"User%"},
 
 			ChunkSize: 2,
-			Chunk:     &buffer,
-			ForEachChunk: func() error {
+			ForEachChunk: func(buffer []User) error {
 				lengths = append(lengths, len(buffer))
 				users = append(users, buffer...)
 

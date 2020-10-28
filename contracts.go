@@ -30,14 +30,9 @@ type ChunkParser struct {
 	Params []interface{}
 
 	ChunkSize int
-	Chunk     interface{} // Must be a pointer to a slice of structs
 
-	// The closure that will be called right after
-	// filling the Chunk with ChunkSize records
-	//
-	// Each chunk consecutively parsed will overwrite the
-	// same slice, so don't keep references to it, if you
-	// need some data to be preserved after all chunks are
-	// processed copy the records by value.
-	ForEachChunk func() error
+	// This attribute must be a func(chunk []<Record>) error,
+	// where the actual Record should be a struct
+	// representing the rows you are expecting to receive.
+	ForEachChunk interface{}
 }
