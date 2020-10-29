@@ -112,18 +112,21 @@ func (c Client) QueryOne(
 }
 
 // QueryChunks is meant to perform queries that returns
-// many results and should only be used for that purpose.
+// more results than would normally fit on memory,
+// for others cases the Query and QueryOne functions are indicated.
 //
-// It ChunkParser argument will inform the query and its params,
-// and the information that will be used to iterate on the results,
-// namely:
-// (1) The Chunk, which must be a pointer to a slice of structs where
-// the results of the query will be kept on each iteration.
-// (2) The ChunkSize that describes how many rows should be loaded
-// on the Chunk slice before running the iteration callback.
-// (3) The ForEachChunk function, which is the iteration callback
-// and will be called right after the Chunk is filled with rows
-// and/or after the last row is read from the database.
+// The ChunkParser argument has 4 attributes:
+// (1) The Query;
+// (2) The query args;
+// (3) The chunk size;
+// (4) A callback function called ForEachChunk, that will be called
+// to process each chunk loaded from the database.
+//
+// Note that the signature of the ForEachChunk callback can be
+// any function that receives a slice of structs or a slice of
+// pointers to struct as its only argument and that reflection
+// will be used to instantiate this argument and to fill it
+// with the database rows.
 func (c Client) QueryChunks(
 	ctx context.Context,
 	parser ChunkParser,

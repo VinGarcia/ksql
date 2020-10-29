@@ -31,8 +31,11 @@ type ChunkParser struct {
 
 	ChunkSize int
 
-	// This attribute must be a func(chunk []<Record>) error,
-	// where the actual Record should be a struct
+	// This attribute must be a function with the following signature:
+	//
+	// `func(chunk []<Record>) error`.
+	//
+	// Where the actual Record type should be of a struct
 	// representing the rows you are expecting to receive.
 	ForEachChunk interface{}
 }
