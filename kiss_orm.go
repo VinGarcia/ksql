@@ -532,7 +532,7 @@ func parseInputFunc(fn interface{}) (reflect.Type, error) {
 }
 
 func scanRows(rows *sql.Rows, record interface{}) error {
-	names, err := rows.Columns() // rows.QueryContext(ctx, query string, args ...interface{}) (*Rows, error)
+	names, err := rows.Columns()
 	if err != nil {
 		return err
 	}

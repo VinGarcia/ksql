@@ -2,6 +2,7 @@ package kissorm
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -852,6 +853,64 @@ func TestScanRows(t *testing.T) {
 
 		assert.Equal(t, "User2", u.Name)
 		assert.Equal(t, 14, u.Age)
+	})
+
+	t.Run("should report error for closed rows", func(t *testing.T) {
+		err := createTable()
+		if err != nil {
+			t.Fatal("could not create test table!")
+		}
+
+		ctx := context.TODO()
+		db := connectDB(t)
+		defer db.Close()
+
+		rows, err := db.DB().QueryContext(ctx, "select * from users where name='User2'")
+		assert.Equal(t, nil, err)
+
+		var u User
+		err = rows.Close()
+		assert.Equal(t, nil, err)
+		err = scanRows(rows, &u)
+		assert.NotEqual(t, nil, err)
+	})
+
+	t.Run("should report if record is not a pointer", func(t *testing.T) {
+		err := createTable()
+		if err != nil {
+			t.Fatal("could not create test table!")
+		}
+
+		ctx := context.TODO()
+		db := connectDB(t)
+		defer db.Close()
+
+		rows, err := db.DB().QueryContext(ctx, "select * from users where name='User2'")
+		assert.Equal(t, nil, err)
+
+		var u User
+		err = scanRows(rows, u)
+		assert.NotEqual(t, nil, err)
+	})
+
+	t.Run("should report if record is not a pointer to struct", func(t *testing.T) {
+		err := createTable()
+		if err != nil {
+			t.Fatal("could not create test table!")
+		}
+
+		ctx := context.TODO()
+		db := connectDB(t)
+		defer db.Close()
+
+		rows, err := db.DB().QueryContext(ctx, "select * from users where name='User2'")
+		assert.Equal(t, nil, err)
+
+		var u map[string]interface{}
+		fmt.Println("before scan")
+		err = scanRows(rows, &u)
+		fmt.Println("after scan")
+		assert.NotEqual(t, nil, err)
 	})
 }
 
