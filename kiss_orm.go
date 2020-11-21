@@ -2,6 +2,7 @@ package kissorm
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"reflect"
 	"strings"
@@ -338,11 +339,7 @@ func StructToMap(obj interface{}) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("input must be a struct or struct pointer")
 	}
 
-	info, found := tagInfoCache[t]
-	if !found {
-		info = getTagNames(t)
-		tagInfoCache[t] = info
-	}
+	info := getTagInfoWithCache(tagInfoCache, t)
 
 	m := map[string]interface{}{}
 	for i := 0; i < v.NumField(); i++ {
@@ -411,11 +408,7 @@ func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
 		)
 	}
 
-	info, found := tagInfoCache[t]
-	if !found {
-		info = getTagNames(t)
-		tagInfoCache[t] = info
-	}
+	info := getTagInfoWithCache(tagInfoCache, t)
 
 	for colName, attr := range dbRow {
 		attrValue := reflect.ValueOf(attr)
@@ -455,12 +448,6 @@ func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error 
 	structType, isSliceOfPtrs, err := decodeAsSliceOfStructs(sliceType.Elem())
 	if err != nil {
 		return fmt.Errorf("FillSliceWith: %s", err.Error())
-	}
-
-	info, found := tagInfoCache[structType]
-	if !found {
-		info = getTagNames(structType)
-		tagInfoCache[structType] = info
 	}
 
 	slice := sliceRef.Elem()
@@ -542,4 +529,42 @@ func parseInputFunc(fn interface{}) (reflect.Type, error) {
 	}
 
 	return argsType, nil
+}
+
+func scanRows(rows *sql.Rows, record interface{}) error {
+	names, err := rows.Columns() // rows.QueryContext(ctx, query string, args ...interface{}) (*Rows, error)
+	if err != nil {
+		return err
+	}
+
+	v := reflect.ValueOf(record)
+	t := v.Type()
+	if t.Kind() != reflect.Ptr {
+		return fmt.Errorf("kissorm: expected to receive a pointer to struct, but got: %T", record)
+	}
+
+	v = v.Elem()
+	t = t.Elem()
+
+	if t.Kind() != reflect.Struct {
+		return fmt.Errorf("kissorm: expected to receive a pointer to slice of structs, but got: %T", record)
+	}
+
+	info := getTagInfoWithCache(tagInfoCache, t)
+
+	scanArgs := []interface{}{}
+	for _, name := range names {
+		scanArgs = append(scanArgs, v.Field(info.Index[name]).Addr().Interface())
+	}
+
+	return rows.Scan(scanArgs...)
+}
+
+func getTagInfoWithCache(tagInfoCache map[reflect.Type]structInfo, key reflect.Type) structInfo {
+	info, found := tagInfoCache[key]
+	if !found {
+		info = getTagNames(key)
+		tagInfoCache[key] = info
+	}
+	return info
 }

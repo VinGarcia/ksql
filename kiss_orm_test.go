@@ -823,6 +823,38 @@ func TestFillSliceWith(t *testing.T) {
 	})
 }
 
+func TestScanRows(t *testing.T) {
+	t.Run("should scan users correctly", func(t *testing.T) {
+		err := createTable()
+		if err != nil {
+			t.Fatal("could not create test table!")
+		}
+
+		ctx := context.TODO()
+		db := connectDB(t)
+		defer db.Close()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+		_ = c.Insert(ctx, &User{Name: "User1", Age: 22})
+		_ = c.Insert(ctx, &User{Name: "User2", Age: 14})
+		_ = c.Insert(ctx, &User{Name: "User3", Age: 43})
+
+		rows, err := db.DB().QueryContext(ctx, "select * from users where name='User2'")
+		assert.Equal(t, nil, err)
+
+		assert.Equal(t, true, rows.Next())
+
+		var u User
+		err = scanRows(rows, &u)
+		assert.Equal(t, nil, err)
+
+		assert.Equal(t, "User2", u.Name)
+		assert.Equal(t, 14, u.Age)
+	})
+}
+
 func createTable() error {
 	db, err := gorm.Open("sqlite3", "/tmp/test.db")
 	if err != nil {
