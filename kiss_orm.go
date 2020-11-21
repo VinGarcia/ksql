@@ -132,12 +132,7 @@ func (c Client) QueryChunks(
 	ctx context.Context,
 	parser ChunkParser,
 ) error {
-	it := c.db.Raw(parser.Query, parser.Params...)
-	if it.Error != nil {
-		return it.Error
-	}
-
-	rows, err := it.Rows()
+	rows, err := c.db.DB().QueryContext(ctx, parser.Query, parser.Params...)
 	if err != nil {
 		return err
 	}
@@ -169,7 +164,7 @@ func (c Client) QueryChunks(
 			chunk = reflect.Append(chunk, elemValue)
 		}
 
-		err = c.db.ScanRows(rows, chunk.Index(idx).Addr().Interface())
+		err = scanRows(rows, chunk.Index(idx).Addr().Interface())
 		if err != nil {
 			return err
 		}
