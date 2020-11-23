@@ -101,15 +101,17 @@ func (c Client) QueryOne(
 		return fmt.Errorf("kissorm: expected to receive a pointer to struct, but got: %T", record)
 	}
 
-	it := c.db.Raw(query, params...)
-	if it.Error != nil {
-		return it.Error
+	rows, err := c.db.DB().QueryContext(ctx, query, params...)
+	if err != nil {
+		return err
 	}
-	it = it.Scan(record)
-	if it.Error != nil && it.Error.Error() == "record not found" {
+	defer rows.Close()
+
+	if !rows.Next() {
 		return ErrRecordNotFound
 	}
-	return it.Error
+
+	return scanRows(rows, record)
 }
 
 // QueryChunks is meant to perform queries that returns
