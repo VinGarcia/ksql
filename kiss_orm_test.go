@@ -37,6 +37,11 @@ func TestQuery(t *testing.T) {
 		var users []User
 		err := c.Query(ctx, &users, `SELECT * FROM users WHERE id=1;`)
 		assert.Equal(t, nil, err)
+		assert.Equal(t, []User(nil), users)
+
+		users = []User{}
+		err = c.Query(ctx, &users, `SELECT * FROM users WHERE id=1;`)
+		assert.Equal(t, nil, err)
 		assert.Equal(t, []User{}, users)
 	})
 

@@ -60,24 +60,57 @@ func (c Client) Query(
 	query string,
 	params ...interface{},
 ) error {
-	t := reflect.TypeOf(records)
-	if t.Kind() != reflect.Ptr {
+	slicePtr := reflect.ValueOf(records)
+	slicePtrType := slicePtr.Type()
+	if slicePtrType.Kind() != reflect.Ptr {
 		return fmt.Errorf("kissorm: expected to receive a pointer to slice of structs, but got: %T", records)
 	}
-	t = t.Elem()
-	if t.Kind() != reflect.Slice {
-		return fmt.Errorf("kissorm: expected to receive a pointer to slice of structs, but got: %T", records)
-	}
-	if t.Elem().Kind() != reflect.Struct {
-		return fmt.Errorf("kissorm: expected to receive a pointer to slice of structs, but got: %T", records)
+	sliceType := slicePtrType.Elem()
+	slice := slicePtr.Elem()
+	structType, isSliceOfPtrs, err := decodeAsSliceOfStructs(sliceType)
+	if err != nil {
+		return err
 	}
 
-	it := c.db.Raw(query, params...)
-	if it.Error != nil {
-		return it.Error
+	if isSliceOfPtrs {
+		// Truncate the slice so there is no risk
+		// of overwritting records that were already saved
+		// on the slice:
+		slice = slice.Slice(0, 0)
 	}
-	it = it.Scan(records)
-	return it.Error
+
+	rows, err := c.db.DB().QueryContext(ctx, query, params...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for idx := 0; rows.Next(); idx++ {
+		// Allocate new slice elements
+		// only if they are not already allocated:
+		if slice.Len() <= idx {
+			var elemValue reflect.Value
+			elemValue = reflect.New(structType)
+			if !isSliceOfPtrs {
+				elemValue = elemValue.Elem()
+			}
+			slice = reflect.Append(slice, elemValue)
+		}
+
+		err = scanRows(rows, slice.Index(idx).Addr().Interface())
+		if err != nil {
+			return err
+		}
+	}
+
+	if rows.Err() != nil {
+		return rows.Err()
+	}
+
+	// Update the original slice passed by reference:
+	slicePtr.Elem().Set(slice)
+
+	return nil
 }
 
 // QueryOne queries one instance from the database,
@@ -108,6 +141,9 @@ func (c Client) QueryOne(
 	defer rows.Close()
 
 	if !rows.Next() {
+		if rows.Err() != nil {
+			return rows.Err()
+		}
 		return ErrRecordNotFound
 	}
 
@@ -134,12 +170,6 @@ func (c Client) QueryChunks(
 	ctx context.Context,
 	parser ChunkParser,
 ) error {
-	rows, err := c.db.DB().QueryContext(ctx, parser.Query, parser.Params...)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
 	fnValue := reflect.ValueOf(parser.ForEachChunk)
 	chunkType, err := parseInputFunc(parser.ForEachChunk)
 	if err != nil {
@@ -152,6 +182,12 @@ func (c Client) QueryChunks(
 	if err != nil {
 		return err
 	}
+
+	rows, err := c.db.DB().QueryContext(ctx, parser.Query, parser.Params...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
 
 	var idx = 0
 	for rows.Next() {
@@ -184,6 +220,11 @@ func (c Client) QueryChunks(
 			}
 			return err
 		}
+	}
+
+	// If Next() returned false because of an error:
+	if rows.Err() != nil {
+		return rows.Err()
 	}
 
 	// If no rows were found or idx was reset to 0
