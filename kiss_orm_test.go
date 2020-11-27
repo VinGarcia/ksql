@@ -294,6 +294,64 @@ func TestDelete(t *testing.T) {
 		assert.Equal(t, uint(0), result.ID)
 		assert.Equal(t, "", result.Name)
 	})
+
+	t.Run("should delete multiple ids correctly", func(t *testing.T) {
+		db := connectDB(t)
+		defer db.Close()
+
+		ctx := context.Background()
+		c := Client{
+			db:        db,
+			tableName: "users",
+		}
+
+		u1 := User{
+			Name: "Fernanda",
+		}
+		err := c.Insert(ctx, &u1)
+		assert.Equal(t, nil, err)
+		assert.NotEqual(t, 0, u1.ID)
+
+		u2 := User{
+			Name: "Juliano",
+		}
+		err = c.Insert(ctx, &u2)
+		assert.Equal(t, nil, err)
+		assert.NotEqual(t, 0, u2.ID)
+
+		u3 := User{
+			Name: "This won't be deleted",
+		}
+		err = c.Insert(ctx, &u3)
+		assert.Equal(t, nil, err)
+		assert.NotEqual(t, 0, u3.ID)
+
+		result := User{}
+		it := c.db.Raw("SELECT * FROM users WHERE id=?", u1.ID)
+		it.Scan(&result)
+		assert.Equal(t, u1.ID, result.ID)
+
+		result = User{}
+		it = c.db.Raw("SELECT * FROM users WHERE id=?", u2.ID)
+		it.Scan(&result)
+		assert.Equal(t, u2.ID, result.ID)
+
+		result = User{}
+		it = c.db.Raw("SELECT * FROM users WHERE id=?", u3.ID)
+		it.Scan(&result)
+		assert.Equal(t, u3.ID, result.ID)
+
+		err = c.Delete(ctx, u1.ID, u2.ID)
+		assert.Equal(t, nil, err)
+
+		results := []User{}
+		it = c.db.Raw("SELECT * FROM users WHERE id IN (?, ?, ?)", u1.ID, u2.ID, u3.ID)
+		it.Scan(&results)
+
+		assert.Equal(t, nil, it.Error)
+		assert.Equal(t, 1, len(results))
+		assert.Equal(t, "This won't be deleted", results[0].Name)
+	})
 }
 
 func TestUpdate(t *testing.T) {

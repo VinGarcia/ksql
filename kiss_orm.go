@@ -48,11 +48,11 @@ func (c Client) ChangeTable(ctx context.Context, tableName string) ORMProvider {
 }
 
 // Query queries several rows from the database,
-// the input should be a slice of structs passed
+// the input should be a slice of structs (or *struct) passed
 // by reference and it will be filled with all the results.
 //
 // Note: it is very important to make sure the query will
-// return a small number of results, otherwise you risk
+// return a small known number of results, otherwise you risk
 // of overloading the available memory.
 func (c Client) Query(
 	ctx context.Context,
@@ -271,14 +271,15 @@ func (c Client) Delete(
 	ctx context.Context,
 	ids ...interface{},
 ) error {
-	for _, id := range ids {
-		r := c.db.Table(c.tableName).Delete(id)
-		if r.Error != nil {
-			return r.Error
-		}
+	if len(ids) == 0 {
+		return nil
 	}
 
-	return nil
+	query := buildDeleteQuery(c.tableName, ids)
+
+	_, err := c.db.DB().ExecContext(ctx, query, ids...)
+
+	return err
 }
 
 // Update updates the given instances on the database by id.
@@ -605,4 +606,17 @@ func getTagInfoWithCache(tagInfoCache map[reflect.Type]structInfo, key reflect.T
 		tagInfoCache[key] = info
 	}
 	return info
+}
+
+func buildDeleteQuery(table string, ids []interface{}) string {
+	values := []string{}
+	for range ids {
+		values = append(values, "?")
+	}
+
+	return fmt.Sprintf(
+		"DELETE FROM `%s` WHERE id IN (%s)",
+		table,
+		strings.Join(values, ","),
+	)
 }
