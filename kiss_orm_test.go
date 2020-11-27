@@ -64,7 +64,7 @@ func TestQuery(t *testing.T) {
 		assert.Equal(t, nil, err)
 		assert.Equal(t, 1, len(users))
 		assert.Equal(t, "Bia", users[0].Name)
-		assert.NotEqual(t, 0, users[0].ID)
+		assert.NotEqual(t, uint(0), users[0].ID)
 	})
 
 	t.Run("should return multiple users correctly", func(t *testing.T) {
@@ -90,9 +90,9 @@ func TestQuery(t *testing.T) {
 		assert.Equal(t, nil, err)
 		assert.Equal(t, 2, len(users))
 		assert.Equal(t, "João Garcia", users[0].Name)
-		assert.NotEqual(t, 0, users[0].ID)
+		assert.NotEqual(t, uint(0), users[0].ID)
 		assert.Equal(t, "Bia Garcia", users[1].Name)
-		assert.NotEqual(t, 0, users[1].ID)
+		assert.NotEqual(t, uint(0), users[1].ID)
 	})
 
 	t.Run("should report error if input is not a pointer to a slice of structs", func(t *testing.T) {
@@ -165,7 +165,7 @@ func TestQueryOne(t *testing.T) {
 
 		assert.Equal(t, nil, err)
 		assert.Equal(t, "Bia", u.Name)
-		assert.NotEqual(t, 0, u.ID)
+		assert.NotEqual(t, uint(0), u.ID)
 	})
 
 	t.Run("should report error if input is not a pointer to struct", func(t *testing.T) {
@@ -256,8 +256,26 @@ func TestDelete(t *testing.T) {
 			tableName: "users",
 		}
 
+		u := User{
+			Name: "Won't be deleted",
+		}
+
+		err := c.Insert(ctx, &u)
+		assert.Equal(t, nil, err)
+		assert.NotEqual(t, uint(0), u.ID)
+
+		result := User{}
+		it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
+		it.Scan(&result)
+		assert.Equal(t, u.ID, result.ID)
+
 		err = c.Delete(ctx)
 		assert.Equal(t, nil, err)
+
+		result = User{}
+		it = c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
+		it.Scan(&result)
+		assert.Equal(t, u.ID, result.ID)
 	})
 
 	t.Run("should delete one id correctly", func(t *testing.T) {
@@ -270,29 +288,50 @@ func TestDelete(t *testing.T) {
 			tableName: "users",
 		}
 
-		u := User{
+		u1 := User{
 			Name: "Fernanda",
 		}
 
-		err := c.Insert(ctx, &u)
+		err := c.Insert(ctx, &u1)
 		assert.Equal(t, nil, err)
+		assert.NotEqual(t, uint(0), u1.ID)
 
-		assert.NotEqual(t, 0, u.ID)
 		result := User{}
-		it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
+		it := c.db.Raw("SELECT * FROM users WHERE id=?", u1.ID)
 		it.Scan(&result)
-		assert.Equal(t, u.ID, result.ID)
+		assert.Equal(t, u1.ID, result.ID)
 
-		err = c.Delete(ctx, u.ID)
+		u2 := User{
+			Name: "Won't be deleted",
+		}
+
+		err = c.Insert(ctx, &u2)
+		assert.Equal(t, nil, err)
+		assert.NotEqual(t, uint(0), u2.ID)
+
+		result = User{}
+		it = c.db.Raw("SELECT * FROM users WHERE id=?", u2.ID)
+		it.Scan(&result)
+		assert.Equal(t, u2.ID, result.ID)
+
+		err = c.Delete(ctx, u1.ID)
 		assert.Equal(t, nil, err)
 
 		result = User{}
-		it = c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
+		it = c.db.Raw("SELECT * FROM users WHERE id=?", u1.ID)
 		it.Scan(&result)
 
 		assert.Equal(t, nil, it.Error)
 		assert.Equal(t, uint(0), result.ID)
 		assert.Equal(t, "", result.Name)
+
+		result = User{}
+		it = c.db.Raw("SELECT * FROM users WHERE id=?", u2.ID)
+		it.Scan(&result)
+
+		assert.Equal(t, nil, it.Error)
+		assert.NotEqual(t, uint(0), result.ID)
+		assert.Equal(t, "Won't be deleted", result.Name)
 	})
 
 	t.Run("should delete multiple ids correctly", func(t *testing.T) {
@@ -310,21 +349,21 @@ func TestDelete(t *testing.T) {
 		}
 		err := c.Insert(ctx, &u1)
 		assert.Equal(t, nil, err)
-		assert.NotEqual(t, 0, u1.ID)
+		assert.NotEqual(t, uint(0), u1.ID)
 
 		u2 := User{
 			Name: "Juliano",
 		}
 		err = c.Insert(ctx, &u2)
 		assert.Equal(t, nil, err)
-		assert.NotEqual(t, 0, u2.ID)
+		assert.NotEqual(t, uint(0), u2.ID)
 
 		u3 := User{
 			Name: "This won't be deleted",
 		}
 		err = c.Insert(ctx, &u3)
 		assert.Equal(t, nil, err)
-		assert.NotEqual(t, 0, u3.ID)
+		assert.NotEqual(t, uint(0), u3.ID)
 
 		result := User{}
 		it := c.db.Raw("SELECT * FROM users WHERE id=?", u1.ID)
@@ -375,7 +414,7 @@ func TestUpdate(t *testing.T) {
 		}
 		err := c.Insert(ctx, &u)
 		assert.Equal(t, nil, err)
-		assert.NotEqual(t, 0, u.ID)
+		assert.NotEqual(t, uint(0), u.ID)
 
 		// Empty update, should do nothing:
 		err = c.Update(ctx)
@@ -405,7 +444,7 @@ func TestUpdate(t *testing.T) {
 		}
 		r := c.db.Table(c.tableName).Create(&u)
 		assert.Equal(t, nil, r.Error)
-		assert.NotEqual(t, 0, u.ID)
+		assert.NotEqual(t, uint(0), u.ID)
 
 		err = c.Update(ctx, User{
 			ID:   u.ID,
@@ -435,7 +474,7 @@ func TestUpdate(t *testing.T) {
 		}
 		r := c.db.Table(c.tableName).Create(&u)
 		assert.Equal(t, nil, r.Error)
-		assert.NotEqual(t, 0, u.ID)
+		assert.NotEqual(t, uint(0), u.ID)
 
 		err = c.Update(ctx, User{
 			ID:   u.ID,
@@ -471,7 +510,7 @@ func TestUpdate(t *testing.T) {
 		}
 		r := c.db.Table(c.tableName).Create(&u)
 		assert.Equal(t, nil, r.Error)
-		assert.NotEqual(t, 0, u.ID)
+		assert.NotEqual(t, uint(0), u.ID)
 
 		err = c.Update(ctx, partialUser{
 			ID: u.ID,
@@ -511,7 +550,7 @@ func TestUpdate(t *testing.T) {
 		}
 		r := c.db.Table(c.tableName).Create(&u)
 		assert.Equal(t, nil, r.Error)
-		assert.NotEqual(t, 0, u.ID)
+		assert.NotEqual(t, uint(0), u.ID)
 
 		// Should update all fields:
 		err = c.Update(ctx, partialUser{
@@ -645,7 +684,7 @@ func TestQueryChunks(t *testing.T) {
 
 		assert.Equal(t, nil, err)
 		assert.Equal(t, 1, length)
-		assert.NotEqual(t, 0, u.ID)
+		assert.NotEqual(t, uint(0), u.ID)
 		assert.Equal(t, "User1", u.Name)
 	})
 
@@ -684,9 +723,9 @@ func TestQueryChunks(t *testing.T) {
 		assert.Equal(t, nil, err)
 		assert.Equal(t, 1, len(lengths))
 		assert.Equal(t, 2, lengths[0])
-		assert.NotEqual(t, 0, users[0].ID)
+		assert.NotEqual(t, uint(0), users[0].ID)
 		assert.Equal(t, "User1", users[0].Name)
-		assert.NotEqual(t, 0, users[1].ID)
+		assert.NotEqual(t, uint(0), users[1].ID)
 		assert.Equal(t, "User2", users[1].Name)
 	})
 
@@ -724,9 +763,9 @@ func TestQueryChunks(t *testing.T) {
 
 		assert.Equal(t, nil, err)
 		assert.Equal(t, 2, len(users))
-		assert.NotEqual(t, 0, users[0].ID)
+		assert.NotEqual(t, uint(0), users[0].ID)
 		assert.Equal(t, "User1", users[0].Name)
-		assert.NotEqual(t, 0, users[1].ID)
+		assert.NotEqual(t, uint(0), users[1].ID)
 		assert.Equal(t, "User2", users[1].Name)
 		assert.Equal(t, []int{1, 1}, lengths)
 	})
@@ -766,11 +805,11 @@ func TestQueryChunks(t *testing.T) {
 
 		assert.Equal(t, nil, err)
 		assert.Equal(t, 3, len(users))
-		assert.NotEqual(t, 0, users[0].ID)
+		assert.NotEqual(t, uint(0), users[0].ID)
 		assert.Equal(t, "User1", users[0].Name)
-		assert.NotEqual(t, 0, users[1].ID)
+		assert.NotEqual(t, uint(0), users[1].ID)
 		assert.Equal(t, "User2", users[1].Name)
-		assert.NotEqual(t, 0, users[2].ID)
+		assert.NotEqual(t, uint(0), users[2].ID)
 		assert.Equal(t, "User3", users[2].Name)
 		assert.Equal(t, []int{2, 1}, lengths)
 	})
@@ -810,9 +849,9 @@ func TestQueryChunks(t *testing.T) {
 
 		assert.Equal(t, nil, err)
 		assert.Equal(t, 2, len(users))
-		assert.NotEqual(t, 0, users[0].ID)
+		assert.NotEqual(t, uint(0), users[0].ID)
 		assert.Equal(t, "User1", users[0].Name)
-		assert.NotEqual(t, 0, users[1].ID)
+		assert.NotEqual(t, uint(0), users[1].ID)
 		assert.Equal(t, "User2", users[1].Name)
 		assert.Equal(t, []int{2}, lengths)
 	})
@@ -854,11 +893,11 @@ func TestQueryChunks(t *testing.T) {
 
 		assert.Equal(t, nil, err)
 		assert.Equal(t, 3, len(users))
-		assert.NotEqual(t, 0, users[0].ID)
+		assert.NotEqual(t, uint(0), users[0].ID)
 		assert.Equal(t, "User1", users[0].Name)
-		assert.NotEqual(t, 0, users[1].ID)
+		assert.NotEqual(t, uint(0), users[1].ID)
 		assert.Equal(t, "User2", users[1].Name)
-		assert.NotEqual(t, 0, users[2].ID)
+		assert.NotEqual(t, uint(0), users[2].ID)
 		assert.Equal(t, "User3", users[2].Name)
 		assert.Equal(t, []int{2, 1}, lengths)
 	})
