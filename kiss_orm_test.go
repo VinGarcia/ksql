@@ -2,7 +2,6 @@ package kissorm
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -230,6 +229,7 @@ func TestInsert(t *testing.T) {
 
 		err := c.Insert(ctx, &u)
 		assert.Equal(t, nil, err)
+		assert.NotEqual(t, 0, u.ID)
 
 		result := User{}
 		it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
@@ -1009,9 +1009,7 @@ func TestScanRows(t *testing.T) {
 		assert.Equal(t, nil, err)
 
 		var u map[string]interface{}
-		fmt.Println("before scan")
 		err = scanRows(rows, &u)
-		fmt.Println("after scan")
 		assert.NotEqual(t, nil, err)
 	})
 }
