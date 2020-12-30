@@ -90,7 +90,7 @@ func (c Client) Query(
 
 	rows, err := c.db.DB().QueryContext(ctx, query, params...)
 	if err != nil {
-		return err
+		return fmt.Errorf("error running query: %s", err.Error())
 	}
 	defer rows.Close()
 
