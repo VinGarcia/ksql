@@ -228,147 +228,157 @@ func TestInsert(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	err := createTable("sqlite3")
-	if err != nil {
-		t.Fatal("could not create test table!, reason:", err.Error())
+	for _, driver := range []string{"sqlite3", "postgres"} {
+		t.Run(driver, func(t *testing.T) {
+			err := createTable(driver)
+			if err != nil {
+				t.Fatal("could not create test table!, reason:", err.Error())
+			}
+
+			t.Run("should ignore empty lists of ids", func(t *testing.T) {
+				db := connectDB(t, driver)
+				defer db.Close()
+
+				ctx := context.Background()
+				c := newTestClient(db, driver, "users")
+
+				u := User{
+					Name: "Won't be deleted",
+				}
+
+				err := c.Insert(ctx, &u)
+				assert.Equal(t, nil, err)
+				assert.NotEqual(t, uint(0), u.ID)
+
+				result := User{}
+				it := c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u.ID)
+				it.Scan(&result)
+				assert.Equal(t, u.ID, result.ID)
+
+				err = c.Delete(ctx)
+				assert.Equal(t, nil, err)
+
+				result = User{}
+				it = c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u.ID)
+				it.Scan(&result)
+				assert.Equal(t, u.ID, result.ID)
+			})
+
+			t.Run("should delete one id correctly", func(t *testing.T) {
+				db := connectDB(t, driver)
+				defer db.Close()
+
+				ctx := context.Background()
+				c := newTestClient(db, driver, "users")
+
+				u1 := User{
+					Name: "Fernanda",
+				}
+
+				err := c.Insert(ctx, &u1)
+				assert.Equal(t, nil, err)
+				assert.NotEqual(t, uint(0), u1.ID)
+
+				result := User{}
+				it := c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u1.ID)
+				it.Scan(&result)
+				assert.Equal(t, u1.ID, result.ID)
+
+				u2 := User{
+					Name: "Won't be deleted",
+				}
+
+				err = c.Insert(ctx, &u2)
+				assert.Equal(t, nil, err)
+				assert.NotEqual(t, uint(0), u2.ID)
+
+				result = User{}
+				it = c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u2.ID)
+				it.Scan(&result)
+				assert.Equal(t, u2.ID, result.ID)
+
+				err = c.Delete(ctx, u1.ID)
+				assert.Equal(t, nil, err)
+
+				result = User{}
+				it = c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u1.ID)
+				it.Scan(&result)
+
+				assert.Equal(t, nil, it.Error)
+				assert.Equal(t, uint(0), result.ID)
+				assert.Equal(t, "", result.Name)
+
+				result = User{}
+				it = c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u2.ID)
+				it.Scan(&result)
+
+				assert.Equal(t, nil, it.Error)
+				assert.NotEqual(t, uint(0), result.ID)
+				assert.Equal(t, "Won't be deleted", result.Name)
+			})
+
+			t.Run("should delete multiple ids correctly", func(t *testing.T) {
+				db := connectDB(t, driver)
+				defer db.Close()
+
+				ctx := context.Background()
+				c := newTestClient(db, driver, "users")
+
+				u1 := User{
+					Name: "Fernanda",
+				}
+				err := c.Insert(ctx, &u1)
+				assert.Equal(t, nil, err)
+				assert.NotEqual(t, uint(0), u1.ID)
+
+				u2 := User{
+					Name: "Juliano",
+				}
+				err = c.Insert(ctx, &u2)
+				assert.Equal(t, nil, err)
+				assert.NotEqual(t, uint(0), u2.ID)
+
+				u3 := User{
+					Name: "This won't be deleted",
+				}
+				err = c.Insert(ctx, &u3)
+				assert.Equal(t, nil, err)
+				assert.NotEqual(t, uint(0), u3.ID)
+
+				result := User{}
+				it := c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u1.ID)
+				it.Scan(&result)
+				assert.Equal(t, u1.ID, result.ID)
+
+				result = User{}
+				it = c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u2.ID)
+				it.Scan(&result)
+				assert.Equal(t, u2.ID, result.ID)
+
+				result = User{}
+				it = c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u3.ID)
+				it.Scan(&result)
+				assert.Equal(t, u3.ID, result.ID)
+
+				err = c.Delete(ctx, u1.ID, u2.ID)
+				assert.Equal(t, nil, err)
+
+				results := []User{}
+				it = c.db.Raw(
+					fmt.Sprintf(
+						"SELECT * FROM users WHERE id IN (%s, %s, %s)",
+						c.dialect.Placeholder(0), c.dialect.Placeholder(1), c.dialect.Placeholder(2),
+					),
+					u1.ID, u2.ID, u3.ID,
+				)
+				it.Scan(&results)
+
+				assert.Equal(t, nil, it.Error)
+				assert.Equal(t, 1, len(results))
+				assert.Equal(t, "This won't be deleted", results[0].Name)
+			})
+		})
 	}
-
-	t.Run("should ignore empty lists of ids", func(t *testing.T) {
-		db := connectDB(t, "sqlite3")
-		defer db.Close()
-
-		ctx := context.Background()
-		c := newTestClient(db, "sqlite3", "users")
-
-		u := User{
-			Name: "Won't be deleted",
-		}
-
-		err := c.Insert(ctx, &u)
-		assert.Equal(t, nil, err)
-		assert.NotEqual(t, uint(0), u.ID)
-
-		result := User{}
-		it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
-		it.Scan(&result)
-		assert.Equal(t, u.ID, result.ID)
-
-		err = c.Delete(ctx)
-		assert.Equal(t, nil, err)
-
-		result = User{}
-		it = c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
-		it.Scan(&result)
-		assert.Equal(t, u.ID, result.ID)
-	})
-
-	t.Run("should delete one id correctly", func(t *testing.T) {
-		db := connectDB(t, "sqlite3")
-		defer db.Close()
-
-		ctx := context.Background()
-		c := newTestClient(db, "sqlite3", "users")
-
-		u1 := User{
-			Name: "Fernanda",
-		}
-
-		err := c.Insert(ctx, &u1)
-		assert.Equal(t, nil, err)
-		assert.NotEqual(t, uint(0), u1.ID)
-
-		result := User{}
-		it := c.db.Raw("SELECT * FROM users WHERE id=?", u1.ID)
-		it.Scan(&result)
-		assert.Equal(t, u1.ID, result.ID)
-
-		u2 := User{
-			Name: "Won't be deleted",
-		}
-
-		err = c.Insert(ctx, &u2)
-		assert.Equal(t, nil, err)
-		assert.NotEqual(t, uint(0), u2.ID)
-
-		result = User{}
-		it = c.db.Raw("SELECT * FROM users WHERE id=?", u2.ID)
-		it.Scan(&result)
-		assert.Equal(t, u2.ID, result.ID)
-
-		err = c.Delete(ctx, u1.ID)
-		assert.Equal(t, nil, err)
-
-		result = User{}
-		it = c.db.Raw("SELECT * FROM users WHERE id=?", u1.ID)
-		it.Scan(&result)
-
-		assert.Equal(t, nil, it.Error)
-		assert.Equal(t, uint(0), result.ID)
-		assert.Equal(t, "", result.Name)
-
-		result = User{}
-		it = c.db.Raw("SELECT * FROM users WHERE id=?", u2.ID)
-		it.Scan(&result)
-
-		assert.Equal(t, nil, it.Error)
-		assert.NotEqual(t, uint(0), result.ID)
-		assert.Equal(t, "Won't be deleted", result.Name)
-	})
-
-	t.Run("should delete multiple ids correctly", func(t *testing.T) {
-		db := connectDB(t, "sqlite3")
-		defer db.Close()
-
-		ctx := context.Background()
-		c := newTestClient(db, "sqlite3", "users")
-
-		u1 := User{
-			Name: "Fernanda",
-		}
-		err := c.Insert(ctx, &u1)
-		assert.Equal(t, nil, err)
-		assert.NotEqual(t, uint(0), u1.ID)
-
-		u2 := User{
-			Name: "Juliano",
-		}
-		err = c.Insert(ctx, &u2)
-		assert.Equal(t, nil, err)
-		assert.NotEqual(t, uint(0), u2.ID)
-
-		u3 := User{
-			Name: "This won't be deleted",
-		}
-		err = c.Insert(ctx, &u3)
-		assert.Equal(t, nil, err)
-		assert.NotEqual(t, uint(0), u3.ID)
-
-		result := User{}
-		it := c.db.Raw("SELECT * FROM users WHERE id=?", u1.ID)
-		it.Scan(&result)
-		assert.Equal(t, u1.ID, result.ID)
-
-		result = User{}
-		it = c.db.Raw("SELECT * FROM users WHERE id=?", u2.ID)
-		it.Scan(&result)
-		assert.Equal(t, u2.ID, result.ID)
-
-		result = User{}
-		it = c.db.Raw("SELECT * FROM users WHERE id=?", u3.ID)
-		it.Scan(&result)
-		assert.Equal(t, u3.ID, result.ID)
-
-		err = c.Delete(ctx, u1.ID, u2.ID)
-		assert.Equal(t, nil, err)
-
-		results := []User{}
-		it = c.db.Raw("SELECT * FROM users WHERE id IN (?, ?, ?)", u1.ID, u2.ID, u3.ID)
-		it.Scan(&results)
-
-		assert.Equal(t, nil, it.Error)
-		assert.Equal(t, 1, len(results))
-		assert.Equal(t, "This won't be deleted", results[0].Name)
-	})
 }
 
 func TestUpdate(t *testing.T) {

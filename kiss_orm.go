@@ -348,7 +348,7 @@ func (c Client) Delete(
 		return nil
 	}
 
-	query := buildDeleteQuery(c.tableName, ids)
+	query := buildDeleteQuery(c.dialect, c.tableName, ids)
 
 	_, err := c.db.DB().ExecContext(ctx, query, ids...)
 
@@ -737,15 +737,15 @@ func getCachedTagInfo(tagInfoCache map[reflect.Type]structInfo, key reflect.Type
 	return info
 }
 
-func buildDeleteQuery(table string, ids []interface{}) string {
+func buildDeleteQuery(dialect dialect, table string, ids []interface{}) string {
 	values := []string{}
-	for range ids {
-		values = append(values, "?")
+	for i := range ids {
+		values = append(values, dialect.Placeholder(i))
 	}
 
 	return fmt.Sprintf(
-		"DELETE FROM `%s` WHERE id IN (%s)",
-		table,
+		"DELETE FROM %s WHERE id IN (%s)",
+		dialect.Escape(table),
 		strings.Join(values, ","),
 	)
 }
