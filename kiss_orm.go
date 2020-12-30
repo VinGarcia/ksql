@@ -363,7 +363,7 @@ func (c Client) Update(
 	records ...interface{},
 ) error {
 	for _, record := range records {
-		query, params, err := buildUpdateQuery(c.tableName, record, "id")
+		query, params, err := buildUpdateQuery(c.dialect, c.tableName, record, "id")
 		if err != nil {
 			return err
 		}
@@ -424,6 +424,7 @@ func buildInsertQuery(
 }
 
 func buildUpdateQuery(
+	dialect dialect,
 	tableName string,
 	record interface{},
 	idFieldNames ...string,
@@ -433,14 +434,19 @@ func buildUpdateQuery(
 		return "", nil, err
 	}
 	numAttrs := len(recordMap)
-	numIDs := len(idFieldNames)
-	args = make([]interface{}, numAttrs+numIDs)
-	whereArgs := args[numAttrs-len(idFieldNames):]
+	args = make([]interface{}, numAttrs)
+	numNonIDArgs := numAttrs - len(idFieldNames)
+	whereArgs := args[numNonIDArgs:]
 
-	var whereQuery []string
+	whereQuery := make([]string, len(idFieldNames))
 	for i, fieldName := range idFieldNames {
 		whereArgs[i] = recordMap[fieldName]
-		whereQuery = append(whereQuery, fmt.Sprintf("`%s` = ?", fieldName))
+		whereQuery[i] = fmt.Sprintf(
+			"%s = %s",
+			dialect.Escape(fieldName),
+			dialect.Placeholder(i+numNonIDArgs),
+		)
+
 		delete(recordMap, fieldName)
 	}
 
@@ -452,12 +458,16 @@ func buildUpdateQuery(
 	var setQuery []string
 	for i, k := range keys {
 		args[i] = recordMap[k]
-		setQuery = append(setQuery, fmt.Sprintf("`%s` = ?", k))
+		setQuery = append(setQuery, fmt.Sprintf(
+			"%s = %s",
+			dialect.Escape(k),
+			dialect.Placeholder(i),
+		))
 	}
 
 	query = fmt.Sprintf(
-		"UPDATE `%s` SET %s WHERE %s",
-		tableName,
+		"UPDATE %s SET %s WHERE %s",
+		dialect.Escape(tableName),
 		strings.Join(setQuery, ", "),
 		strings.Join(whereQuery, ", "),
 	)
