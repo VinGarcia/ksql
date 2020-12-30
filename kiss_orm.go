@@ -112,6 +112,10 @@ func (c Client) Query(
 		}
 	}
 
+	if err := rows.Close(); err != nil {
+		return err
+	}
+
 	if rows.Err() != nil {
 		return rows.Err()
 	}
@@ -156,7 +160,12 @@ func (c Client) QueryOne(
 		return ErrRecordNotFound
 	}
 
-	return scanRows(rows, record)
+	err = scanRows(rows, record)
+	if err != nil {
+		return err
+	}
+
+	return rows.Close()
 }
 
 // QueryChunks is meant to perform queries that returns
@@ -231,6 +240,10 @@ func (c Client) QueryChunks(
 		}
 	}
 
+	if err := rows.Close(); err != nil {
+		return err
+	}
+
 	// If Next() returned false because of an error:
 	if rows.Err() != nil {
 		return rows.Err()
@@ -296,6 +309,7 @@ func (c Client) insertOnPostgres(
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	if !rows.Next() {
 		err := fmt.Errorf("unexpected error retrieving the id from the database")
@@ -311,7 +325,12 @@ func (c Client) insertOnPostgres(
 	info := getCachedTagInfo(tagInfoCache, t.Elem())
 
 	fieldAddr := v.Elem().Field(info.Index["id"]).Addr()
-	return rows.Scan(fieldAddr.Interface())
+	err = rows.Scan(fieldAddr.Interface())
+	if err != nil {
+		return err
+	}
+
+	return rows.Close()
 }
 
 func (c Client) insertWithLastInsertID(
