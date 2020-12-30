@@ -121,61 +121,65 @@ func TestQuery(t *testing.T) {
 }
 
 func TestQueryOne(t *testing.T) {
-	err := createTable("sqlite3")
-	if err != nil {
-		t.Fatal("could not create test table!, reason:", err.Error())
+	for _, driver := range []string{"sqlite3", "postgres"} {
+		t.Run(driver, func(t *testing.T) {
+			err := createTable(driver)
+			if err != nil {
+				t.Fatal("could not create test table!, reason:", err.Error())
+			}
+
+			t.Run("should return RecordNotFoundErr when there are no results", func(t *testing.T) {
+				db := connectDB(t, driver)
+				defer db.Close()
+
+				ctx := context.Background()
+				c := newTestClient(db, "postgres", "users")
+				u := User{}
+				err := c.QueryOne(ctx, &u, `SELECT * FROM users WHERE id=1;`)
+				assert.Equal(t, ErrRecordNotFound, err)
+			})
+
+			t.Run("should return a user correctly", func(t *testing.T) {
+				db := connectDB(t, driver)
+				defer db.Close()
+
+				db.Create(&User{
+					Name: "Bia",
+				})
+
+				ctx := context.Background()
+				c := newTestClient(db, "postgres", "users")
+				u := User{}
+				err = c.QueryOne(ctx, &u, `SELECT * FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
+
+				assert.Equal(t, nil, err)
+				assert.Equal(t, "Bia", u.Name)
+				assert.NotEqual(t, uint(0), u.ID)
+			})
+
+			t.Run("should report error if input is not a pointer to struct", func(t *testing.T) {
+				db := connectDB(t, driver)
+				defer db.Close()
+
+				db.Create(&User{
+					Name: "Andréa Sá",
+				})
+
+				db.Create(&User{
+					Name: "Caio Sá",
+				})
+
+				ctx := context.Background()
+				c := newTestClient(db, "postgres", "users")
+
+				err = c.QueryOne(ctx, &[]User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
+				assert.NotEqual(t, nil, err)
+
+				err = c.QueryOne(ctx, User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
+				assert.NotEqual(t, nil, err)
+			})
+		})
 	}
-
-	t.Run("should return RecordNotFoundErr when there are no results", func(t *testing.T) {
-		db := connectDB(t, "sqlite3")
-		defer db.Close()
-
-		ctx := context.Background()
-		c := newTestClient(db, "postgres", "users")
-		u := User{}
-		err := c.QueryOne(ctx, &u, `SELECT * FROM users WHERE id=1;`)
-		assert.Equal(t, ErrRecordNotFound, err)
-	})
-
-	t.Run("should return a user correctly", func(t *testing.T) {
-		db := connectDB(t, "sqlite3")
-		defer db.Close()
-
-		db.Create(&User{
-			Name: "Bia",
-		})
-
-		ctx := context.Background()
-		c := newTestClient(db, "postgres", "users")
-		u := User{}
-		err = c.QueryOne(ctx, &u, `SELECT * FROM users WHERE name=?;`, "Bia")
-
-		assert.Equal(t, nil, err)
-		assert.Equal(t, "Bia", u.Name)
-		assert.NotEqual(t, uint(0), u.ID)
-	})
-
-	t.Run("should report error if input is not a pointer to struct", func(t *testing.T) {
-		db := connectDB(t, "sqlite3")
-		defer db.Close()
-
-		db.Create(&User{
-			Name: "Andréa Sá",
-		})
-
-		db.Create(&User{
-			Name: "Caio Sá",
-		})
-
-		ctx := context.Background()
-		c := newTestClient(db, "postgres", "users")
-
-		err = c.QueryOne(ctx, &[]User{}, `SELECT * FROM users WHERE name like ?;`, "% Sá")
-		assert.NotEqual(t, nil, err)
-
-		err = c.QueryOne(ctx, User{}, `SELECT * FROM users WHERE name like ?;`, "% Sá")
-		assert.NotEqual(t, nil, err)
-	})
 }
 
 func TestInsert(t *testing.T) {
