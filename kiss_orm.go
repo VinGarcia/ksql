@@ -13,6 +13,7 @@ import (
 // Client ...
 type Client struct {
 	driver    string
+	dialect   dialect
 	tableName string
 	db        *gorm.DB
 }
@@ -34,7 +35,13 @@ func NewClient(
 
 	db.DB().SetMaxOpenConns(maxOpenConns)
 
+	dialect := getDriverDialect(dbDriver)
+	if dialect == nil {
+		return Client{}, fmt.Errorf("unsupported driver `%s`", dbDriver)
+	}
+
 	return Client{
+		dialect:   dialect,
 		driver:    dbDriver,
 		db:        db,
 		tableName: tableName,
@@ -255,7 +262,7 @@ func (c Client) Insert(
 	records ...interface{},
 ) error {
 	for _, record := range records {
-		query, params, err := buildInsertQuery(c.tableName, record, "id")
+		query, params, err := buildInsertQuery(c.dialect, c.tableName, record, "id")
 		if err != nil {
 			return err
 		}
@@ -263,8 +270,14 @@ func (c Client) Insert(
 		switch c.driver {
 		case "postgres":
 			err = c.insertOnPostgres(ctx, record, query, params)
-		default:
+		case "sqlite3":
 			err = c.insertWithLastInsertID(ctx, record, query, params)
+		default:
+			err = fmt.Errorf("unsupported driver `%s`", c.driver)
+		}
+
+		if err != nil {
+			return err
 		}
 	}
 
@@ -295,10 +308,10 @@ func (c Client) insertOnPostgres(
 
 	v := reflect.ValueOf(record)
 	t := v.Type()
-	info := getTagInfoWithCache(tagInfoCache, t.Elem())
+	info := getCachedTagInfo(tagInfoCache, t.Elem())
 
 	fieldAddr := v.Elem().Field(info.Index["id"]).Addr()
-	return rows.Scan(fieldAddr)
+	return rows.Scan(fieldAddr.Interface())
 }
 
 func (c Client) insertWithLastInsertID(
@@ -314,7 +327,7 @@ func (c Client) insertWithLastInsertID(
 
 	v := reflect.ValueOf(record)
 	t := v.Type()
-	info := getTagInfoWithCache(tagInfoCache, t.Elem())
+	info := getCachedTagInfo(tagInfoCache, t.Elem())
 
 	id, err := result.LastInsertId()
 	if err != nil {
@@ -365,6 +378,7 @@ func (c Client) Update(
 }
 
 func buildInsertQuery(
+	dialect dialect,
 	tableName string,
 	record interface{},
 	idFieldNames ...string,
@@ -373,9 +387,6 @@ func buildInsertQuery(
 	if err != nil {
 		return "", nil, err
 	}
-
-	numAttrs := len(recordMap)
-	params = make([]interface{}, numAttrs)
 
 	for _, fieldName := range idFieldNames {
 		// Remove any ID field that was not set:
@@ -389,16 +400,23 @@ func buildInsertQuery(
 		columnNames = append(columnNames, col)
 	}
 
-	var valuesQuery []string
+	params = make([]interface{}, len(recordMap))
+	valuesQuery := make([]string, len(recordMap))
 	for i, col := range columnNames {
 		params[i] = recordMap[col]
-		valuesQuery = append(valuesQuery, "?")
+		valuesQuery[i] = dialect.Placeholder(i)
+	}
+
+	// Escape all cols to be sure they will be interpreted as column names:
+	escapedColumnNames := []string{}
+	for _, col := range columnNames {
+		escapedColumnNames = append(escapedColumnNames, dialect.Escape(col))
 	}
 
 	query = fmt.Sprintf(
-		"INSERT INTO `%s` (`%s`) VALUES (%s)",
-		tableName,
-		strings.Join(columnNames, "`, `"),
+		"INSERT INTO %s (%s) VALUES (%s)",
+		dialect.Escape(tableName),
+		strings.Join(escapedColumnNames, ", "),
 		strings.Join(valuesQuery, ", "),
 	)
 
@@ -479,7 +497,7 @@ func StructToMap(obj interface{}) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("input must be a struct or struct pointer")
 	}
 
-	info := getTagInfoWithCache(tagInfoCache, t)
+	info := getCachedTagInfo(tagInfoCache, t)
 
 	m := map[string]interface{}{}
 	for i := 0; i < v.NumField(); i++ {
@@ -548,7 +566,7 @@ func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
 		)
 	}
 
-	info := getTagInfoWithCache(tagInfoCache, t)
+	info := getCachedTagInfo(tagInfoCache, t)
 
 	for colName, attr := range dbRow {
 		attrValue := reflect.ValueOf(attr)
@@ -690,7 +708,7 @@ func scanRows(rows *sql.Rows, record interface{}) error {
 		return fmt.Errorf("kissorm: expected to receive a pointer to slice of structs, but got: %T", record)
 	}
 
-	info := getTagInfoWithCache(tagInfoCache, t)
+	info := getCachedTagInfo(tagInfoCache, t)
 
 	scanArgs := []interface{}{}
 	for _, name := range names {
@@ -700,7 +718,7 @@ func scanRows(rows *sql.Rows, record interface{}) error {
 	return rows.Scan(scanArgs...)
 }
 
-func getTagInfoWithCache(tagInfoCache map[reflect.Type]structInfo, key reflect.Type) structInfo {
+func getCachedTagInfo(tagInfoCache map[reflect.Type]structInfo, key reflect.Type) structInfo {
 	info, found := tagInfoCache[key]
 	if !found {
 		info = getTagNames(key)
