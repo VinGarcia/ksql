@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-
-	"github.com/jinzhu/gorm"
 )
 
 // Client ...
@@ -15,7 +13,7 @@ type Client struct {
 	driver    string
 	dialect   dialect
 	tableName string
-	db        *gorm.DB
+	db        *sql.DB
 }
 
 // NewClient instantiates a new client
@@ -25,15 +23,15 @@ func NewClient(
 	maxOpenConns int,
 	tableName string,
 ) (Client, error) {
-	db, err := gorm.Open(dbDriver, connectionString)
+	db, err := sql.Open(dbDriver, connectionString)
 	if err != nil {
 		return Client{}, err
 	}
-	if err = db.DB().Ping(); err != nil {
+	if err = db.Ping(); err != nil {
 		return Client{}, err
 	}
 
-	db.DB().SetMaxOpenConns(maxOpenConns)
+	db.SetMaxOpenConns(maxOpenConns)
 
 	dialect := getDriverDialect(dbDriver)
 	if dialect == nil {
@@ -88,7 +86,7 @@ func (c Client) Query(
 		slice = slice.Slice(0, 0)
 	}
 
-	rows, err := c.db.DB().QueryContext(ctx, query, params...)
+	rows, err := c.db.QueryContext(ctx, query, params...)
 	if err != nil {
 		return fmt.Errorf("error running query: %s", err.Error())
 	}
@@ -147,7 +145,7 @@ func (c Client) QueryOne(
 		return fmt.Errorf("kissorm: expected to receive a pointer to struct, but got: %T", record)
 	}
 
-	rows, err := c.db.DB().QueryContext(ctx, query, params...)
+	rows, err := c.db.QueryContext(ctx, query, params...)
 	if err != nil {
 		return err
 	}
@@ -201,7 +199,7 @@ func (c Client) QueryChunks(
 		return err
 	}
 
-	rows, err := c.db.DB().QueryContext(ctx, parser.Query, parser.Params...)
+	rows, err := c.db.QueryContext(ctx, parser.Query, parser.Params...)
 	if err != nil {
 		return err
 	}
@@ -305,7 +303,7 @@ func (c Client) insertOnPostgres(
 ) error {
 	query = query + " RETURNING id"
 
-	rows, err := c.db.DB().QueryContext(ctx, query, params...)
+	rows, err := c.db.QueryContext(ctx, query, params...)
 	if err != nil {
 		return err
 	}
@@ -339,7 +337,7 @@ func (c Client) insertWithLastInsertID(
 	query string,
 	params []interface{},
 ) error {
-	result, err := c.db.DB().ExecContext(ctx, query, params...)
+	result, err := c.db.ExecContext(ctx, query, params...)
 	if err != nil {
 		return err
 	}
@@ -369,7 +367,7 @@ func (c Client) Delete(
 
 	query := buildDeleteQuery(c.dialect, c.tableName, ids)
 
-	_, err := c.db.DB().ExecContext(ctx, query, ids...)
+	_, err := c.db.ExecContext(ctx, query, ids...)
 
 	return err
 }
@@ -387,7 +385,7 @@ func (c Client) Update(
 			return err
 		}
 
-		_, err = c.db.DB().ExecContext(ctx, query, params...)
+		_, err = c.db.ExecContext(ctx, query, params...)
 		if err != nil {
 			return err
 		}
