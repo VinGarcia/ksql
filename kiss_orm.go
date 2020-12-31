@@ -504,7 +504,7 @@ type structInfo struct {
 }
 
 // StructToMap converts any struct type to a map based on
-// the tag named `gorm`, i.e. `gorm:"map_key_name"`
+// the tag named `kissorm`, i.e. `kissorm:"map_key_name"`
 //
 // Valid pointers are dereferenced and copied to the map,
 // null pointers are ignored.
@@ -555,7 +555,7 @@ func getTagNames(t reflect.Type) structInfo {
 		Index: map[string]int{},
 	}
 	for i := 0; i < t.NumField(); i++ {
-		name := t.Field(i).Tag.Get("gorm")
+		name := t.Field(i).Tag.Get("kissorm")
 		if name == "" {
 			continue
 		}

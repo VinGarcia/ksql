@@ -14,9 +14,9 @@ import (
 )
 
 type User struct {
-	ID   uint   `gorm:"id"`
-	Name string `gorm:"name"`
-	Age  int    `gorm:"age"`
+	ID   uint   `kissorm:"id"`
+	Name string `kissorm:"name"`
+	Age  int    `kissorm:"age"`
 }
 
 func TestQuery(t *testing.T) {
@@ -463,9 +463,9 @@ func TestUpdate(t *testing.T) {
 				c := newTestClient(db, driver, "users")
 
 				type partialUser struct {
-					ID   uint   `gorm:"id"`
-					Name string `gorm:"name"`
-					Age  *int   `gorm:"age"`
+					ID   uint   `kissorm:"id"`
+					Name string `kissorm:"name"`
+					Age  *int   `kissorm:"age"`
 				}
 				u := partialUser{
 					Name: "Letícia",
@@ -504,9 +504,9 @@ func TestUpdate(t *testing.T) {
 				c := newTestClient(db, driver, "users")
 
 				type partialUser struct {
-					ID   uint   `gorm:"id"`
-					Name string `gorm:"name"`
-					Age  *int   `gorm:"age"`
+					ID   uint   `kissorm:"id"`
+					Name string `kissorm:"name"`
+					Age  *int   `kissorm:"age"`
 				}
 				u := partialUser{
 					Name: "Letícia",
@@ -556,8 +556,8 @@ func TestUpdate(t *testing.T) {
 
 func TestStructToMap(t *testing.T) {
 	type S1 struct {
-		Name string `gorm:"name_attr"`
-		Age  int    `gorm:"age_attr"`
+		Name string `kissorm:"name_attr"`
+		Age  int    `kissorm:"age_attr"`
 	}
 	t.Run("should convert plain structs to maps", func(t *testing.T) {
 		m, err := StructToMap(S1{
@@ -586,8 +586,8 @@ func TestStructToMap(t *testing.T) {
 	})
 
 	type S2 struct {
-		Name *string `gorm:"name"`
-		Age  *int    `gorm:"age"`
+		Name *string `kissorm:"name"`
+		Age  *int    `kissorm:"age"`
 	}
 
 	t.Run("should not ignore not nil pointers", func(t *testing.T) {
