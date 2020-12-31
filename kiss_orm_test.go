@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/ditointernet/go-assert"
 	"github.com/jinzhu/gorm"
@@ -14,10 +13,9 @@ import (
 )
 
 type User struct {
-	ID        uint      `gorm:"id"`
-	Name      string    `gorm:"name"`
-	Age       int       `gorm:"age"`
-	CreatedAt time.Time `gorm:"created_at"`
+	ID   uint   `gorm:"id"`
+	Name string `gorm:"name"`
+	Age  int    `gorm:"age"`
 }
 
 func TestQuery(t *testing.T) {
@@ -49,9 +47,8 @@ func TestQuery(t *testing.T) {
 				db := connectDB(t, driver)
 				defer db.Close()
 
-				db.Create(&User{
-					Name: "Bia",
-				})
+				_, err := db.DB().Exec(`INSERT INTO users (name, age) VALUES ('Bia', 0)`)
+				assert.Equal(t, nil, err)
 
 				ctx := context.Background()
 				c := newTestClient(db, driver, "users")
@@ -68,13 +65,11 @@ func TestQuery(t *testing.T) {
 				db := connectDB(t, driver)
 				defer db.Close()
 
-				db.Create(&User{
-					Name: "João Garcia",
-				})
+				_, err := db.DB().Exec(`INSERT INTO users (name, age) VALUES ('João Garcia', 0)`)
+				assert.Equal(t, nil, err)
 
-				db.Create(&User{
-					Name: "Bia Garcia",
-				})
+				_, err = db.DB().Exec(`INSERT INTO users (name, age) VALUES ('Bia Garcia', 0)`)
+				assert.Equal(t, nil, err)
 
 				ctx := context.Background()
 				c := newTestClient(db, driver, "users")
@@ -93,13 +88,11 @@ func TestQuery(t *testing.T) {
 				db := connectDB(t, driver)
 				defer db.Close()
 
-				db.Create(&User{
-					Name: "Andréa Sá",
-				})
+				_, err := db.DB().Exec(`INSERT INTO users (name, age) VALUES ('Andréa Sá', 0)`)
+				assert.Equal(t, nil, err)
 
-				db.Create(&User{
-					Name: "Caio Sá",
-				})
+				_, err = db.DB().Exec(`INSERT INTO users (name, age) VALUES ('Caio Sá', 0)`)
+				assert.Equal(t, nil, err)
 
 				ctx := context.Background()
 				c := newTestClient(db, "postgres", "users")
@@ -143,9 +136,8 @@ func TestQueryOne(t *testing.T) {
 				db := connectDB(t, driver)
 				defer db.Close()
 
-				db.Create(&User{
-					Name: "Bia",
-				})
+				_, err := db.DB().Exec(`INSERT INTO users (name, age) VALUES ('Bia', 0)`)
+				assert.Equal(t, nil, err)
 
 				ctx := context.Background()
 				c := newTestClient(db, "postgres", "users")
@@ -161,13 +153,11 @@ func TestQueryOne(t *testing.T) {
 				db := connectDB(t, driver)
 				defer db.Close()
 
-				db.Create(&User{
-					Name: "Andréa Sá",
-				})
+				_, err := db.DB().Exec(`INSERT INTO users (name, age) VALUES ('Andréa Sá', 0)`)
+				assert.Equal(t, nil, err)
 
-				db.Create(&User{
-					Name: "Caio Sá",
-				})
+				_, err = db.DB().Exec(`INSERT INTO users (name, age) VALUES ('Caio Sá', 0)`)
+				assert.Equal(t, nil, err)
 
 				ctx := context.Background()
 				c := newTestClient(db, "postgres", "users")
@@ -221,7 +211,6 @@ func TestInsert(t *testing.T) {
 				it.Scan(&result)
 				assert.Equal(t, nil, it.Error)
 				assert.Equal(t, u.Name, result.Name)
-				assert.Equal(t, u.CreatedAt.Format(time.RFC3339), result.CreatedAt.Format(time.RFC3339))
 			})
 		})
 	}
@@ -426,8 +415,13 @@ func TestUpdate(t *testing.T) {
 				u := User{
 					Name: "Letícia",
 				}
-				r := c.db.Table(c.tableName).Create(&u)
-				assert.Equal(t, nil, r.Error)
+				_, err := db.DB().Exec(`INSERT INTO users (name, age) VALUES ('Letícia', 0)`)
+				assert.Equal(t, nil, err)
+
+				row := db.DB().QueryRow(`SELECT id FROM users WHERE name = 'Letícia'`)
+				assert.Equal(t, nil, row.Err())
+				err = row.Scan(&u.ID)
+				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u.ID)
 
 				err = c.Update(ctx, User{
@@ -453,8 +447,13 @@ func TestUpdate(t *testing.T) {
 				u := User{
 					Name: "Letícia",
 				}
-				r := c.db.Table(c.tableName).Create(&u)
-				assert.Equal(t, nil, r.Error)
+				_, err := db.DB().Exec(`INSERT INTO users (name, age) VALUES ('Letícia', 0)`)
+				assert.Equal(t, nil, err)
+
+				row := db.DB().QueryRow(`SELECT id FROM users WHERE name = 'Letícia'`)
+				assert.Equal(t, nil, row.Err())
+				err = row.Scan(&u.ID)
+				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u.ID)
 
 				err = c.Update(ctx, User{
@@ -486,8 +485,13 @@ func TestUpdate(t *testing.T) {
 					Name: "Letícia",
 					Age:  nullable.Int(22),
 				}
-				r := c.db.Table(c.tableName).Create(&u)
-				assert.Equal(t, nil, r.Error)
+				_, err := db.DB().Exec(`INSERT INTO users (name, age) VALUES ('Letícia', 22)`)
+				assert.Equal(t, nil, err)
+
+				row := db.DB().QueryRow(`SELECT id FROM users WHERE name = 'Letícia'`)
+				assert.Equal(t, nil, row.Err())
+				err = row.Scan(&u.ID)
+				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u.ID)
 
 				err = c.Update(ctx, partialUser{
@@ -523,8 +527,13 @@ func TestUpdate(t *testing.T) {
 					Name: "Letícia",
 					Age:  nullable.Int(22),
 				}
-				r := c.db.Table(c.tableName).Create(&u)
-				assert.Equal(t, nil, r.Error)
+				_, err := db.DB().Exec(`INSERT INTO users (name, age) VALUES ('Letícia', 22)`)
+				assert.Equal(t, nil, err)
+
+				row := db.DB().QueryRow(`SELECT id FROM users WHERE name = 'Letícia'`)
+				assert.Equal(t, nil, row.Err())
+				err = row.Scan(&u.ID)
+				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u.ID)
 
 				// Should update all fields:
@@ -988,9 +997,31 @@ func createTable(driver string) error {
 	}
 	defer db.Close()
 
-	db.DropTableIfExists(&User{})
-	db.CreateTable(&User{})
+	_, err = db.DB().Exec(`DROP TABLE users`)
+	err = nil
+	if err != nil {
+		return fmt.Errorf("failed to drop old users table: %s", err.Error())
+	}
 
+	switch driver {
+	case "sqlite3":
+		_, err = db.DB().Exec(`CREATE TABLE users (
+		  id INTEGER PRIMARY KEY,
+			age INTEGER,
+			name TEXT
+		)`)
+	case "postgres":
+		_, err = db.DB().Exec(`CREATE TABLE users (
+		  id serial PRIMARY KEY,
+			age INT,
+			name VARCHAR(50)
+		)`)
+	}
+
+	err = nil
+	if err != nil {
+		return fmt.Errorf("failed to create new users table: %s", err.Error())
+	}
 	return nil
 }
 
