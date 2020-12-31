@@ -2,7 +2,9 @@ package kissorm
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/ditointernet/go-assert"
@@ -207,9 +209,9 @@ func TestInsert(t *testing.T) {
 				assert.NotEqual(t, 0, u.ID)
 
 				result := User{}
-				it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
-				it.Scan(&result)
-				assert.Equal(t, nil, it.Error)
+				err = getUserByID(c.db.DB(), c.dialect, &result, u.ID)
+				assert.Equal(t, nil, err)
+
 				assert.Equal(t, u.Name, result.Name)
 			})
 		})
@@ -240,16 +242,17 @@ func TestDelete(t *testing.T) {
 				assert.NotEqual(t, uint(0), u.ID)
 
 				result := User{}
-				it := c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u.ID)
-				it.Scan(&result)
+				err = getUserByID(c.db.DB(), c.dialect, &result, u.ID)
+				assert.Equal(t, nil, err)
+
 				assert.Equal(t, u.ID, result.ID)
 
 				err = c.Delete(ctx)
 				assert.Equal(t, nil, err)
 
 				result = User{}
-				it = c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u.ID)
-				it.Scan(&result)
+				err = getUserByID(c.db.DB(), c.dialect, &result, u.ID)
+				assert.Equal(t, nil, err)
 				assert.Equal(t, u.ID, result.ID)
 			})
 
@@ -269,8 +272,8 @@ func TestDelete(t *testing.T) {
 				assert.NotEqual(t, uint(0), u1.ID)
 
 				result := User{}
-				it := c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u1.ID)
-				it.Scan(&result)
+				err = getUserByID(c.db.DB(), c.dialect, &result, u1.ID)
+				assert.Equal(t, nil, err)
 				assert.Equal(t, u1.ID, result.ID)
 
 				u2 := User{
@@ -282,26 +285,21 @@ func TestDelete(t *testing.T) {
 				assert.NotEqual(t, uint(0), u2.ID)
 
 				result = User{}
-				it = c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u2.ID)
-				it.Scan(&result)
+				err = getUserByID(c.db.DB(), c.dialect, &result, u2.ID)
+				assert.Equal(t, nil, err)
 				assert.Equal(t, u2.ID, result.ID)
 
 				err = c.Delete(ctx, u1.ID)
 				assert.Equal(t, nil, err)
 
 				result = User{}
-				it = c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u1.ID)
-				it.Scan(&result)
-
-				assert.Equal(t, nil, it.Error)
-				assert.Equal(t, uint(0), result.ID)
-				assert.Equal(t, "", result.Name)
+				err = getUserByID(c.db.DB(), c.dialect, &result, u1.ID)
+				assert.Equal(t, sql.ErrNoRows, err)
 
 				result = User{}
-				it = c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u2.ID)
-				it.Scan(&result)
+				err = getUserByID(c.db.DB(), c.dialect, &result, u2.ID)
+				assert.Equal(t, nil, err)
 
-				assert.Equal(t, nil, it.Error)
 				assert.NotEqual(t, uint(0), result.ID)
 				assert.Equal(t, "Won't be deleted", result.Name)
 			})
@@ -335,34 +333,27 @@ func TestDelete(t *testing.T) {
 				assert.NotEqual(t, uint(0), u3.ID)
 
 				result := User{}
-				it := c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u1.ID)
-				it.Scan(&result)
+				err = getUserByID(c.db.DB(), c.dialect, &result, u1.ID)
+				assert.Equal(t, nil, err)
 				assert.Equal(t, u1.ID, result.ID)
 
 				result = User{}
-				it = c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u2.ID)
-				it.Scan(&result)
+				err = getUserByID(c.db.DB(), c.dialect, &result, u2.ID)
+				assert.Equal(t, nil, err)
 				assert.Equal(t, u2.ID, result.ID)
 
 				result = User{}
-				it = c.db.Raw("SELECT * FROM users WHERE id="+c.dialect.Placeholder(0), u3.ID)
-				it.Scan(&result)
+				err = getUserByID(c.db.DB(), c.dialect, &result, u3.ID)
+				assert.Equal(t, nil, err)
 				assert.Equal(t, u3.ID, result.ID)
 
 				err = c.Delete(ctx, u1.ID, u2.ID)
 				assert.Equal(t, nil, err)
 
 				results := []User{}
-				it = c.db.Raw(
-					fmt.Sprintf(
-						"SELECT * FROM users WHERE id IN (%s, %s, %s)",
-						c.dialect.Placeholder(0), c.dialect.Placeholder(1), c.dialect.Placeholder(2),
-					),
-					u1.ID, u2.ID, u3.ID,
-				)
-				it.Scan(&results)
+				err = getUsersByID(c.db.DB(), c.dialect, &results, u1.ID, u2.ID, u3.ID)
+				assert.Equal(t, nil, err)
 
-				assert.Equal(t, nil, it.Error)
 				assert.Equal(t, 1, len(results))
 				assert.Equal(t, "This won't be deleted", results[0].Name)
 			})
@@ -397,9 +388,7 @@ func TestUpdate(t *testing.T) {
 				assert.Equal(t, nil, err)
 
 				result := User{}
-				it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
-				it.Scan(&result)
-				it.Close()
+				err = getUserByID(c.db.DB(), c.dialect, &result, u.ID)
 				assert.Equal(t, nil, err)
 
 				assert.Equal(t, "Thay", result.Name)
@@ -431,9 +420,8 @@ func TestUpdate(t *testing.T) {
 				assert.Equal(t, nil, err)
 
 				var result User
-				it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
-				it.Scan(&result)
-				assert.Equal(t, nil, it.Error)
+				err = getUserByID(c.db.DB(), c.dialect, &result, u.ID)
+				assert.Equal(t, nil, err)
 				assert.Equal(t, "Thayane", result.Name)
 			})
 
@@ -463,9 +451,8 @@ func TestUpdate(t *testing.T) {
 				assert.Equal(t, nil, err)
 
 				var result User
-				it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
-				it.Scan(&result)
-				assert.Equal(t, nil, it.Error)
+				err = getUserByID(c.db.DB(), c.dialect, &result, u.ID)
+				assert.Equal(t, nil, err)
 				assert.Equal(t, "Thayane", result.Name)
 			})
 
@@ -504,9 +491,8 @@ func TestUpdate(t *testing.T) {
 				assert.Equal(t, nil, err)
 
 				var result User
-				it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
-				it.Scan(&result)
-				assert.Equal(t, nil, it.Error)
+				err = getUserByID(c.db.DB(), c.dialect, &result, u.ID)
+				assert.Equal(t, nil, err)
 				assert.Equal(t, "", result.Name)
 				assert.Equal(t, 22, result.Age)
 			})
@@ -545,9 +531,9 @@ func TestUpdate(t *testing.T) {
 				assert.Equal(t, nil, err)
 
 				var result User
-				it := c.db.Raw("SELECT * FROM users WHERE id=?", u.ID)
-				it.Scan(&result)
-				assert.Equal(t, nil, it.Error)
+				err = getUserByID(c.db.DB(), c.dialect, &result, u.ID)
+				assert.Equal(t, nil, err)
+
 				assert.Equal(t, "Thay", result.Name)
 				assert.Equal(t, 42, result.Age)
 			})
@@ -1050,5 +1036,54 @@ func connectDB(t *testing.T, driver string) *gorm.DB {
 func shiftErrSlice(errs *[]error) error {
 	err := (*errs)[0]
 	*errs = (*errs)[1:]
+	return err
+}
+
+func getUsersByID(db *sql.DB, dialect dialect, resultsPtr *[]User, ids ...uint) error {
+	placeholders := make([]string, len(ids))
+	params := make([]interface{}, len(ids))
+	for i := range ids {
+		params[i] = ids[i]
+		placeholders[i] = dialect.Placeholder(i)
+	}
+
+	results := []User{}
+	rows, err := db.Query(
+		fmt.Sprintf(
+			"SELECT id, name, age FROM users WHERE id IN (%s)",
+			strings.Join(placeholders, ", "),
+		),
+		params...,
+	)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var u User
+		err = rows.Scan(&u.ID, &u.Name, &u.Age)
+		if err != nil {
+			return err
+		}
+		results = append(results, u)
+	}
+	if rows.Err() != nil {
+		return rows.Err()
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+
+	*resultsPtr = results
+	return nil
+}
+
+func getUserByID(db *sql.DB, dialect dialect, result *User, id uint) error {
+	row := db.QueryRow(`SELECT id, name, age FROM users WHERE id=`+dialect.Placeholder(0), id)
+	if row.Err() != nil {
+		return row.Err()
+	}
+	err := row.Scan(&result.ID, &result.Name, &result.Age)
 	return err
 }
