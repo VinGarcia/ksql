@@ -20,6 +20,8 @@ type ORMProvider interface {
 	Query(ctx context.Context, records interface{}, query string, params ...interface{}) error
 	QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error
 	QueryChunks(ctx context.Context, parser ChunkParser) error
+
+	Exec(ctx context.Context, query string, params ...interface{}) error
 }
 
 // ChunkParser stores the arguments of the QueryChunks function

@@ -657,6 +657,12 @@ func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error 
 	return nil
 }
 
+// Exec just runs an SQL command on the database returning no rows.
+func (c Client) Exec(ctx context.Context, query string, params ...interface{}) error {
+	_, err := c.db.ExecContext(ctx, query, params...)
+	return err
+}
+
 func decodeAsSliceOfStructs(slice reflect.Type) (
 	structType reflect.Type,
 	isSliceOfPtrs bool,
