@@ -1,30 +1,3 @@
-
-# KissORM
-
-Welcome to the KissORM project, the Keep It Stupid Simple - ORM.
-
-This ORM was created to be used by any developer efficiently and safely.
-The goals were:
-
-- It should be easy to use
-- It should be hard to make mistakes
-- It should have a small API so it's easy to learn
-- It should be easy to mock and test (very easy)
-- It should be above all readable.
-
-**Supported Drivers:**
-
-Currently we only support 2 Drivers:
-
-- `"postgres"`
-- `"sqlite3"`
-
-### Usage examples
-
-This example is also available [here][./examples/crud/crud.go]
-if you want to compile it yourself.
-
-```Go
 package main
 
 import (
@@ -134,36 +107,3 @@ func main() {
 	}
 	fmt.Printf("Users: %#v\n", users)
 }
-```
-
-### Kiss Interface
-
-The current interface is as follows:
-
-```go
-// ORMProvider describes the public behavior of this ORM
-type ORMProvider interface {
-	Insert(ctx context.Context, records ...interface{}) error
-	Delete(ctx context.Context, ids ...interface{}) error
-	Update(ctx context.Context, records ...interface{}) error
-
-	Query(ctx context.Context, records interface{}, query string, params ...interface{}) error
-	QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error
-	QueryChunks(ctx context.Context, parser ChunkParser) error
-
-	Exec(ctx context.Context, query string, params ...interface{}) error
-}
-```
-
-You might notice we are lacking an abstraction for transactions, but it is on our TODO list.
-
-### TODO List
-
-- Add support for transactions
-- Improve error messages
-- Allow the ID field to have a different name
-- Allow database replicas for reading
-- Fix a bug that is causing "database locked" errors when some the tests fail
-- Implement a method of saving and struct fields as JSON on the database (an retrieving them)
-- Double check if all reflection is safe on the Insert() function
-- Make sure SELECT * works even if not all fields are present

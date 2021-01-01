@@ -8,37 +8,37 @@ import (
 	"strings"
 )
 
-// Client ...
-type Client struct {
+// DB ...
+type DB struct {
 	driver    string
 	dialect   dialect
 	tableName string
 	db        *sql.DB
 }
 
-// NewClient instantiates a new client
-func NewClient(
+// New instantiates a new client
+func New(
 	dbDriver string,
 	connectionString string,
 	maxOpenConns int,
 	tableName string,
-) (Client, error) {
+) (DB, error) {
 	db, err := sql.Open(dbDriver, connectionString)
 	if err != nil {
-		return Client{}, err
+		return DB{}, err
 	}
 	if err = db.Ping(); err != nil {
-		return Client{}, err
+		return DB{}, err
 	}
 
 	db.SetMaxOpenConns(maxOpenConns)
 
 	dialect := getDriverDialect(dbDriver)
 	if dialect == nil {
-		return Client{}, fmt.Errorf("unsupported driver `%s`", dbDriver)
+		return DB{}, fmt.Errorf("unsupported driver `%s`", dbDriver)
 	}
 
-	return Client{
+	return DB{
 		dialect:   dialect,
 		driver:    dbDriver,
 		db:        db,
@@ -47,8 +47,8 @@ func NewClient(
 }
 
 // ChangeTable creates a new client configured to query on a different table
-func (c Client) ChangeTable(ctx context.Context, tableName string) ORMProvider {
-	return &Client{
+func (c DB) ChangeTable(ctx context.Context, tableName string) ORMProvider {
+	return &DB{
 		db:        c.db,
 		tableName: tableName,
 	}
@@ -61,7 +61,7 @@ func (c Client) ChangeTable(ctx context.Context, tableName string) ORMProvider {
 // Note: it is very important to make sure the query will
 // return a small known number of results, otherwise you risk
 // of overloading the available memory.
-func (c Client) Query(
+func (c DB) Query(
 	ctx context.Context,
 	records interface{},
 	query string,
@@ -130,7 +130,7 @@ func (c Client) Query(
 //
 // QueryOne returns a ErrRecordNotFound if
 // the query returns no results.
-func (c Client) QueryOne(
+func (c DB) QueryOne(
 	ctx context.Context,
 	record interface{},
 	query string,
@@ -182,7 +182,7 @@ func (c Client) QueryOne(
 // pointers to struct as its only argument and that reflection
 // will be used to instantiate this argument and to fill it
 // with the database rows.
-func (c Client) QueryChunks(
+func (c DB) QueryChunks(
 	ctx context.Context,
 	parser ChunkParser,
 ) error {
@@ -268,7 +268,7 @@ func (c Client) QueryChunks(
 //
 // If the original instances have been passed by reference
 // the ID is automatically updated after insertion is completed.
-func (c Client) Insert(
+func (c DB) Insert(
 	ctx context.Context,
 	records ...interface{},
 ) error {
@@ -295,7 +295,7 @@ func (c Client) Insert(
 	return nil
 }
 
-func (c Client) insertOnPostgres(
+func (c DB) insertOnPostgres(
 	ctx context.Context,
 	record interface{},
 	query string,
@@ -331,7 +331,7 @@ func (c Client) insertOnPostgres(
 	return rows.Close()
 }
 
-func (c Client) insertWithLastInsertID(
+func (c DB) insertWithLastInsertID(
 	ctx context.Context,
 	record interface{},
 	query string,
@@ -357,7 +357,7 @@ func (c Client) insertWithLastInsertID(
 }
 
 // Delete deletes one or more instances from the database by id
-func (c Client) Delete(
+func (c DB) Delete(
 	ctx context.Context,
 	ids ...interface{},
 ) error {
@@ -375,7 +375,7 @@ func (c Client) Delete(
 // Update updates the given instances on the database by id.
 //
 // Partial updates are supported, i.e. it will ignore nil pointer attributes
-func (c Client) Update(
+func (c DB) Update(
 	ctx context.Context,
 	records ...interface{},
 ) error {
@@ -492,207 +492,17 @@ func buildUpdateQuery(
 	return query, args, nil
 }
 
+// Exec just runs an SQL command on the database returning no rows.
+func (c DB) Exec(ctx context.Context, query string, params ...interface{}) error {
+	_, err := c.db.ExecContext(ctx, query, params...)
+	return err
+}
+
 // This cache is kept as a pkg variable
 // because the total number of types on a program
 // should be finite. So keeping a single cache here
 // works fine.
 var tagInfoCache = map[reflect.Type]structInfo{}
-
-type structInfo struct {
-	Names map[int]string
-	Index map[string]int
-}
-
-// StructToMap converts any struct type to a map based on
-// the tag named `kissorm`, i.e. `kissorm:"map_key_name"`
-//
-// Valid pointers are dereferenced and copied to the map,
-// null pointers are ignored.
-//
-// This function is efficient in the fact that it caches
-// the slower steps of the reflection required to perform
-// this task.
-func StructToMap(obj interface{}) (map[string]interface{}, error) {
-	v := reflect.ValueOf(obj)
-	t := v.Type()
-
-	if t.Kind() == reflect.Ptr {
-		v = v.Elem()
-		t = t.Elem()
-	}
-	if t.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("input must be a struct or struct pointer")
-	}
-
-	info := getCachedTagInfo(tagInfoCache, t)
-
-	m := map[string]interface{}{}
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		ft := field.Type()
-		if ft.Kind() == reflect.Ptr {
-			if field.IsNil() {
-				continue
-			}
-
-			field = field.Elem()
-		}
-
-		m[info.Names[i]] = field.Interface()
-	}
-
-	return m, nil
-}
-
-// This function collects only the names
-// that will be used from the input type.
-//
-// This should save several calls to `Field(i).Tag.Get("foo")`
-// which improves performance by a lot.
-func getTagNames(t reflect.Type) structInfo {
-	info := structInfo{
-		Names: map[int]string{},
-		Index: map[string]int{},
-	}
-	for i := 0; i < t.NumField(); i++ {
-		name := t.Field(i).Tag.Get("kissorm")
-		if name == "" {
-			continue
-		}
-		info.Names[i] = name
-		info.Index[name] = i
-	}
-
-	return info
-}
-
-// FillStructWith is meant to be used on unit tests to mock
-// the response from the database.
-//
-// The first argument is any struct you are passing to a kissorm func,
-// and the second is a map representing a database row you want
-// to use to update this struct.
-func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
-	v := reflect.ValueOf(record)
-	t := v.Type()
-
-	if t.Kind() != reflect.Ptr {
-		return fmt.Errorf(
-			"FillStructWith: expected input to be a pointer to struct but got %T",
-			record,
-		)
-	}
-
-	t = t.Elem()
-	v = v.Elem()
-
-	if t.Kind() != reflect.Struct {
-		return fmt.Errorf(
-			"FillStructWith: expected input kind to be a struct but got %T",
-			record,
-		)
-	}
-
-	info := getCachedTagInfo(tagInfoCache, t)
-
-	for colName, attr := range dbRow {
-		attrValue := reflect.ValueOf(attr)
-		field := v.Field(info.Index[colName])
-		fieldType := t.Field(info.Index[colName]).Type
-
-		if !attrValue.Type().ConvertibleTo(fieldType) {
-			return fmt.Errorf(
-				"FillStructWith: cannot convert atribute %s of type %v to type %T",
-				colName,
-				fieldType,
-				record,
-			)
-		}
-		field.Set(attrValue.Convert(fieldType))
-	}
-
-	return nil
-}
-
-// FillSliceWith is meant to be used on unit tests to mock
-// the response from the database.
-//
-// The first argument is any slice of structs you are passing to a kissorm func,
-// and the second is a slice of maps representing the database rows you want
-// to use to update this struct.
-func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error {
-	sliceRef := reflect.ValueOf(entities)
-	sliceType := sliceRef.Type()
-	if sliceType.Kind() != reflect.Ptr {
-		return fmt.Errorf(
-			"FillSliceWith: expected input to be a pointer to struct but got %v",
-			sliceType,
-		)
-	}
-
-	structType, isSliceOfPtrs, err := decodeAsSliceOfStructs(sliceType.Elem())
-	if err != nil {
-		return fmt.Errorf("FillSliceWith: %s", err.Error())
-	}
-
-	slice := sliceRef.Elem()
-	for idx, row := range dbRows {
-		if slice.Len() <= idx {
-			var elemValue reflect.Value
-			elemValue = reflect.New(structType)
-			if !isSliceOfPtrs {
-				elemValue = elemValue.Elem()
-			}
-			slice = reflect.Append(slice, elemValue)
-		}
-
-		err := FillStructWith(slice.Index(idx).Addr().Interface(), row)
-		if err != nil {
-			return err
-		}
-	}
-
-	sliceRef.Elem().Set(slice)
-
-	return nil
-}
-
-// Exec just runs an SQL command on the database returning no rows.
-func (c Client) Exec(ctx context.Context, query string, params ...interface{}) error {
-	_, err := c.db.ExecContext(ctx, query, params...)
-	return err
-}
-
-func decodeAsSliceOfStructs(slice reflect.Type) (
-	structType reflect.Type,
-	isSliceOfPtrs bool,
-	err error,
-) {
-	if slice.Kind() != reflect.Slice {
-		err = fmt.Errorf(
-			"expected input kind to be a slice but got %v",
-			slice,
-		)
-		return
-	}
-
-	elemType := slice.Elem()
-	isPtr := elemType.Kind() == reflect.Ptr
-
-	if isPtr {
-		elemType = elemType.Elem()
-	}
-
-	if elemType.Kind() != reflect.Struct {
-		err = fmt.Errorf(
-			"expected input to be a slice of structs but got %v",
-			slice,
-		)
-		return
-	}
-
-	return elemType, isPtr, nil
-}
 
 var errType = reflect.TypeOf(new(error)).Elem()
 

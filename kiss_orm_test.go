@@ -32,7 +32,7 @@ func TestQuery(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 				var users []User
 				err := c.Query(ctx, &users, `SELECT * FROM users WHERE id=1;`)
 				assert.Equal(t, nil, err)
@@ -52,7 +52,7 @@ func TestQuery(t *testing.T) {
 				assert.Equal(t, nil, err)
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 				var users []User
 				err = c.Query(ctx, &users, `SELECT * FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
 
@@ -73,7 +73,7 @@ func TestQuery(t *testing.T) {
 				assert.Equal(t, nil, err)
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 				var users []User
 				err = c.Query(ctx, &users, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
 
@@ -96,7 +96,7 @@ func TestQuery(t *testing.T) {
 				assert.Equal(t, nil, err)
 
 				ctx := context.Background()
-				c := newTestClient(db, "postgres", "users")
+				c := newTestDB(db, "postgres", "users")
 				err = c.Query(ctx, &User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
 				assert.NotEqual(t, nil, err)
 
@@ -127,7 +127,7 @@ func TestQueryOne(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, "postgres", "users")
+				c := newTestDB(db, "postgres", "users")
 				u := User{}
 				err := c.QueryOne(ctx, &u, `SELECT * FROM users WHERE id=1;`)
 				assert.Equal(t, ErrRecordNotFound, err)
@@ -141,7 +141,7 @@ func TestQueryOne(t *testing.T) {
 				assert.Equal(t, nil, err)
 
 				ctx := context.Background()
-				c := newTestClient(db, "postgres", "users")
+				c := newTestDB(db, "postgres", "users")
 				u := User{}
 				err = c.QueryOne(ctx, &u, `SELECT * FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
 
@@ -161,7 +161,7 @@ func TestQueryOne(t *testing.T) {
 				assert.Equal(t, nil, err)
 
 				ctx := context.Background()
-				c := newTestClient(db, "postgres", "users")
+				c := newTestDB(db, "postgres", "users")
 
 				err = c.QueryOne(ctx, &[]User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
 				assert.NotEqual(t, nil, err)
@@ -186,7 +186,7 @@ func TestInsert(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 
 				err = c.Insert(ctx)
 				assert.Equal(t, nil, err)
@@ -197,7 +197,7 @@ func TestInsert(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 
 				u := User{
 					Name: "Fernanda",
@@ -230,7 +230,7 @@ func TestDelete(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 
 				u := User{
 					Name: "Won't be deleted",
@@ -260,7 +260,7 @@ func TestDelete(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 
 				u1 := User{
 					Name: "Fernanda",
@@ -308,7 +308,7 @@ func TestDelete(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 
 				u1 := User{
 					Name: "Fernanda",
@@ -373,7 +373,7 @@ func TestUpdate(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 
 				u := User{
 					Name: "Thay",
@@ -398,7 +398,7 @@ func TestUpdate(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 
 				u := User{
 					Name: "Letícia",
@@ -429,7 +429,7 @@ func TestUpdate(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 
 				u := User{
 					Name: "Letícia",
@@ -460,7 +460,7 @@ func TestUpdate(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 
 				type partialUser struct {
 					ID   uint   `kissorm:"id"`
@@ -501,7 +501,7 @@ func TestUpdate(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 
 				type partialUser struct {
 					ID   uint   `kissorm:"id"`
@@ -542,7 +542,7 @@ func TestUpdate(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "non_existing_table")
+				c := newTestDB(db, driver, "non_existing_table")
 
 				err = c.Update(ctx, User{
 					ID:   1,
@@ -552,68 +552,6 @@ func TestUpdate(t *testing.T) {
 			})
 		})
 	}
-}
-
-func TestStructToMap(t *testing.T) {
-	type S1 struct {
-		Name string `kissorm:"name_attr"`
-		Age  int    `kissorm:"age_attr"`
-	}
-	t.Run("should convert plain structs to maps", func(t *testing.T) {
-		m, err := StructToMap(S1{
-			Name: "my name",
-			Age:  22,
-		})
-
-		assert.Equal(t, nil, err)
-		assert.Equal(t, map[string]interface{}{
-			"name_attr": "my name",
-			"age_attr":  22,
-		}, m)
-	})
-
-	t.Run("should not ignore zero value attrs, if they are not pointers", func(t *testing.T) {
-		m, err := StructToMap(S1{
-			Name: "",
-			Age:  0,
-		})
-
-		assert.Equal(t, nil, err)
-		assert.Equal(t, map[string]interface{}{
-			"name_attr": "",
-			"age_attr":  0,
-		}, m)
-	})
-
-	type S2 struct {
-		Name *string `kissorm:"name"`
-		Age  *int    `kissorm:"age"`
-	}
-
-	t.Run("should not ignore not nil pointers", func(t *testing.T) {
-		str := ""
-		age := 0
-		m, err := StructToMap(S2{
-			Name: &str,
-			Age:  &age,
-		})
-
-		assert.Equal(t, nil, err)
-		assert.Equal(t, map[string]interface{}{
-			"name": "",
-			"age":  0,
-		}, m)
-	})
-
-	t.Run("should ignore nil pointers", func(t *testing.T) {
-		m, err := StructToMap(S2{
-			Name: nil,
-			Age:  nil,
-		})
-
-		assert.Equal(t, nil, err)
-		assert.Equal(t, map[string]interface{}{}, m)
-	})
 }
 
 func TestQueryChunks(t *testing.T) {
@@ -629,7 +567,7 @@ func TestQueryChunks(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 
 				_ = c.Insert(ctx, &User{Name: "User1"})
 
@@ -665,7 +603,7 @@ func TestQueryChunks(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 
 				_ = c.Insert(ctx, &User{Name: "User1"})
 				_ = c.Insert(ctx, &User{Name: "User2"})
@@ -703,7 +641,7 @@ func TestQueryChunks(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 
 				_ = c.Insert(ctx, &User{Name: "User1"})
 				_ = c.Insert(ctx, &User{Name: "User2"})
@@ -741,7 +679,7 @@ func TestQueryChunks(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 
 				_ = c.Insert(ctx, &User{Name: "User1"})
 				_ = c.Insert(ctx, &User{Name: "User2"})
@@ -782,7 +720,7 @@ func TestQueryChunks(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 
 				_ = c.Insert(ctx, &User{Name: "User1"})
 				_ = c.Insert(ctx, &User{Name: "User2"})
@@ -821,7 +759,7 @@ func TestQueryChunks(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestClient(db, driver, "users")
+				c := newTestDB(db, driver, "users")
 
 				_ = c.Insert(ctx, &User{Name: "User1"})
 				_ = c.Insert(ctx, &User{Name: "User2"})
@@ -857,29 +795,6 @@ func TestQueryChunks(t *testing.T) {
 	}
 }
 
-func TestFillSliceWith(t *testing.T) {
-	t.Run("should fill a list correctly", func(t *testing.T) {
-		var users []User
-		err := FillSliceWith(&users, []map[string]interface{}{
-			{
-				"name": "Jorge",
-			},
-			{
-				"name": "Luciana",
-			},
-			{
-				"name": "Breno",
-			},
-		})
-
-		assert.Equal(t, nil, err)
-		assert.Equal(t, 3, len(users))
-		assert.Equal(t, "Jorge", users[0].Name)
-		assert.Equal(t, "Luciana", users[1].Name)
-		assert.Equal(t, "Breno", users[2].Name)
-	})
-}
-
 func TestScanRows(t *testing.T) {
 	t.Run("should scan users correctly", func(t *testing.T) {
 		err := createTable("sqlite3")
@@ -890,7 +805,7 @@ func TestScanRows(t *testing.T) {
 		ctx := context.TODO()
 		db := connectDB(t, "sqlite3")
 		defer db.Close()
-		c := newTestClient(db, "sqlite3", "users")
+		c := newTestDB(db, "sqlite3", "users")
 		_ = c.Insert(ctx, &User{Name: "User1", Age: 22})
 		_ = c.Insert(ctx, &User{Name: "User2", Age: 14})
 		_ = c.Insert(ctx, &User{Name: "User3", Age: 43})
@@ -1010,8 +925,8 @@ func createTable(driver string) error {
 	return nil
 }
 
-func newTestClient(db *sql.DB, driver string, tableName string) Client {
-	return Client{
+func newTestDB(db *sql.DB, driver string, tableName string) DB {
+	return DB{
 		driver:    driver,
 		dialect:   getDriverDialect(driver),
 		db:        db,
