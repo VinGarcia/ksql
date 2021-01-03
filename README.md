@@ -19,9 +19,30 @@ Currently we only support 2 Drivers:
 - `"postgres"`
 - `"sqlite3"`
 
+### Kiss Interface
+
+The current interface is as follows:
+
+```go
+// ORMProvider describes the public behavior of this ORM
+type ORMProvider interface {
+	Insert(ctx context.Context, records ...interface{}) error
+	Delete(ctx context.Context, ids ...interface{}) error
+	Update(ctx context.Context, records ...interface{}) error
+
+	Query(ctx context.Context, records interface{}, query string, params ...interface{}) error
+	QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error
+	QueryChunks(ctx context.Context, parser ChunkParser) error
+
+	Exec(ctx context.Context, query string, params ...interface{}) error
+}
+```
+
+You might notice we are lacking an abstraction for transactions, but it is on our TODO list.
+
 ### Usage examples
 
-This example is also available [here][./examples/crud/crud.go]
+This example is also available [here](./examples/crud/crud.go)
 if you want to compile it yourself.
 
 ```Go
@@ -136,26 +157,16 @@ func main() {
 }
 ```
 
-### Kiss Interface
+### Testing Examples
 
-The current interface is as follows:
+This library has a few helper functions for helping your tests:
 
-```go
-// ORMProvider describes the public behavior of this ORM
-type ORMProvider interface {
-	Insert(ctx context.Context, records ...interface{}) error
-	Delete(ctx context.Context, ids ...interface{}) error
-	Update(ctx context.Context, records ...interface{}) error
+- `kissorm.FillStructWith(struct interface{}, dbRow map[string]interface{}) error`
+- `kissorm.FillSliceWith(structSlice interface{}, dbRows []map[string]interface{}) error`
+- `kissorm.StructToMap(struct interface{}) (map[string]interface{}, error)`
 
-	Query(ctx context.Context, records interface{}, query string, params ...interface{}) error
-	QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error
-	QueryChunks(ctx context.Context, parser ChunkParser) error
-
-	Exec(ctx context.Context, query string, params ...interface{}) error
-}
-```
-
-You might notice we are lacking an abstraction for transactions, but it is on our TODO list.
+If you want to see examples (we have examples for all the public functions) just
+read the example tests available on the our [example service](./examples/testing)
 
 ### TODO List
 
@@ -164,6 +175,6 @@ You might notice we are lacking an abstraction for transactions, but it is on ou
 - Allow the ID field to have a different name
 - Allow database replicas for reading
 - Fix a bug that is causing "database locked" errors when some the tests fail
-- Implement a method of saving and struct fields as JSON on the database (an retrieving them)
+- Implement a JSON fields on the database (encoding/decoding them automatically into structs)
 - Double check if all reflection is safe on the Insert() function
-- Make sure SELECT * works even if not all fields are present
+- Make sure `SELECT *` works even if not all fields are present
