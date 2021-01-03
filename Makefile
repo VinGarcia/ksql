@@ -12,17 +12,17 @@ lint: setup
 	@echo "Golint & Go Vet found no problems on your code!"
 
 mock: setup
-	mockgen -package=exampleservice -source=contracts.go -destination=examples/testing/mocks.go
+	mockgen -package=exampleservice -source=contracts.go -destination=examples/example_service/mocks.go
 
 setup: .make.setup
 .make.setup:
 	go get github.com/kyoh86/richgo
 	go get golang.org/x/lint
-	@# (Gomock is used on examples/testing)
+	@# (Gomock is used on examples/example_service)
 	go get github.com/golang/mock/gomock
 	go install github.com/golang/mock/mockgen
 	touch .make.setup
 
 # Running examples:
-exampleservice:
-	$(GOPATH)/bin/richgo test ./examples/testing/...
+exampleservice: mock
+	$(GOPATH)/bin/richgo test ./examples/example_service/...
