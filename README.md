@@ -6,11 +6,11 @@ Welcome to the KissORM project, the Keep It Stupid Simple - ORM.
 This ORM was created to be used by any developer efficiently and safely.
 The goals were:
 
-- It should be easy to use
-- It should be hard to make mistakes
-- It should have a small API so it's easy to learn
-- It should be easy to mock and test (very easy)
-- It should be above all readable.
+- To be easy to use
+- To be hard to make mistakes
+- To have a small API so it's easy to learn
+- To be easy to mock and test (very easy)
+- To be above all readable.
 
 **Supported Drivers:**
 
@@ -18,6 +18,38 @@ Currently we only support 2 Drivers:
 
 - `"postgres"`
 - `"sqlite3"`
+
+### Why KissORM?
+
+KissORM was created to fill a hole between the complexity
+we find in the tools I've seen so far, namely:
+
+- ORMs such as `GORM` that do a lot and have literally hundreds
+  of functions that require learning, increasing the risk of
+  interpretation errors, learning time, complicating mocking, etc.
+- Tools such as `sqlx` that do little but still have most of
+  the quirks from the standard `sql` lib, requiring several
+  error checks for each query which is very low level.
+
+Besides both these examples were not created having
+easy tests as one of the requisites, which might cause
+you team to loose far more time than necessary writing
+the tests or worst: Opting to not writing tests since
+it would take too much time.
+
+So the goal was to be high level enough that it would
+avoid the complications from the `sql` package and
+at the same time to be simple enough to avoid
+the big learning curve and complexity of the hundreds
+of functions offered by more complete ORMs.
+
+That said, KissORM attempts to apply the Kiss principle,
+in order to save development time for your team, i.e.:
+
+- Less time spent learning (few methods to learn)
+- Less time spent testing (helper tools made to help you)
+- less time spent debugging (simple apis are easier to debug)
+- and less time reading & understanding the code
 
 ### Kiss Interface
 
@@ -173,8 +205,8 @@ read the example tests available on the our [example service](./examples/example
 - Add support for transactions
 - Improve error messages
 - Allow the ID field to have a different name
-- Allow database replicas for reading
-- Fix a bug that is causing "database locked" errors when some the tests fail
+- Fix a bug that is causing "database locked" errors when some of the tests fail
 - Implement a JSON fields on the database (encoding/decoding them automatically into structs)
+- Implement support for nested objects with prefixed table names
 - Double check if all reflection is safe on the Insert() function
 - Make sure `SELECT *` works even if not all fields are present
