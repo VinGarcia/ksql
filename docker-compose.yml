@@ -1,0 +1,17 @@
+version: "3.7"
+
+services:
+  pg:
+    image: postgres:12.1
+    # The `always` option below will make sure this
+    # container is started when you turn on your machine,
+    # so you don't have to worry about it everytime.
+    restart: always
+    ports:
+      # The 127.0.0.1 prefix makes sure this instance
+      # cannot be accessed externally, so it is ok
+      # for this instante to have no password.
+      - "127.0.0.1:5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
