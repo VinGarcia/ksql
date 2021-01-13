@@ -81,10 +81,15 @@ func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
 	}
 
 	info := getCachedTagInfo(tagInfoCache, t)
-
 	for colName, rawSrc := range dbRow {
+		fieldIdx, found := info.Index[colName]
+		if !found {
+			// Ignore columns not tagged with `kissorm:""`
+			continue
+		}
+
 		src := NewPtrConverter(rawSrc)
-		dest := v.Field(info.Index[colName])
+		dest := v.Field(fieldIdx)
 		destType := t.Field(info.Index[colName]).Type
 
 		destValue, err := src.Convert(destType)
