@@ -24,7 +24,7 @@ func TestQuery(t *testing.T) {
 		t.Run(driver, func(t *testing.T) {
 			err := createTable(driver)
 			if err != nil {
-				t.Fatal("could not create test table!")
+				t.Fatal("could not create test table!, reason:", err.Error())
 			}
 
 			t.Run("should return 0 results correctly", func(t *testing.T) {
@@ -812,6 +812,7 @@ func TestScanRows(t *testing.T) {
 
 		rows, err := db.QueryContext(ctx, "select * from users where name='User2'")
 		assert.Equal(t, nil, err)
+		defer rows.Close()
 
 		assert.Equal(t, true, rows.Next())
 
@@ -881,7 +882,7 @@ func TestScanRows(t *testing.T) {
 }
 
 var connectionString = map[string]string{
-	"postgres": "host=localhost port=5432 user=postgres dbname=kissorm sslmode=disable",
+	"postgres": "host=localhost port=5432 user=postgres password=postgres dbname=kissorm sslmode=disable",
 	"sqlite3":  "/tmp/kissorm.db",
 }
 
@@ -898,7 +899,6 @@ func createTable(driver string) error {
 	defer db.Close()
 
 	_, err = db.Exec(`DROP TABLE users`)
-	err = nil
 	if err != nil {
 		return fmt.Errorf("failed to drop old users table: %s", err.Error())
 	}
@@ -917,11 +917,10 @@ func createTable(driver string) error {
 			name VARCHAR(50)
 		)`)
 	}
-
-	err = nil
 	if err != nil {
 		return fmt.Errorf("failed to create new users table: %s", err.Error())
 	}
+
 	return nil
 }
 
