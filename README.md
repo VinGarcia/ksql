@@ -67,10 +67,9 @@ type ORMProvider interface {
 	QueryChunks(ctx context.Context, parser ChunkParser) error
 
 	Exec(ctx context.Context, query string, params ...interface{}) error
+	Transaction(ctx context.Context, fn func(ORMProvider) error) error
 }
 ```
-
-You might notice we are lacking an abstraction for transactions, but it is on our TODO list.
 
 ### Usage examples
 
@@ -202,7 +201,6 @@ read the example tests available on the our [example service](./examples/example
 
 ### TODO List
 
-- Add support for transactions
 - Improve error messages
 - Allow the ID field to have a different name
 - Implement a JSON fields on the database (encoding/decoding them automatically into structs)
