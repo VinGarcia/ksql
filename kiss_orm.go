@@ -13,7 +13,12 @@ type DB struct {
 	driver    string
 	dialect   dialect
 	tableName string
-	db        *sql.DB
+	db        sqlProvider
+}
+
+type sqlProvider interface {
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 }
 
 // New instantiates a new client
