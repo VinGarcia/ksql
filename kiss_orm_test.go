@@ -896,6 +896,37 @@ func TestScanRows(t *testing.T) {
 		assert.Equal(t, 14, u.Age)
 	})
 
+	t.Run("should ignore extra columns from query", func(t *testing.T) {
+		err := createTable("sqlite3")
+		if err != nil {
+			t.Fatal("could not create test table!, reason:", err.Error())
+		}
+
+		ctx := context.TODO()
+		db := connectDB(t, "sqlite3")
+		defer db.Close()
+		c := newTestDB(db, "sqlite3", "users")
+		_ = c.Insert(ctx, &User{Name: "User1", Age: 22})
+
+		rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User1'")
+		assert.Equal(t, nil, err)
+		defer rows.Close()
+
+		assert.Equal(t, true, rows.Next())
+
+		var user struct {
+			ID  int `kissorm:"id"`
+			Age int `kissorm:"age"`
+
+			// Omitted for testing purposes:
+			// Name string `kissorm:"name"`
+		}
+		err = scanRows(rows, &user)
+		assert.Equal(t, nil, err)
+
+		assert.Equal(t, 22, user.Age)
+	})
+
 	t.Run("should report error for closed rows", func(t *testing.T) {
 		err := createTable("sqlite3")
 		if err != nil {

@@ -612,6 +612,14 @@ func parseInputFunc(fn interface{}) (reflect.Type, error) {
 	return argsType, nil
 }
 
+type nopScanner struct{}
+
+var nopScannerValue = reflect.ValueOf(&nopScanner{})
+
+func (nopScanner) Scan(value interface{}) error {
+	return nil
+}
+
 func scanRows(rows *sql.Rows, record interface{}) error {
 	names, err := rows.Columns()
 	if err != nil {
@@ -635,7 +643,13 @@ func scanRows(rows *sql.Rows, record interface{}) error {
 
 	scanArgs := []interface{}{}
 	for _, name := range names {
-		scanArgs = append(scanArgs, v.Field(info.Index[name]).Addr().Interface())
+		idx, found := info.Index[name]
+		valueScanner := v.Field(idx).Addr()
+		if !found {
+			valueScanner = nopScannerValue
+		}
+
+		scanArgs = append(scanArgs, valueScanner.Interface())
 	}
 
 	return rows.Scan(scanArgs...)

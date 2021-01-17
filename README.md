@@ -205,5 +205,3 @@ read the example tests available on our [example service](./examples/example_ser
 - Allow the ID field to have a different name
 - Implement a JSON fields on the database (encoding/decoding them automatically into structs)
 - Implement support for nested objects with prefixed table names
-- Double check if all reflection is safe on the Insert() function
-- Make sure `SELECT *` works even if not all fields are present
