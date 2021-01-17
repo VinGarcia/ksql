@@ -53,14 +53,6 @@ func New(
 	}, nil
 }
 
-// ChangeTable creates a new client configured to query on a different table
-func (c DB) ChangeTable(ctx context.Context, tableName string) ORMProvider {
-	return &DB{
-		db:        c.db,
-		tableName: tableName,
-	}
-}
-
 // Query queries several rows from the database,
 // the input should be a slice of structs (or *struct) passed
 // by reference and it will be filled with all the results.
