@@ -2,11 +2,14 @@ package kissorm
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+
+	"github.com/pkg/errors"
 )
 
 // ErrRecordNotFound ...
-var ErrRecordNotFound error = fmt.Errorf("kissorm: the query returned no results")
+var ErrRecordNotFound error = errors.Wrap(sql.ErrNoRows, "kissorm: the query returned no results")
 
 // ErrAbortIteration ...
 var ErrAbortIteration error = fmt.Errorf("kissorm: abort iteration, should only be used inside QueryChunks function")
