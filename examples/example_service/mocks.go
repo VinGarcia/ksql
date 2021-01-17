@@ -144,6 +144,20 @@ func (mr *MockORMProviderMockRecorder) QueryOne(ctx, record, query interface{}, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryOne", reflect.TypeOf((*MockORMProvider)(nil).QueryOne), varargs...)
 }
 
+// Transaction mocks base method.
+func (m *MockORMProvider) Transaction(ctx context.Context, fn func(kissorm.ORMProvider) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Transaction", ctx, fn)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Transaction indicates an expected call of Transaction.
+func (mr *MockORMProviderMockRecorder) Transaction(ctx, fn interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Transaction", reflect.TypeOf((*MockORMProvider)(nil).Transaction), ctx, fn)
+}
+
 // Update mocks base method.
 func (m *MockORMProvider) Update(ctx context.Context, records ...interface{}) error {
 	m.ctrl.T.Helper()

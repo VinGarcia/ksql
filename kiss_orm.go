@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 // DB ...
@@ -504,19 +506,23 @@ func (c DB) Exec(ctx context.Context, query string, params ...interface{}) error
 }
 
 // Transaction just runs an SQL command on the database returning no rows.
-func (c DB) Transaction(ctx context.Context, fn func(ORMProvider) error) (err error) {
+func (c DB) Transaction(ctx context.Context, fn func(ORMProvider) error) error {
 	switch db := c.db.(type) {
 	case *sql.Tx:
 		return fn(c)
 	case *sql.DB:
-		var tx *sql.Tx
-		tx, err = db.BeginTx(ctx, nil)
+		tx, err := db.BeginTx(ctx, nil)
 		if err != nil {
 			return err
 		}
 		defer func() {
 			if r := recover(); r != nil {
-				_ = tx.Rollback()
+				rollbackErr := tx.Rollback()
+				if rollbackErr != nil {
+					r = errors.Wrap(rollbackErr,
+						fmt.Sprintf("unable to rollback after panic with value: %v", r),
+					)
+				}
 				panic(r)
 			}
 		}()
@@ -526,14 +532,19 @@ func (c DB) Transaction(ctx context.Context, fn func(ORMProvider) error) (err er
 
 		err = fn(ormCopy)
 		if err != nil {
-			_ = tx.Rollback()
+			rollbackErr := tx.Rollback()
+			if rollbackErr != nil {
+				err = errors.Wrap(rollbackErr,
+					fmt.Sprintf("unable to rollback after error: %s", err.Error()),
+				)
+			}
 			return err
 		}
 
 		return tx.Commit()
 
 	default:
-		return fmt.Errorf("unexpected error on kissorm: db has an invalid type")
+		return fmt.Errorf("unexpected error on kissorm: db attribute has an invalid type")
 	}
 }
 

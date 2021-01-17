@@ -22,7 +22,7 @@ type ORMProvider interface {
 	QueryChunks(ctx context.Context, parser ChunkParser) error
 
 	Exec(ctx context.Context, query string, params ...interface{}) error
-	Transaction(ctx context.Context, fn func(ORMProvider) error) (err error)
+	Transaction(ctx context.Context, fn func(ORMProvider) error) error
 }
 
 // ChunkParser stores the arguments of the QueryChunks function

@@ -3,6 +3,7 @@ package kissorm
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -790,6 +791,77 @@ func TestQueryChunks(t *testing.T) {
 				assert.NotEqual(t, uint(0), users[2].ID)
 				assert.Equal(t, "User3", users[2].Name)
 				assert.Equal(t, []int{2, 1}, lengths)
+			})
+		})
+	}
+}
+
+func TestTransaction(t *testing.T) {
+	for _, driver := range []string{"sqlite3", "postgres"} {
+		t.Run(driver, func(t *testing.T) {
+			t.Run("should query a single row correctly", func(t *testing.T) {
+				err := createTable(driver)
+				if err != nil {
+					t.Fatal("could not create test table!, reason:", err.Error())
+				}
+
+				db := connectDB(t, driver)
+				defer db.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, driver, "users")
+
+				_ = c.Insert(ctx, &User{Name: "User1"})
+				_ = c.Insert(ctx, &User{Name: "User2"})
+
+				var users []User
+				err = c.Transaction(ctx, func(db ORMProvider) error {
+					db.Query(ctx, &users, "SELECT * FROM users ORDER BY id ASC")
+					return nil
+				})
+				assert.Equal(t, nil, err)
+
+				assert.Equal(t, 2, len(users))
+				assert.Equal(t, "User1", users[0].Name)
+				assert.Equal(t, "User2", users[1].Name)
+			})
+
+			t.Run("should rollback when there are errors", func(t *testing.T) {
+				err := createTable(driver)
+				if err != nil {
+					t.Fatal("could not create test table!, reason:", err.Error())
+				}
+
+				db := connectDB(t, driver)
+				defer db.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, driver, "users")
+
+				u1 := User{Name: "User1", Age: 42}
+				u2 := User{Name: "User2", Age: 42}
+				_ = c.Insert(ctx, &u1)
+				_ = c.Insert(ctx, &u2)
+
+				err = c.Transaction(ctx, func(db ORMProvider) error {
+					fmt.Printf("received db client: %#v\n", db)
+					err = db.Insert(ctx, &User{Name: "User3"})
+					assert.Equal(t, nil, err)
+					err = db.Insert(ctx, &User{Name: "User4"})
+					assert.Equal(t, nil, err)
+					err = db.Exec(ctx, "UPDATE users SET age = 22")
+					assert.Equal(t, nil, err)
+
+					return errors.New("fake-error")
+				})
+				assert.NotEqual(t, nil, err)
+				assert.Equal(t, "fake-error", err.Error())
+
+				var users []User
+				err = c.Query(ctx, &users, "SELECT * FROM users ORDER BY id ASC")
+				assert.Equal(t, nil, err)
+
+				assert.Equal(t, []User{u1, u2}, users)
 			})
 		})
 	}
