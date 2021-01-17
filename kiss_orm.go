@@ -327,6 +327,9 @@ func (c DB) insertOnPostgres(
 
 	v := reflect.ValueOf(record)
 	t := v.Type()
+	if err = assertStructPtr(t); err != nil {
+		return errors.Wrap(err, "can't write id field")
+	}
 	info := getCachedTagInfo(tagInfoCache, t.Elem())
 
 	fieldAddr := v.Elem().Field(info.Index["id"]).Addr()
@@ -351,6 +354,10 @@ func (c DB) insertWithLastInsertID(
 
 	v := reflect.ValueOf(record)
 	t := v.Type()
+	if err = assertStructPtr(t); err != nil {
+		return errors.Wrap(err, "can't write id field")
+	}
+
 	info := getCachedTagInfo(tagInfoCache, t.Elem())
 
 	id, err := result.LastInsertId()
@@ -358,8 +365,31 @@ func (c DB) insertWithLastInsertID(
 		return err
 	}
 
+	vID := reflect.ValueOf(id)
+	tID := vID.Type()
+
 	fieldAddr := v.Elem().Field(info.Index["id"]).Addr()
-	fieldAddr.Elem().Set(reflect.ValueOf(id).Convert(fieldAddr.Elem().Type()))
+	fieldType := fieldAddr.Type().Elem()
+
+	if !tID.ConvertibleTo(fieldType) {
+		return fmt.Errorf(
+			"Can't convert last insert id of type int64 into field `%s` of type %s",
+			"id",
+			fieldType,
+		)
+	}
+
+	fieldAddr.Elem().Set(vID.Convert(fieldType))
+	return nil
+}
+
+func assertStructPtr(t reflect.Type) error {
+	if t.Kind() != reflect.Ptr {
+		return fmt.Errorf("expected a Kind of Ptr but got: %s", t)
+	}
+	if t.Elem().Kind() != reflect.Struct {
+		return fmt.Errorf("expected a Kind of Ptr to Struct but got: %s", t)
+	}
 	return nil
 }
 

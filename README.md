@@ -197,7 +197,7 @@ This library has a few helper functions for helping your tests:
 - `kissorm.StructToMap(struct interface{}) (map[string]interface{}, error)`
 
 If you want to see examples (we have examples for all the public functions) just
-read the example tests available on the our [example service](./examples/example_service)
+read the example tests available on our [example service](./examples/example_service)
 
 ### TODO List
 
