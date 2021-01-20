@@ -33,7 +33,7 @@ we find in the tools I've seen so far, namely:
 
 Besides both these examples were not created having
 easy tests as one of the requisites, which might cause
-you team to loose far more time than necessary writing
+your team to loose far more time than necessary writing
 the tests or worst: Opting to not writing tests since
 it would take too much time.
 
@@ -53,7 +53,8 @@ in order to save development time for your team, i.e.:
 
 ### Kiss Interface
 
-The current interface is as follows:
+The current interface is as follows and we plan to keep
+it with as little functions as possible, so don't expect many additions:
 
 ```go
 // ORMProvider describes the public behavior of this ORM
