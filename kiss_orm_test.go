@@ -1001,10 +1001,7 @@ func createTable(driver string) error {
 	}
 	defer db.Close()
 
-	_, err = db.Exec(`DROP TABLE users`)
-	if err != nil {
-		return fmt.Errorf("failed to drop old users table: %s", err.Error())
-	}
+	db.Exec(`DROP TABLE users`)
 
 	switch driver {
 	case "sqlite3":
