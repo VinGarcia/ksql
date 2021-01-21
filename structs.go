@@ -103,7 +103,7 @@ func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
 	return nil
 }
 
-// This type was created to make it easier
+// PtrConverter was created to make it easier
 // to handle conversion between ptr and non ptr types, e.g.:
 //
 // - *type to *type
@@ -117,6 +117,13 @@ type PtrConverter struct {
 	ElemValue reflect.Value
 }
 
+// NewPtrConverter instantiates a PtrConverter from
+// an empty interface.
+//
+// The input argument can be of any type, but
+// if it is a pointer then its Elem() will be
+// used as source value for the PtrConverter.Convert()
+// method.
 func NewPtrConverter(v interface{}) PtrConverter {
 	if v == nil {
 		// This is necessary so that reflect.ValueOf
@@ -141,6 +148,8 @@ func NewPtrConverter(v interface{}) PtrConverter {
 	}
 }
 
+// Convert attempts to convert the ElemValue to the destType received
+// as argument and then returns the converted reflect.Value or an error
 func (p PtrConverter) Convert(destType reflect.Type) (reflect.Value, error) {
 	destElemType := destType
 	if destType.Kind() == reflect.Ptr {

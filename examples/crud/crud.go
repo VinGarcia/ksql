@@ -9,12 +9,14 @@ import (
 	"github.com/vingarcia/kissorm/nullable"
 )
 
+// User ...
 type User struct {
 	ID   int    `kissorm:"id"`
 	Name string `kissorm:"name"`
 	Age  int    `kissorm:"age"`
 }
 
+// PartialUpdateUser ...
 type PartialUpdateUser struct {
 	ID   int     `kissorm:"id"`
 	Name *string `kissorm:"name"`
