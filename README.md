@@ -21,6 +21,8 @@ Currently we only support 2 Drivers:
 
 ### Why KissORM?
 
+> Note: If you want numbers see our Benchmark section below
+
 KissORM was created to fill a hole between the complexity
 we find in the tools I've seen so far, namely:
 
@@ -199,6 +201,26 @@ This library has a few helper functions for helping your tests:
 
 If you want to see examples (we have examples for all the public functions) just
 read the example tests available on our [example service](./examples/example_service)
+
+### Benchmark Comparison
+
+The benchmark is not bad, as far the code is in average as fast as sqlx:
+
+```bash
+$ make bench TIME=3s
+go test -bench=. -benchtime=3s
+goos: linux
+goarch: amd64
+pkg: github.com/vingarcia/kissorm
+BenchmarkInsert/kissorm-setup/insert-one-4         	    4306	    880132 ns/op
+BenchmarkInsert/sqlx-setup/insert-one-4            	    4573	    792488 ns/op
+BenchmarkQuery/kissorm-setup/single-row-4          	   10000	    315328 ns/op
+BenchmarkQuery/kissorm-setup/multiple-rows-4       	    9288	    388538 ns/op
+BenchmarkQuery/sqlx-setup/single-row-4             	   10000	    323424 ns/op
+BenchmarkQuery/sqlx-setup/multiple-rows-4          	   10000	    338570 ns/op
+PASS
+ok  	github.com/vingarcia/kissorm	21.740s
+```
 
 ### TODO List
 

@@ -3,8 +3,13 @@ path=./...
 
 GOPATH=$(shell go env GOPATH)
 
+TIME=1s
+
 test: setup
 	$(GOPATH)/bin/richgo test $(path) $(args)
+
+bench:
+	go test -bench=. -benchtime=$(TIME)
 
 lint: setup
 	@$(GOPATH)/bin/golint -set_exit_status -min_confidence 0.9 $(path) $(args)

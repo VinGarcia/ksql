@@ -844,7 +844,6 @@ func TestTransaction(t *testing.T) {
 				_ = c.Insert(ctx, &u2)
 
 				err = c.Transaction(ctx, func(db ORMProvider) error {
-					fmt.Printf("received db client: %#v\n", db)
 					err = db.Insert(ctx, &User{Name: "User3"})
 					assert.Equal(t, nil, err)
 					err = db.Insert(ctx, &User{Name: "User4"})
