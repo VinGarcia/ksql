@@ -224,7 +224,7 @@ ok  	github.com/vingarcia/kissorm	21.740s
 
 ### TODO List
 
-- Allow the ID field to have a different name
 - Implement support for JSON fields on the database (encoding/decoding them automatically into structs)
 - Implement support for nested objects with prefixed table names
 - Improve error messages
+- Add tests for tables using composite keys

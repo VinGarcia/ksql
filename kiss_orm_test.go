@@ -1029,6 +1029,12 @@ func newTestDB(db *sql.DB, driver string, tableName string) DB {
 		dialect:   getDriverDialect(driver),
 		db:        db,
 		tableName: tableName,
+
+		idCols: []string{"id"},
+		insertMethod: map[string]insertMethod{
+			"sqlite3":  insertWithLastInsertID,
+			"postgres": insertWithReturning,
+		}[driver],
 	}
 }
 
