@@ -1,4 +1,4 @@
-package kissorm
+package structs
 
 import (
 	"testing"

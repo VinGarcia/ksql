@@ -1,4 +1,4 @@
-package kissorm
+package structs
 
 import (
 	"fmt"
@@ -10,6 +10,31 @@ import (
 type structInfo struct {
 	Names map[int]string
 	Index map[string]int
+}
+
+// This cache is kept as a pkg variable
+// because the total number of types on a program
+// should be finite. So keeping a single cache here
+// works fine.
+var tagInfoCache = map[reflect.Type]structInfo{}
+
+// GetTagInfo efficiently returns the type information
+// using a global private cache
+//
+// In the future we might move this cache inside
+// a struct, but for now this accessor is the one
+// we are using
+func GetTagInfo(key reflect.Type) structInfo {
+	return getCachedTagInfo(tagInfoCache, key)
+}
+
+func getCachedTagInfo(tagInfoCache map[reflect.Type]structInfo, key reflect.Type) structInfo {
+	info, found := tagInfoCache[key]
+	if !found {
+		info = getTagNames(key)
+		tagInfoCache[key] = info
+	}
+	return info
 }
 
 // StructToMap converts any struct type to a map based on
@@ -200,7 +225,7 @@ func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error 
 		)
 	}
 
-	structType, isSliceOfPtrs, err := decodeAsSliceOfStructs(sliceType.Elem())
+	structType, isSliceOfPtrs, err := DecodeAsSliceOfStructs(sliceType.Elem())
 	if err != nil {
 		return errors.Wrap(err, "FillSliceWith")
 	}
@@ -249,7 +274,11 @@ func getTagNames(t reflect.Type) structInfo {
 	return info
 }
 
-func decodeAsSliceOfStructs(slice reflect.Type) (
+// DecodeAsSliceOfStructs makes several checks
+// while decoding an input type and returns
+// useful information so that it is easier
+// to manipulate the original slice later.
+func DecodeAsSliceOfStructs(slice reflect.Type) (
 	structType reflect.Type,
 	isSliceOfPtrs bool,
 	err error,

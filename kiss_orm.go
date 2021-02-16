@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/vingarcia/kissorm/structs"
 )
 
 // DB represents the kissorm client responsible for
@@ -110,7 +111,7 @@ func (c DB) Query(
 	}
 	sliceType := slicePtrType.Elem()
 	slice := slicePtr.Elem()
-	structType, isSliceOfPtrs, err := decodeAsSliceOfStructs(sliceType)
+	structType, isSliceOfPtrs, err := structs.DecodeAsSliceOfStructs(sliceType)
 	if err != nil {
 		return err
 	}
@@ -230,7 +231,7 @@ func (c DB) QueryChunks(
 
 	chunk := reflect.MakeSlice(chunkType, 0, parser.ChunkSize)
 
-	structType, isSliceOfPtrs, err := decodeAsSliceOfStructs(chunkType)
+	structType, isSliceOfPtrs, err := structs.DecodeAsSliceOfStructs(chunkType)
 	if err != nil {
 		return err
 	}
@@ -368,7 +369,7 @@ func (c DB) insertWithReturningID(
 	if err = assertStructPtr(t); err != nil {
 		return errors.Wrap(err, "can't write id field")
 	}
-	info := getCachedTagInfo(tagInfoCache, t.Elem())
+	info := structs.GetTagInfo(t.Elem())
 
 	var scanFields []interface{}
 	for _, id := range idNames {
@@ -403,7 +404,7 @@ func (c DB) insertWithLastInsertID(
 		return errors.Wrap(err, "can't write to `"+idName+"` field")
 	}
 
-	info := getCachedTagInfo(tagInfoCache, t.Elem())
+	info := structs.GetTagInfo(t.Elem())
 
 	id, err := result.LastInsertId()
 	if err != nil {
@@ -485,7 +486,7 @@ func normalizeIDsAsMaps(idNames []string, ids []interface{}) ([]map[string]inter
 		t := reflect.TypeOf(ids[i])
 		switch t.Kind() {
 		case reflect.Struct:
-			m, err := StructToMap(ids[i])
+			m, err := structs.StructToMap(ids[i])
 			if err != nil {
 				return nil, errors.Wrapf(err, "could not get ID(s) from record on idx %d", i)
 			}
@@ -542,7 +543,7 @@ func buildInsertQuery(
 	record interface{},
 	idFieldNames ...string,
 ) (query string, params []interface{}, err error) {
-	recordMap, err := StructToMap(record)
+	recordMap, err := structs.StructToMap(record)
 	if err != nil {
 		return "", nil, err
 	}
@@ -588,7 +589,7 @@ func buildUpdateQuery(
 	record interface{},
 	idFieldNames ...string,
 ) (query string, args []interface{}, err error) {
-	recordMap, err := StructToMap(record)
+	recordMap, err := structs.StructToMap(record)
 	if err != nil {
 		return "", nil, err
 	}
@@ -683,12 +684,6 @@ func (c DB) Transaction(ctx context.Context, fn func(ORMProvider) error) error {
 	}
 }
 
-// This cache is kept as a pkg variable
-// because the total number of types on a program
-// should be finite. So keeping a single cache here
-// works fine.
-var tagInfoCache = map[reflect.Type]structInfo{}
-
 var errType = reflect.TypeOf(new(error)).Elem()
 
 func parseInputFunc(fn interface{}) (reflect.Type, error) {
@@ -744,7 +739,7 @@ func scanRows(rows *sql.Rows, record interface{}) error {
 		return fmt.Errorf("kissorm: expected to receive a pointer to slice of structs, but got: %T", record)
 	}
 
-	info := getCachedTagInfo(tagInfoCache, t)
+	info := structs.GetTagInfo(t)
 
 	scanArgs := []interface{}{}
 	for _, name := range names {
@@ -758,15 +753,6 @@ func scanRows(rows *sql.Rows, record interface{}) error {
 	}
 
 	return rows.Scan(scanArgs...)
-}
-
-func getCachedTagInfo(tagInfoCache map[reflect.Type]structInfo, key reflect.Type) structInfo {
-	info, found := tagInfoCache[key]
-	if !found {
-		info = getTagNames(key)
-		tagInfoCache[key] = info
-	}
-	return info
 }
 
 func buildSingleKeyDeleteQuery(

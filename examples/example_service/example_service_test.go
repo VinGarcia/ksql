@@ -9,6 +9,7 @@ import (
 	"github.com/tj/assert"
 	"github.com/vingarcia/kissorm"
 	"github.com/vingarcia/kissorm/nullable"
+	"github.com/vingarcia/kissorm/structs"
 )
 
 func TestCreateUser(t *testing.T) {
@@ -58,7 +59,7 @@ func TestCreateUser(t *testing.T) {
 					//
 					// If you are inserting an anonymous struct (not usual) this function
 					// can make your tests shorter:
-					uMap, err := kissorm.StructToMap(record)
+					uMap, err := structs.StructToMap(record)
 					if err != nil {
 						return err
 					}
@@ -95,7 +96,7 @@ func TestUpdateUserScore(t *testing.T) {
 				DoAndReturn(func(ctx context.Context, result interface{}, query string, params ...interface{}) error {
 					// This function will use reflection to fill the
 					// struct fields with the values from the map
-					return kissorm.FillStructWith(result, map[string]interface{}{
+					return structs.FillStructWith(result, map[string]interface{}{
 						// Use int this map the keys you set on the kissorm tags, e.g. `kissorm:"score"`
 						// Each of these fields represent the database rows returned
 						// by the query.
@@ -138,7 +139,7 @@ func TestListUsers(t *testing.T) {
 				DoAndReturn(func(ctx context.Context, result interface{}, query string, params ...interface{}) error {
 					// This function will use reflection to fill the
 					// struct fields with the values from the map
-					return kissorm.FillStructWith(result, map[string]interface{}{
+					return structs.FillStructWith(result, map[string]interface{}{
 						// Use int this map the keys you set on the kissorm tags, e.g. `kissorm:"score"`
 						// Each of these fields represent the database rows returned
 						// by the query.
@@ -147,7 +148,7 @@ func TestListUsers(t *testing.T) {
 				}),
 			usersTableMock.EXPECT().Query(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 				DoAndReturn(func(ctx context.Context, results interface{}, query string, params ...interface{}) error {
-					return kissorm.FillSliceWith(results, []map[string]interface{}{
+					return structs.FillSliceWith(results, []map[string]interface{}{
 						{
 							"id":   1,
 							"name": "fake name",
