@@ -184,6 +184,17 @@ func TestQuery(t *testing.T) {
 					err = c.Query(ctx, &[]int{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
 					assert.NotEqual(t, nil, err)
 				})
+
+				t.Run("should report error if the query is not valid", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, "postgres", "users")
+					var users []User
+					err = c.Query(ctx, &users, `SELECT * FROM not a valid query`)
+					assert.NotEqual(t, nil, err)
+				})
 			})
 		})
 	}
