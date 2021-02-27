@@ -889,6 +889,88 @@ func TestQueryChunks(t *testing.T) {
 				assert.Equal(t, []int{2, 1}, lengths)
 			})
 
+			t.Run("should return error if the callback returns an error in the first iteration", func(t *testing.T) {
+				err := createTable(driver)
+				if err != nil {
+					t.Fatal("could not create test table!, reason:", err.Error())
+				}
+
+				db := connectDB(t, driver)
+				defer db.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, driver, "users")
+
+				_ = c.Insert(ctx, &User{Name: "User1"})
+				_ = c.Insert(ctx, &User{Name: "User2"})
+				_ = c.Insert(ctx, &User{Name: "User3"})
+
+				var lengths []int
+				var users []User
+				err = c.QueryChunks(ctx, ChunkParser{
+					Query:  `select * from users where name like ` + c.dialect.Placeholder(0) + ` order by name asc;`,
+					Params: []interface{}{"User%"},
+
+					ChunkSize: 2,
+					ForEachChunk: func(buffer []User) error {
+						lengths = append(lengths, len(buffer))
+						users = append(users, buffer...)
+						return errors.New("fake error msg")
+					},
+				})
+
+				assert.NotEqual(t, nil, err)
+				assert.Equal(t, 2, len(users))
+				assert.NotEqual(t, uint(0), users[0].ID)
+				assert.Equal(t, "User1", users[0].Name)
+				assert.NotEqual(t, uint(0), users[1].ID)
+				assert.Equal(t, "User2", users[1].Name)
+				assert.Equal(t, []int{2}, lengths)
+			})
+
+			t.Run("should return error if the callback returns an error in the last iteration", func(t *testing.T) {
+				err := createTable(driver)
+				if err != nil {
+					t.Fatal("could not create test table!, reason:", err.Error())
+				}
+
+				db := connectDB(t, driver)
+				defer db.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, driver, "users")
+
+				_ = c.Insert(ctx, &User{Name: "User1"})
+				_ = c.Insert(ctx, &User{Name: "User2"})
+				_ = c.Insert(ctx, &User{Name: "User3"})
+
+				returnVals := []error{nil, errors.New("fake error msg")}
+				var lengths []int
+				var users []User
+				err = c.QueryChunks(ctx, ChunkParser{
+					Query:  `select * from users where name like ` + c.dialect.Placeholder(0) + ` order by name asc;`,
+					Params: []interface{}{"User%"},
+
+					ChunkSize: 2,
+					ForEachChunk: func(buffer []User) error {
+						lengths = append(lengths, len(buffer))
+						users = append(users, buffer...)
+
+						return shiftErrSlice(&returnVals)
+					},
+				})
+
+				assert.NotEqual(t, nil, err)
+				assert.Equal(t, 3, len(users))
+				assert.NotEqual(t, uint(0), users[0].ID)
+				assert.Equal(t, "User1", users[0].Name)
+				assert.NotEqual(t, uint(0), users[1].ID)
+				assert.Equal(t, "User2", users[1].Name)
+				assert.NotEqual(t, uint(0), users[2].ID)
+				assert.Equal(t, "User3", users[2].Name)
+				assert.Equal(t, []int{2, 1}, lengths)
+			})
+
 			t.Run("should report error if the input function is invalid", func(t *testing.T) {
 				db := connectDB(t, driver)
 				defer db.Close()
