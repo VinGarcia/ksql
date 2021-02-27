@@ -693,6 +693,10 @@ func (c DB) Transaction(ctx context.Context, fn func(ORMProvider) error) error {
 var errType = reflect.TypeOf(new(error)).Elem()
 
 func parseInputFunc(fn interface{}) (reflect.Type, error) {
+	if fn == nil {
+		return nil, fmt.Errorf("the ForEachChunk attribute is required and cannot be nil")
+	}
+
 	t := reflect.TypeOf(fn)
 
 	if t.Kind() != reflect.Func {

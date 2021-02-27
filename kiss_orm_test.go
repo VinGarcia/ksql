@@ -888,6 +888,69 @@ func TestQueryChunks(t *testing.T) {
 				assert.Equal(t, "User3", users[2].Name)
 				assert.Equal(t, []int{2, 1}, lengths)
 			})
+
+			t.Run("should report error if the input function is invalid", func(t *testing.T) {
+				db := connectDB(t, driver)
+				defer db.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, driver, "users")
+
+				funcs := []interface{}{
+					nil,
+					"not a function",
+					func() error {
+						return nil
+					},
+					func(extraInputValue []User, extra []User) error {
+						return nil
+					},
+					func(invalidArgType string) error {
+						return nil
+					},
+					func(missingReturnType []User) {
+						return
+					},
+					func(users []User) string {
+						return ""
+					},
+					func(extraReturnValue []User) ([]User, error) {
+						return nil, nil
+					},
+					func(notSliceOfStructs []string) error {
+						return nil
+					},
+				}
+
+				for _, fn := range funcs {
+					err := c.QueryChunks(ctx, ChunkParser{
+						Query:  `SELECT * FROM users`,
+						Params: []interface{}{},
+
+						ChunkSize:    2,
+						ForEachChunk: fn,
+					})
+					assert.NotEqual(t, nil, err)
+				}
+			})
+
+			t.Run("should report error if the query is not valid", func(t *testing.T) {
+				db := connectDB(t, driver)
+				defer db.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, driver, "users")
+				err := c.QueryChunks(ctx, ChunkParser{
+					Query:  `SELECT * FROM not a valid query`,
+					Params: []interface{}{},
+
+					ChunkSize: 2,
+					ForEachChunk: func(buffer []User) error {
+						return nil
+					},
+				})
+				assert.NotEqual(t, nil, err)
+			})
 		})
 	}
 }
