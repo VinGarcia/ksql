@@ -273,42 +273,96 @@ func TestQueryOne(t *testing.T) {
 func TestInsert(t *testing.T) {
 	for _, driver := range []string{"sqlite3", "postgres"} {
 		t.Run(driver, func(t *testing.T) {
-			err := createTable(driver)
-			if err != nil {
-				t.Fatal("could not create test table!, reason:", err.Error())
-			}
-
-			t.Run("should ignore empty lists of users", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
-
-				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
-
-				err = c.Insert(ctx)
-				assert.Equal(t, nil, err)
-			})
-
-			t.Run("should insert one user correctly", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
-
-				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
-
-				u := User{
-					Name: "Fernanda",
+			t.Run("using slice of structs", func(t *testing.T) {
+				err := createTable(driver)
+				if err != nil {
+					t.Fatal("could not create test table!, reason:", err.Error())
 				}
 
-				err := c.Insert(ctx, &u)
-				assert.Equal(t, nil, err)
-				assert.NotEqual(t, 0, u.ID)
+				t.Run("should ignore empty lists of users", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
 
-				result := User{}
-				err = getUserByID(c.db, c.dialect, &result, u.ID)
-				assert.Equal(t, nil, err)
+					ctx := context.Background()
+					c := newTestDB(db, driver, "users")
 
-				assert.Equal(t, u.Name, result.Name)
+					err = c.Insert(ctx)
+					assert.Equal(t, nil, err)
+				})
+
+				t.Run("should insert one user correctly", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, driver, "users")
+
+					u := User{
+						Name: "Fernanda",
+					}
+
+					err := c.Insert(ctx, &u)
+					assert.Equal(t, nil, err)
+					assert.NotEqual(t, 0, u.ID)
+
+					result := User{}
+					err = getUserByID(c.db, c.dialect, &result, u.ID)
+					assert.Equal(t, nil, err)
+
+					assert.Equal(t, u.Name, result.Name)
+				})
+			})
+
+			t.Run("testing error cases", func(t *testing.T) {
+				err := createTable(driver)
+				if err != nil {
+					t.Fatal("could not create test table!, reason:", err.Error())
+				}
+
+				t.Run("should report error for invalid input types", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, driver, "users")
+
+					err = c.Insert(ctx, "foo", "bar")
+					assert.NotEqual(t, nil, err)
+
+					err = c.Insert(ctx, nullable.String("foo"), nullable.String("bar"))
+					assert.NotEqual(t, nil, err)
+
+					err = c.Insert(ctx, map[string]interface{}{
+						"name": "foo",
+						"age":  12,
+					})
+					assert.NotEqual(t, nil, err)
+
+					ifUserForgetToExpandList := []interface{}{
+						&User{Name: "foo", Age: 22},
+						&User{Name: "bar", Age: 32},
+					}
+					err = c.Insert(ctx, ifUserForgetToExpandList)
+					assert.NotEqual(t, nil, err)
+
+					// We might want to support this in the future, but not for now:
+					err = c.Insert(ctx, User{Name: "not a ptr to user", Age: 42})
+					assert.NotEqual(t, nil, err)
+				})
+
+				t.Run("should report error if for some reason the insertMethod is invalid", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, driver, "users")
+
+					// This is an invalid value:
+					c.insertMethod = insertMethod(42)
+
+					err = c.Insert(ctx, &User{Name: "foo"})
+					assert.NotEqual(t, nil, err)
+				})
 			})
 		})
 	}
