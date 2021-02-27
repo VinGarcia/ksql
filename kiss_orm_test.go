@@ -255,6 +255,17 @@ func TestQueryOne(t *testing.T) {
 				err = c.QueryOne(ctx, User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
 				assert.NotEqual(t, nil, err)
 			})
+
+			t.Run("should report error if the query is not valid", func(t *testing.T) {
+				db := connectDB(t, driver)
+				defer db.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, "postgres", "users")
+				var user User
+				err = c.QueryOne(ctx, &user, `SELECT * FROM not a valid query`)
+				assert.NotEqual(t, nil, err)
+			})
 		})
 	}
 }
