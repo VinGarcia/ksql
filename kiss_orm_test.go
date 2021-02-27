@@ -170,7 +170,7 @@ func TestQuery(t *testing.T) {
 					assert.Equal(t, nil, err)
 
 					ctx := context.Background()
-					c := newTestDB(db, "postgres", "users")
+					c := newTestDB(db, driver, "users")
 					err = c.Query(ctx, &User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
 					assert.NotEqual(t, nil, err)
 
@@ -190,7 +190,7 @@ func TestQuery(t *testing.T) {
 					defer db.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, "postgres", "users")
+					c := newTestDB(db, driver, "users")
 					var users []User
 					err = c.Query(ctx, &users, `SELECT * FROM not a valid query`)
 					assert.NotEqual(t, nil, err)
@@ -213,7 +213,7 @@ func TestQueryOne(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, "postgres", "users")
+				c := newTestDB(db, driver, "users")
 				u := User{}
 				err := c.QueryOne(ctx, &u, `SELECT * FROM users WHERE id=1;`)
 				assert.Equal(t, ErrRecordNotFound, err)
@@ -227,7 +227,7 @@ func TestQueryOne(t *testing.T) {
 				assert.Equal(t, nil, err)
 
 				ctx := context.Background()
-				c := newTestDB(db, "postgres", "users")
+				c := newTestDB(db, driver, "users")
 				u := User{}
 				err = c.QueryOne(ctx, &u, `SELECT * FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
 
@@ -247,7 +247,7 @@ func TestQueryOne(t *testing.T) {
 				assert.Equal(t, nil, err)
 
 				ctx := context.Background()
-				c := newTestDB(db, "postgres", "users")
+				c := newTestDB(db, driver, "users")
 
 				err = c.QueryOne(ctx, &[]User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
 				assert.NotEqual(t, nil, err)
@@ -261,7 +261,7 @@ func TestQueryOne(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, "postgres", "users")
+				c := newTestDB(db, driver, "users")
 				var user User
 				err = c.QueryOne(ctx, &user, `SELECT * FROM not a valid query`)
 				assert.NotEqual(t, nil, err)
