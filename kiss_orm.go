@@ -141,7 +141,13 @@ func (c DB) Query(
 			slice = reflect.Append(slice, elemValue)
 		}
 
-		err = scanRows(rows, slice.Index(idx).Addr().Interface())
+		elemPtr := slice.Index(idx).Addr()
+		if isSliceOfPtrs {
+			// This is necessary since scanRows expects a *record not a **record
+			elemPtr = elemPtr.Elem()
+		}
+
+		err = scanRows(rows, elemPtr.Interface())
 		if err != nil {
 			return err
 		}
@@ -729,14 +735,14 @@ func scanRows(rows *sql.Rows, record interface{}) error {
 	v := reflect.ValueOf(record)
 	t := v.Type()
 	if t.Kind() != reflect.Ptr {
-		return fmt.Errorf("kissorm: expected to receive a pointer to struct, but got: %T", record)
+		return fmt.Errorf("kissorm: expected record to be a pointer to struct, but got: %T", record)
 	}
 
 	v = v.Elem()
 	t = t.Elem()
 
 	if t.Kind() != reflect.Struct {
-		return fmt.Errorf("kissorm: expected to receive a pointer to slice of structs, but got: %T", record)
+		return fmt.Errorf("kissorm: expected record to be a pointer to struct, but got: %T", record)
 	}
 
 	info := structs.GetTagInfo(t)

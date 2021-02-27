@@ -23,93 +23,167 @@ type User struct {
 func TestQuery(t *testing.T) {
 	for _, driver := range []string{"sqlite3", "postgres"} {
 		t.Run(driver, func(t *testing.T) {
-			err := createTable(driver)
-			if err != nil {
-				t.Fatal("could not create test table!, reason:", err.Error())
-			}
+			t.Run("using slice of structs", func(t *testing.T) {
+				err := createTable(driver)
+				if err != nil {
+					t.Fatal("could not create test table!, reason:", err.Error())
+				}
 
-			t.Run("should return 0 results correctly", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
+				t.Run("should return 0 results correctly", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
 
-				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
-				var users []User
-				err := c.Query(ctx, &users, `SELECT * FROM users WHERE id=1;`)
-				assert.Equal(t, nil, err)
-				assert.Equal(t, []User(nil), users)
+					ctx := context.Background()
+					c := newTestDB(db, driver, "users")
+					var users []User
+					err := c.Query(ctx, &users, `SELECT * FROM users WHERE id=1;`)
+					assert.Equal(t, nil, err)
+					assert.Equal(t, []User(nil), users)
 
-				users = []User{}
-				err = c.Query(ctx, &users, `SELECT * FROM users WHERE id=1;`)
-				assert.Equal(t, nil, err)
-				assert.Equal(t, []User{}, users)
+					users = []User{}
+					err = c.Query(ctx, &users, `SELECT * FROM users WHERE id=1;`)
+					assert.Equal(t, nil, err)
+					assert.Equal(t, []User{}, users)
+				})
+
+				t.Run("should return a user correctly", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
+
+					_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('Bia', 0)`)
+					assert.Equal(t, nil, err)
+
+					ctx := context.Background()
+					c := newTestDB(db, driver, "users")
+					var users []User
+					err = c.Query(ctx, &users, `SELECT * FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
+
+					assert.Equal(t, nil, err)
+					assert.Equal(t, 1, len(users))
+					assert.Equal(t, "Bia", users[0].Name)
+					assert.NotEqual(t, uint(0), users[0].ID)
+				})
+
+				t.Run("should return multiple users correctly", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
+
+					_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('João Garcia', 0)`)
+					assert.Equal(t, nil, err)
+
+					_, err = db.Exec(`INSERT INTO users (name, age) VALUES ('Bia Garcia', 0)`)
+					assert.Equal(t, nil, err)
+
+					ctx := context.Background()
+					c := newTestDB(db, driver, "users")
+					var users []User
+					err = c.Query(ctx, &users, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
+
+					assert.Equal(t, nil, err)
+					assert.Equal(t, 2, len(users))
+					assert.Equal(t, "João Garcia", users[0].Name)
+					assert.NotEqual(t, uint(0), users[0].ID)
+					assert.Equal(t, "Bia Garcia", users[1].Name)
+					assert.NotEqual(t, uint(0), users[1].ID)
+				})
 			})
 
-			t.Run("should return a user correctly", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
+			t.Run("using slice of pointers to structs", func(t *testing.T) {
+				err := createTable(driver)
+				if err != nil {
+					t.Fatal("could not create test table!, reason:", err.Error())
+				}
 
-				_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('Bia', 0)`)
-				assert.Equal(t, nil, err)
+				t.Run("should return 0 results correctly", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
 
-				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
-				var users []User
-				err = c.Query(ctx, &users, `SELECT * FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
+					ctx := context.Background()
+					c := newTestDB(db, driver, "users")
+					var users []*User
+					err := c.Query(ctx, &users, `SELECT * FROM users WHERE id=1;`)
+					assert.Equal(t, nil, err)
+					assert.Equal(t, []*User(nil), users)
 
-				assert.Equal(t, nil, err)
-				assert.Equal(t, 1, len(users))
-				assert.Equal(t, "Bia", users[0].Name)
-				assert.NotEqual(t, uint(0), users[0].ID)
+					users = []*User{}
+					err = c.Query(ctx, &users, `SELECT * FROM users WHERE id=1;`)
+					assert.Equal(t, nil, err)
+					assert.Equal(t, []*User{}, users)
+				})
+
+				t.Run("should return a user correctly", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
+
+					_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('Bia', 0)`)
+					assert.Equal(t, nil, err)
+
+					ctx := context.Background()
+					c := newTestDB(db, driver, "users")
+					var users []*User
+					err = c.Query(ctx, &users, `SELECT * FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
+
+					assert.Equal(t, nil, err)
+					assert.Equal(t, 1, len(users))
+					assert.Equal(t, "Bia", users[0].Name)
+					assert.NotEqual(t, uint(0), users[0].ID)
+				})
+
+				t.Run("should return multiple users correctly", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
+
+					_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('João Garcia', 0)`)
+					assert.Equal(t, nil, err)
+
+					_, err = db.Exec(`INSERT INTO users (name, age) VALUES ('Bia Garcia', 0)`)
+					assert.Equal(t, nil, err)
+
+					ctx := context.Background()
+					c := newTestDB(db, driver, "users")
+					var users []*User
+					err = c.Query(ctx, &users, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
+
+					assert.Equal(t, nil, err)
+					assert.Equal(t, 2, len(users))
+					assert.Equal(t, "João Garcia", users[0].Name)
+					assert.NotEqual(t, uint(0), users[0].ID)
+					assert.Equal(t, "Bia Garcia", users[1].Name)
+					assert.NotEqual(t, uint(0), users[1].ID)
+				})
 			})
 
-			t.Run("should return multiple users correctly", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
+			t.Run("testing error cases", func(t *testing.T) {
+				err := createTable(driver)
+				if err != nil {
+					t.Fatal("could not create test table!, reason:", err.Error())
+				}
 
-				_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('João Garcia', 0)`)
-				assert.Equal(t, nil, err)
+				t.Run("should report error if input is not a pointer to a slice of structs", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
 
-				_, err = db.Exec(`INSERT INTO users (name, age) VALUES ('Bia Garcia', 0)`)
-				assert.Equal(t, nil, err)
+					_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('Andréa Sá', 0)`)
+					assert.Equal(t, nil, err)
 
-				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
-				var users []User
-				err = c.Query(ctx, &users, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
+					_, err = db.Exec(`INSERT INTO users (name, age) VALUES ('Caio Sá', 0)`)
+					assert.Equal(t, nil, err)
 
-				assert.Equal(t, nil, err)
-				assert.Equal(t, 2, len(users))
-				assert.Equal(t, "João Garcia", users[0].Name)
-				assert.NotEqual(t, uint(0), users[0].ID)
-				assert.Equal(t, "Bia Garcia", users[1].Name)
-				assert.NotEqual(t, uint(0), users[1].ID)
-			})
+					ctx := context.Background()
+					c := newTestDB(db, "postgres", "users")
+					err = c.Query(ctx, &User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
+					assert.NotEqual(t, nil, err)
 
-			t.Run("should report error if input is not a pointer to a slice of structs", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
+					err = c.Query(ctx, []*User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
+					assert.NotEqual(t, nil, err)
 
-				_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('Andréa Sá', 0)`)
-				assert.Equal(t, nil, err)
+					var i int
+					err = c.Query(ctx, &i, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
+					assert.NotEqual(t, nil, err)
 
-				_, err = db.Exec(`INSERT INTO users (name, age) VALUES ('Caio Sá', 0)`)
-				assert.Equal(t, nil, err)
-
-				ctx := context.Background()
-				c := newTestDB(db, "postgres", "users")
-				err = c.Query(ctx, &User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
-				assert.NotEqual(t, nil, err)
-
-				err = c.Query(ctx, []User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
-				assert.NotEqual(t, nil, err)
-
-				var i int
-				err = c.Query(ctx, &i, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
-				assert.NotEqual(t, nil, err)
-
-				err = c.Query(ctx, &[]int{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
-				assert.NotEqual(t, nil, err)
+					err = c.Query(ctx, &[]int{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
+					assert.NotEqual(t, nil, err)
+				})
 			})
 		})
 	}
