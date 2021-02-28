@@ -8,8 +8,36 @@ import (
 )
 
 type structInfo struct {
-	Names map[int]string
-	Index map[string]int
+	byIndex map[int]*fieldInfo
+	byName  map[string]*fieldInfo
+}
+
+type fieldInfo struct {
+	Name  string
+	Index int
+	Valid bool
+}
+
+func (s structInfo) ByIndex(idx int) *fieldInfo {
+	field, found := s.byIndex[idx]
+	if !found {
+		return &fieldInfo{}
+	}
+	return field
+}
+
+func (s structInfo) ByName(name string) *fieldInfo {
+	field, found := s.byName[name]
+	if !found {
+		return &fieldInfo{}
+	}
+	return field
+}
+
+func (s structInfo) Add(field fieldInfo) {
+	field.Valid = true
+	s.byIndex[field.Index] = &field
+	s.byName[field.Name] = &field
 }
 
 // This cache is kept as a pkg variable
@@ -72,7 +100,7 @@ func StructToMap(obj interface{}) (map[string]interface{}, error) {
 			field = field.Elem()
 		}
 
-		m[info.Names[i]] = field.Interface()
+		m[info.ByIndex(i).Name] = field.Interface()
 	}
 
 	return m, nil
@@ -107,15 +135,15 @@ func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
 
 	info := getCachedTagInfo(tagInfoCache, t)
 	for colName, rawSrc := range dbRow {
-		fieldIdx, found := info.Index[colName]
-		if !found {
-			// Ignore columns not tagged with `kissorm:""`
+		fieldInfo := info.ByName(colName)
+		if !fieldInfo.Valid {
+			// Ignore columns not tagged with `kissorm:"..."`
 			continue
 		}
 
 		src := NewPtrConverter(rawSrc)
-		dest := v.Field(fieldIdx)
-		destType := t.Field(info.Index[colName]).Type
+		dest := v.Field(fieldInfo.Index)
+		destType := t.Field(fieldInfo.Index).Type
 
 		destValue, err := src.Convert(destType)
 		if err != nil {
@@ -259,16 +287,19 @@ func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error 
 // which improves performance by a lot.
 func getTagNames(t reflect.Type) structInfo {
 	info := structInfo{
-		Names: map[int]string{},
-		Index: map[string]int{},
+		byIndex: map[int]*fieldInfo{},
+		byName:  map[string]*fieldInfo{},
 	}
 	for i := 0; i < t.NumField(); i++ {
 		name := t.Field(i).Tag.Get("kissorm")
 		if name == "" {
 			continue
 		}
-		info.Names[i] = name
-		info.Index[name] = i
+
+		info.Add(fieldInfo{
+			Name:  name,
+			Index: i,
+		})
 	}
 
 	return info

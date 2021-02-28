@@ -381,7 +381,7 @@ func (c DB) insertWithReturningID(
 	for _, id := range idNames {
 		scanFields = append(
 			scanFields,
-			v.Elem().Field(info.Index[id]).Addr().Interface(),
+			v.Elem().Field(info.ByName(id).Index).Addr().Interface(),
 		)
 	}
 	err = rows.Scan(scanFields...)
@@ -420,7 +420,7 @@ func (c DB) insertWithLastInsertID(
 	vID := reflect.ValueOf(id)
 	tID := vID.Type()
 
-	fieldAddr := v.Elem().Field(info.Index[idName]).Addr()
+	fieldAddr := v.Elem().Field(info.ByName(idName).Index).Addr()
 	fieldType := fieldAddr.Type().Elem()
 
 	if !tID.ConvertibleTo(fieldType) {
@@ -753,10 +753,11 @@ func scanRows(rows *sql.Rows, record interface{}) error {
 
 	scanArgs := []interface{}{}
 	for _, name := range names {
-		idx, found := info.Index[name]
-		valueScanner := v.Field(idx).Addr()
-		if !found {
-			valueScanner = nopScannerValue
+		fieldInfo := info.ByName(name)
+
+		valueScanner := nopScannerValue
+		if fieldInfo.Valid {
+			valueScanner = v.Field(fieldInfo.Index).Addr()
 		}
 
 		scanArgs = append(scanArgs, valueScanner.Interface())

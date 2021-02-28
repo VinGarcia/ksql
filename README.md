@@ -228,3 +228,7 @@ ok  	github.com/vingarcia/kissorm	21.740s
 - Implement support for nested objects with prefixed table names
 - Improve error messages
 - Add tests for tables using composite keys
+
+### Optimizations Oportunities
+
+- Test if using a pointer on the field info is faster or not
