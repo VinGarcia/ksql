@@ -554,6 +554,12 @@ func buildInsertQuery(
 		return "", nil, err
 	}
 
+	t := reflect.TypeOf(record)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	info := structs.GetTagInfo(t)
+
 	for _, fieldName := range idFieldNames {
 		// Remove any ID field that was not set:
 		if reflect.ValueOf(recordMap[fieldName]).IsZero() {
@@ -569,7 +575,12 @@ func buildInsertQuery(
 	params = make([]interface{}, len(recordMap))
 	valuesQuery := make([]string, len(recordMap))
 	for i, col := range columnNames {
-		params[i] = recordMap[col]
+		recordValue := recordMap[col]
+		params[i] = recordValue
+		if info.ByName(col).SerializeAsJSON {
+			params[i] = jsonSerializable{Attr: recordValue}
+		}
+
 		valuesQuery[i] = dialect.Placeholder(i)
 	}
 
@@ -724,7 +735,7 @@ func parseInputFunc(fn interface{}) (reflect.Type, error) {
 
 type nopScanner struct{}
 
-var nopScannerValue = reflect.ValueOf(&nopScanner{})
+var nopScannerValue = reflect.ValueOf(&nopScanner{}).Interface()
 
 func (nopScanner) Scan(value interface{}) error {
 	return nil
@@ -757,10 +768,13 @@ func scanRows(rows *sql.Rows, record interface{}) error {
 
 		valueScanner := nopScannerValue
 		if fieldInfo.Valid {
-			valueScanner = v.Field(fieldInfo.Index).Addr()
+			valueScanner = v.Field(fieldInfo.Index).Addr().Interface()
+			if fieldInfo.SerializeAsJSON {
+				valueScanner = jsonSerializable{Attr: valueScanner}
+			}
 		}
 
-		scanArgs = append(scanArgs, valueScanner.Interface())
+		scanArgs = append(scanArgs, valueScanner)
 	}
 
 	return rows.Scan(scanArgs...)

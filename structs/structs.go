@@ -3,6 +3,7 @@ package structs
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -13,9 +14,10 @@ type structInfo struct {
 }
 
 type fieldInfo struct {
-	Name  string
-	Index int
-	Valid bool
+	Name            string
+	Index           int
+	Valid           bool
+	SerializeAsJSON bool
 }
 
 func (s structInfo) ByIndex(idx int) *fieldInfo {
@@ -296,9 +298,17 @@ func getTagNames(t reflect.Type) structInfo {
 			continue
 		}
 
+		tags := strings.Split(name, ",")
+		serializeAsJSON := false
+		if len(tags) > 1 {
+			name = tags[0]
+			serializeAsJSON = tags[1] == "json"
+		}
+
 		info.Add(fieldInfo{
-			Name:  name,
-			Index: i,
+			Name:            name,
+			Index:           i,
+			SerializeAsJSON: serializeAsJSON,
 		})
 	}
 
