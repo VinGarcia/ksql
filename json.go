@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"reflect"
 )
 
 // This type was created to make it easier to adapt
@@ -16,6 +17,14 @@ type jsonSerializable struct {
 // Scan Implements the Scanner interface in order to load
 // this field from the JSON stored in the database
 func (j *jsonSerializable) Scan(value interface{}) error {
+	if value == nil {
+		v := reflect.ValueOf(j.Attr)
+		// Set the struct to its 0 value just like json.Unmarshal
+		// does for nil attributes:
+		v.Elem().Set(reflect.Zero(reflect.TypeOf(j.Attr).Elem()))
+		return nil
+	}
+
 	rawJSON, ok := value.([]byte)
 	if !ok {
 		return fmt.Errorf("unexpected type received to Scan: %T", value)

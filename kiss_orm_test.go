@@ -18,6 +18,15 @@ type User struct {
 	ID   uint   `kissorm:"id"`
 	Name string `kissorm:"name"`
 	Age  int    `kissorm:"age"`
+
+	Address struct {
+		Street string `json:"street"`
+		Number string `json:"number"`
+
+		City    string `json:"city"`
+		State   string `json:"state"`
+		Country string `json:"country"`
+	} `kissorm:"address,json"`
 }
 
 func TestQuery(t *testing.T) {
@@ -1331,13 +1340,15 @@ func createTable(driver string) error {
 		_, err = db.Exec(`CREATE TABLE users (
 		  id INTEGER PRIMARY KEY,
 			age INTEGER,
-			name TEXT
+			name TEXT,
+			address text
 		)`)
 	case "postgres":
 		_, err = db.Exec(`CREATE TABLE users (
 		  id serial PRIMARY KEY,
 			age INT,
-			name VARCHAR(50)
+			name VARCHAR(50),
+			address jsonb
 		)`)
 	}
 	if err != nil {

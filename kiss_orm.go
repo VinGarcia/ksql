@@ -632,9 +632,19 @@ func buildUpdateQuery(
 		keys = append(keys, key)
 	}
 
+	t := reflect.TypeOf(record)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	info := structs.GetTagInfo(t)
+
 	var setQuery []string
 	for i, k := range keys {
-		args[i] = recordMap[k]
+		recordValue := recordMap[k]
+		if info.ByName(k).SerializeAsJSON {
+			recordValue = jsonSerializable{Attr: recordValue}
+		}
+		args[i] = recordValue
 		setQuery = append(setQuery, fmt.Sprintf(
 			"%s = %s",
 			dialect.Escape(k),
@@ -770,7 +780,7 @@ func scanRows(rows *sql.Rows, record interface{}) error {
 		if fieldInfo.Valid {
 			valueScanner = v.Field(fieldInfo.Index).Addr().Interface()
 			if fieldInfo.SerializeAsJSON {
-				valueScanner = jsonSerializable{Attr: valueScanner}
+				valueScanner = &jsonSerializable{Attr: valueScanner}
 			}
 		}
 
