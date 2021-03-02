@@ -3,6 +3,7 @@ package kissorm
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -19,14 +20,16 @@ type User struct {
 	Name string `kissorm:"name"`
 	Age  int    `kissorm:"age"`
 
-	Address struct {
-		Street string `json:"street"`
-		Number string `json:"number"`
+	Address Address `kissorm:"address,json"`
+}
 
-		City    string `json:"city"`
-		State   string `json:"state"`
-		Country string `json:"country"`
-	} `kissorm:"address,json"`
+type Address struct {
+	Street string `json:"street"`
+	Number string `json:"number"`
+
+	City    string `json:"city"`
+	State   string `json:"state"`
+	Country string `json:"country"`
 }
 
 func TestQuery(t *testing.T) {
@@ -308,6 +311,9 @@ func TestInsert(t *testing.T) {
 
 					u := User{
 						Name: "Fernanda",
+						Address: Address{
+							Country: "Brazil",
+						},
 					}
 
 					err := c.Insert(ctx, &u)
@@ -319,9 +325,10 @@ func TestInsert(t *testing.T) {
 					assert.Equal(t, nil, err)
 
 					assert.Equal(t, u.Name, result.Name)
+					assert.Equal(t, u.Address, result.Address)
 				})
 
-				t.Run("should insert ignoring the ID for sqlite & multiple ids", func(t *testing.T) {
+				t.Run("should insert ignoring the ID for sqlite and multiple ids", func(t *testing.T) {
 					if driver != "sqlite3" {
 						return
 					}
@@ -337,6 +344,10 @@ func TestInsert(t *testing.T) {
 					u := User{
 						Name: "No ID returned",
 						Age:  3434, // Random number to avoid false positives on this test
+
+						Address: Address{
+							Country: "Brazil 3434",
+						},
 					}
 
 					err = c.Insert(ctx, &u)
@@ -348,6 +359,7 @@ func TestInsert(t *testing.T) {
 					assert.Equal(t, nil, err)
 
 					assert.Equal(t, u.Age, result.Age)
+					assert.Equal(t, u.Address, result.Address)
 				})
 			})
 
@@ -1341,7 +1353,7 @@ func createTable(driver string) error {
 		  id INTEGER PRIMARY KEY,
 			age INTEGER,
 			name TEXT,
-			address text
+			address BLOB
 		)`)
 	case "postgres":
 		_, err = db.Exec(`CREATE TABLE users (
@@ -1441,21 +1453,41 @@ func getUsersByID(dbi sqlProvider, dialect dialect, resultsPtr *[]User, ids ...u
 func getUserByID(dbi sqlProvider, dialect dialect, result *User, id uint) error {
 	db := dbi.(*sql.DB)
 
-	row := db.QueryRow(`SELECT id, name, age FROM users WHERE id=`+dialect.Placeholder(0), id)
+	row := db.QueryRow(`SELECT id, name, age, address FROM users WHERE id=`+dialect.Placeholder(0), id)
 	if row.Err() != nil {
 		return row.Err()
 	}
-	err := row.Scan(&result.ID, &result.Name, &result.Age)
-	return err
+
+	var rawAddr []byte
+	err := row.Scan(&result.ID, &result.Name, &result.Age, &rawAddr)
+	if err != nil {
+		return err
+	}
+
+	if rawAddr == nil {
+		return nil
+	}
+
+	return json.Unmarshal(rawAddr, &result.Address)
 }
 
 func getUserByName(dbi sqlProvider, dialect dialect, result *User, name string) error {
 	db := dbi.(*sql.DB)
 
-	row := db.QueryRow(`SELECT id, name, age FROM users WHERE name=`+dialect.Placeholder(0), name)
+	row := db.QueryRow(`SELECT id, name, age, address FROM users WHERE name=`+dialect.Placeholder(0), name)
 	if row.Err() != nil {
 		return row.Err()
 	}
-	err := row.Scan(&result.ID, &result.Name, &result.Age)
-	return err
+
+	var rawAddr []byte
+	err := row.Scan(&result.ID, &result.Name, &result.Age, &rawAddr)
+	if err != nil {
+		return err
+	}
+
+	if rawAddr == nil {
+		return nil
+	}
+
+	return json.Unmarshal(rawAddr, &result.Address)
 }
