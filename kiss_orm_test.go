@@ -805,12 +805,15 @@ func TestQueryChunks(t *testing.T) {
 				ctx := context.Background()
 				c := newTestDB(db, driver, "users")
 
-				_ = c.Insert(ctx, &User{Name: "User1"})
+				_ = c.Insert(ctx, &User{
+					Name:    "User1",
+					Address: Address{Country: "BR"},
+				})
 
 				var length int
 				var u User
 				err = c.QueryChunks(ctx, ChunkParser{
-					Query:  `select * from users where name = ` + c.dialect.Placeholder(0),
+					Query:  `SELECT * FROM users WHERE name = ` + c.dialect.Placeholder(0),
 					Params: []interface{}{"User1"},
 
 					ChunkSize: 100,
@@ -827,6 +830,7 @@ func TestQueryChunks(t *testing.T) {
 				assert.Equal(t, 1, length)
 				assert.NotEqual(t, uint(0), u.ID)
 				assert.Equal(t, "User1", u.Name)
+				assert.Equal(t, "BR", u.Address.Country)
 			})
 
 			t.Run("should query one chunk correctly", func(t *testing.T) {
@@ -841,8 +845,8 @@ func TestQueryChunks(t *testing.T) {
 				ctx := context.Background()
 				c := newTestDB(db, driver, "users")
 
-				_ = c.Insert(ctx, &User{Name: "User1"})
-				_ = c.Insert(ctx, &User{Name: "User2"})
+				_ = c.Insert(ctx, &User{Name: "User1", Address: Address{Country: "US"}})
+				_ = c.Insert(ctx, &User{Name: "User2", Address: Address{Country: "BR"}})
 
 				var lengths []int
 				var users []User
@@ -861,10 +865,14 @@ func TestQueryChunks(t *testing.T) {
 				assert.Equal(t, nil, err)
 				assert.Equal(t, 1, len(lengths))
 				assert.Equal(t, 2, lengths[0])
+
 				assert.NotEqual(t, uint(0), users[0].ID)
 				assert.Equal(t, "User1", users[0].Name)
+				assert.Equal(t, "US", users[0].Address.Country)
+
 				assert.NotEqual(t, uint(0), users[1].ID)
 				assert.Equal(t, "User2", users[1].Name)
+				assert.Equal(t, "BR", users[1].Address.Country)
 			})
 
 			t.Run("should query chunks of 1 correctly", func(t *testing.T) {
@@ -879,8 +887,8 @@ func TestQueryChunks(t *testing.T) {
 				ctx := context.Background()
 				c := newTestDB(db, driver, "users")
 
-				_ = c.Insert(ctx, &User{Name: "User1"})
-				_ = c.Insert(ctx, &User{Name: "User2"})
+				_ = c.Insert(ctx, &User{Name: "User1", Address: Address{Country: "US"}})
+				_ = c.Insert(ctx, &User{Name: "User2", Address: Address{Country: "BR"}})
 
 				var lengths []int
 				var users []User
@@ -898,11 +906,15 @@ func TestQueryChunks(t *testing.T) {
 
 				assert.Equal(t, nil, err)
 				assert.Equal(t, 2, len(users))
+				assert.Equal(t, []int{1, 1}, lengths)
+
 				assert.NotEqual(t, uint(0), users[0].ID)
 				assert.Equal(t, "User1", users[0].Name)
+				assert.Equal(t, "US", users[0].Address.Country)
+
 				assert.NotEqual(t, uint(0), users[1].ID)
 				assert.Equal(t, "User2", users[1].Name)
-				assert.Equal(t, []int{1, 1}, lengths)
+				assert.Equal(t, "BR", users[1].Address.Country)
 			})
 
 			t.Run("should load partially filled chunks correctly", func(t *testing.T) {
