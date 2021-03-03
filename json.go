@@ -25,6 +25,11 @@ func (j *jsonSerializable) Scan(value interface{}) error {
 		return nil
 	}
 
+	// Required since sqlite3 returns strings not bytes
+	if v, ok := value.(string); ok {
+		value = []byte(v)
+	}
+
 	rawJSON, ok := value.([]byte)
 	if !ok {
 		return fmt.Errorf("unexpected type received to Scan: %T", value)

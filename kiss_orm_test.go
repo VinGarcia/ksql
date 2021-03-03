@@ -235,7 +235,7 @@ func TestQueryOne(t *testing.T) {
 				db := connectDB(t, driver)
 				defer db.Close()
 
-				_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('Bia', 0)`)
+				_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
 				assert.Equal(t, nil, err)
 
 				ctx := context.Background()
@@ -244,18 +244,44 @@ func TestQueryOne(t *testing.T) {
 				err = c.QueryOne(ctx, &u, `SELECT * FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
 
 				assert.Equal(t, nil, err)
-				assert.Equal(t, "Bia", u.Name)
 				assert.NotEqual(t, uint(0), u.ID)
+				assert.Equal(t, "Bia", u.Name)
+				assert.Equal(t, Address{
+					Country: "BR",
+				}, u.Address)
+			})
+
+			t.Run("should return only the first result on multiples matches", func(t *testing.T) {
+				db := connectDB(t, driver)
+				defer db.Close()
+
+				_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('Andréa Sá', 0, '{"country":"US"}')`)
+				assert.Equal(t, nil, err)
+
+				_, err = db.Exec(`INSERT INTO users (name, age, address) VALUES ('Caio Sá', 0, '{"country":"BR"}')`)
+				assert.Equal(t, nil, err)
+
+				ctx := context.Background()
+				c := newTestDB(db, driver, "users")
+
+				var u User
+				err = c.QueryOne(ctx, &u, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0)+` ORDER BY id ASC`, "% Sá")
+				assert.Equal(t, nil, err)
+				assert.Equal(t, "Andréa Sá", u.Name)
+				assert.Equal(t, 0, u.Age)
+				assert.Equal(t, Address{
+					Country: "US",
+				}, u.Address)
 			})
 
 			t.Run("should report error if input is not a pointer to struct", func(t *testing.T) {
 				db := connectDB(t, driver)
 				defer db.Close()
 
-				_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('Andréa Sá', 0)`)
+				_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('Andréa Sá', 0, '{"country":"US"}')`)
 				assert.Equal(t, nil, err)
 
-				_, err = db.Exec(`INSERT INTO users (name, age) VALUES ('Caio Sá', 0)`)
+				_, err = db.Exec(`INSERT INTO users (name, age, address) VALUES ('Caio Sá', 0, '{"country":"BR"}')`)
 				assert.Equal(t, nil, err)
 
 				ctx := context.Background()
