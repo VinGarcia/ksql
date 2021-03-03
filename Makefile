@@ -25,7 +25,7 @@ setup: .make.setup
 	go get golang.org/x/lint
 	@# (Gomock is used on examples/example_service)
 	go get github.com/golang/mock/gomock
-	go install github.com/golang/mock/mockgen
+	go get github.com/golang/mock/mockgen
 	touch .make.setup
 
 # Running examples:
