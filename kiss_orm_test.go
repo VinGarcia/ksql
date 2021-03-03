@@ -62,7 +62,7 @@ func TestQuery(t *testing.T) {
 					db := connectDB(t, driver)
 					defer db.Close()
 
-					_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('Bia', 0)`)
+					_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
 					assert.Equal(t, nil, err)
 
 					ctx := context.Background()
@@ -72,18 +72,19 @@ func TestQuery(t *testing.T) {
 
 					assert.Equal(t, nil, err)
 					assert.Equal(t, 1, len(users))
-					assert.Equal(t, "Bia", users[0].Name)
 					assert.NotEqual(t, uint(0), users[0].ID)
+					assert.Equal(t, "Bia", users[0].Name)
+					assert.Equal(t, "BR", users[0].Address.Country)
 				})
 
 				t.Run("should return multiple users correctly", func(t *testing.T) {
 					db := connectDB(t, driver)
 					defer db.Close()
 
-					_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('João Garcia', 0)`)
+					_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
 					assert.Equal(t, nil, err)
 
-					_, err = db.Exec(`INSERT INTO users (name, age) VALUES ('Bia Garcia', 0)`)
+					_, err = db.Exec(`INSERT INTO users (name, age, address) VALUES ('Bia Garcia', 0, '{"country":"BR"}')`)
 					assert.Equal(t, nil, err)
 
 					ctx := context.Background()
@@ -93,10 +94,14 @@ func TestQuery(t *testing.T) {
 
 					assert.Equal(t, nil, err)
 					assert.Equal(t, 2, len(users))
-					assert.Equal(t, "João Garcia", users[0].Name)
+
 					assert.NotEqual(t, uint(0), users[0].ID)
-					assert.Equal(t, "Bia Garcia", users[1].Name)
+					assert.Equal(t, "João Garcia", users[0].Name)
+					assert.Equal(t, "US", users[0].Address.Country)
+
 					assert.NotEqual(t, uint(0), users[1].ID)
+					assert.Equal(t, "Bia Garcia", users[1].Name)
+					assert.Equal(t, "BR", users[1].Address.Country)
 				})
 			})
 
@@ -127,7 +132,7 @@ func TestQuery(t *testing.T) {
 					db := connectDB(t, driver)
 					defer db.Close()
 
-					_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('Bia', 0)`)
+					_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
 					assert.Equal(t, nil, err)
 
 					ctx := context.Background()
@@ -145,10 +150,10 @@ func TestQuery(t *testing.T) {
 					db := connectDB(t, driver)
 					defer db.Close()
 
-					_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('João Garcia', 0)`)
+					_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
 					assert.Equal(t, nil, err)
 
-					_, err = db.Exec(`INSERT INTO users (name, age) VALUES ('Bia Garcia', 0)`)
+					_, err = db.Exec(`INSERT INTO users (name, age, address) VALUES ('Bia Garcia', 0, '{"country":"BR"}')`)
 					assert.Equal(t, nil, err)
 
 					ctx := context.Background()
@@ -158,10 +163,14 @@ func TestQuery(t *testing.T) {
 
 					assert.Equal(t, nil, err)
 					assert.Equal(t, 2, len(users))
+
 					assert.Equal(t, "João Garcia", users[0].Name)
 					assert.NotEqual(t, uint(0), users[0].ID)
+					assert.Equal(t, "US", users[0].Address.Country)
+
 					assert.Equal(t, "Bia Garcia", users[1].Name)
 					assert.NotEqual(t, uint(0), users[1].ID)
+					assert.Equal(t, "BR", users[1].Address.Country)
 				})
 			})
 
