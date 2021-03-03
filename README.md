@@ -224,11 +224,14 @@ ok  	github.com/vingarcia/kissorm	21.740s
 
 ### TODO List
 
-- Implement support for JSON fields on the database (encoding/decoding them automatically into structs)
+- Write documentation for the new feature of serializing structs as JSON
 - Implement support for nested objects with prefixed table names
 - Improve error messages
 - Add tests for tables using composite keys
+- Add support for serializing structs as other formats such as YAML
 
 ### Optimizations Oportunities
 
 - Test if using a pointer on the field info is faster or not
+- Consider passing the cached structInfo as argument for all the functions that use it,
+  so that we don't need to get it twice in the same call.
