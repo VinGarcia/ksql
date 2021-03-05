@@ -246,7 +246,6 @@ ok  	github.com/vingarcia/kissorm	34.251s
 
 ### TODO List
 
-- Write documentation for the new feature of serializing structs as JSON
 - Implement support for nested objects with prefixed table names
 - Improve error messages
 - Add tests for tables using composite keys
