@@ -30,6 +30,15 @@ type UserEntity struct {
 	Age         *int      `kissorm:"age"`
 	Score       *int      `kissorm:"score"`
 	LastPayment time.Time `kissorm:"last_payment"`
+	Address     *Address  `kissorm:"address,json"`
+}
+
+// Address contains the user's address
+type Address struct {
+	AddrLines []string `json:"addr_lines"`
+	City      string   `json:"city"`
+	State     string   `json:"state"`
+	Country   string   `json:"country"`
 }
 
 // NewUserService ...

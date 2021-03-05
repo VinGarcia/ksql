@@ -250,6 +250,7 @@ ok  	github.com/vingarcia/kissorm	21.740s
 - Improve error messages
 - Add tests for tables using composite keys
 - Add support for serializing structs as other formats such as YAML
+- Update structs.FillStructWith to work with `json` tagged attributes
 
 ### Optimizations Oportunities
 
