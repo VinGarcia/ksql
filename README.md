@@ -233,14 +233,15 @@ go test -bench=. -benchtime=3s
 goos: linux
 goarch: amd64
 pkg: github.com/vingarcia/kissorm
-BenchmarkInsert/kissorm-setup/insert-one-4         	    4306	    880132 ns/op
-BenchmarkInsert/sqlx-setup/insert-one-4            	    4573	    792488 ns/op
-BenchmarkQuery/kissorm-setup/single-row-4          	   10000	    315328 ns/op
-BenchmarkQuery/kissorm-setup/multiple-rows-4       	    9288	    388538 ns/op
-BenchmarkQuery/sqlx-setup/single-row-4             	   10000	    323424 ns/op
-BenchmarkQuery/sqlx-setup/multiple-rows-4          	   10000	    338570 ns/op
+cpu: Intel(R) Core(TM) i5-3210M CPU @ 2.50GHz
+BenchmarkInsert/kissorm-setup/insert-one-4         	    4302	    776648 ns/op
+BenchmarkInsert/sqlx-setup/insert-one-4            	    4716	    762358 ns/op
+BenchmarkQuery/kissorm-setup/single-row-4          	   12204	    293858 ns/op
+BenchmarkQuery/kissorm-setup/multiple-rows-4       	   11145	    323571 ns/op
+BenchmarkQuery/sqlx-setup/single-row-4             	   12440	    290937 ns/op
+BenchmarkQuery/sqlx-setup/multiple-rows-4          	   10000	    310314 ns/op
 PASS
-ok  	github.com/vingarcia/kissorm	21.740s
+ok  	github.com/vingarcia/kissorm	34.251s
 ```
 
 ### TODO List
