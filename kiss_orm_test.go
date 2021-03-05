@@ -373,7 +373,10 @@ func TestInsert(t *testing.T) {
 
 					ctx := context.Background()
 					// Using columns "id" and "name" as IDs:
-					c, err := New(driver, connectionString[driver], 1, "users", "id", "name")
+					c, err := New(driver, connectionString[driver], Config{
+						TableName: "users",
+						IDColumns: []string{"id", "name"},
+					})
 					assert.Equal(t, nil, err)
 
 					u := User{

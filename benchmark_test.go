@@ -18,7 +18,10 @@ func BenchmarkInsert(b *testing.B) {
 	driver := "postgres"
 	connStr := "host=localhost port=5432 user=postgres password=postgres dbname=kissorm sslmode=disable"
 
-	kissormDB, err := kissorm.New(driver, connStr, 1, "users")
+	kissormDB, err := kissorm.New(driver, connStr, kissorm.Config{
+		MaxOpenConns: 1,
+		TableName:    "users",
+	})
 	if err != nil {
 		b.FailNow()
 	}
@@ -87,7 +90,10 @@ func BenchmarkQuery(b *testing.B) {
 	driver := "postgres"
 	connStr := "host=localhost port=5432 user=postgres password=postgres dbname=kissorm sslmode=disable"
 
-	kissormDB, err := kissorm.New(driver, connStr, 1, "users")
+	kissormDB, err := kissorm.New(driver, connStr, kissorm.Config{
+		MaxOpenConns: 1,
+		TableName:    "users",
+	})
 	if err != nil {
 		b.FailNow()
 	}

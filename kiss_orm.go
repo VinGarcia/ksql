@@ -40,13 +40,26 @@ const (
 	insertWithNoIDRetrieval
 )
 
+// Config describes the optional arguments accepted
+// by the kissorm.New() function.
+type Config struct {
+	// MaxOpenCons defaults to 1 if not set
+	MaxOpenConns int
+
+	// TableName must be set in order to use the Insert, Delete and Update helper
+	// functions. If you only intend to make queries or to use the Exec function
+	// it is safe to leave this field unset.
+	TableName string
+
+	// IDColumns defaults to []string{"id"} if unset
+	IDColumns []string
+}
+
 // New instantiates a new Kissorm client
 func New(
 	dbDriver string,
 	connectionString string,
-	maxOpenConns int,
-	tableName string,
-	idCols ...string,
+	config Config,
 ) (DB, error) {
 	db, err := sql.Open(dbDriver, connectionString)
 	if err != nil {
@@ -56,22 +69,26 @@ func New(
 		return DB{}, err
 	}
 
-	db.SetMaxOpenConns(maxOpenConns)
+	if config.MaxOpenConns == 0 {
+		config.MaxOpenConns = 1
+	}
+
+	db.SetMaxOpenConns(config.MaxOpenConns)
 
 	dialect := getDriverDialect(dbDriver)
 	if dialect == nil {
 		return DB{}, fmt.Errorf("unsupported driver `%s`", dbDriver)
 	}
 
-	if len(idCols) == 0 {
-		idCols = append(idCols, "id")
+	if len(config.IDColumns) == 0 {
+		config.IDColumns = []string{"id"}
 	}
 
 	var insertMethod insertMethod
 	switch dbDriver {
 	case "sqlite3":
 		insertMethod = insertWithLastInsertID
-		if len(idCols) > 1 {
+		if len(config.IDColumns) > 1 {
 			insertMethod = insertWithNoIDRetrieval
 		}
 	case "postgres":
@@ -84,9 +101,9 @@ func New(
 		dialect:   dialect,
 		driver:    dbDriver,
 		db:        db,
-		tableName: tableName,
+		tableName: config.TableName,
 
-		idCols:       idCols,
+		idCols:       config.IDColumns,
 		insertMethod: insertMethod,
 	}, nil
 }
@@ -315,6 +332,10 @@ func (c DB) Insert(
 	ctx context.Context,
 	records ...interface{},
 ) error {
+	if c.tableName == "" {
+		return fmt.Errorf("the optional TableName argument was not provided to New(), can't use the Insert method")
+	}
+
 	for _, record := range records {
 		query, params, err := buildInsertQuery(c.dialect, c.tableName, record, c.idCols...)
 		if err != nil {
@@ -460,6 +481,10 @@ func (c DB) Delete(
 	ctx context.Context,
 	ids ...interface{},
 ) error {
+	if c.tableName == "" {
+		return fmt.Errorf("the optional TableName argument was not provided to New(), can't use the Delete method")
+	}
+
 	if len(ids) == 0 {
 		return nil
 	}
@@ -528,6 +553,10 @@ func (c DB) Update(
 	ctx context.Context,
 	records ...interface{},
 ) error {
+	if c.tableName == "" {
+		return fmt.Errorf("the optional TableName argument was not provided to New(), can't use the Update method")
+	}
+
 	for _, record := range records {
 		query, params, err := buildUpdateQuery(c.dialect, c.tableName, record, c.idCols...)
 		if err != nil {

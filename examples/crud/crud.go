@@ -35,7 +35,10 @@ type Address struct {
 
 func main() {
 	ctx := context.Background()
-	db, err := kissorm.New("sqlite3", "/tmp/hello.sqlite", 1, "users")
+	db, err := kissorm.New("sqlite3", "/tmp/hello.sqlite", kissorm.Config{
+		MaxOpenConns: 1,
+		TableName:    "users",
+	})
 	if err != nil {
 		panic(err.Error())
 	}
