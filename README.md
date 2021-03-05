@@ -92,15 +92,24 @@ import (
 )
 
 type User struct {
-	ID   int    `kissorm:"id"`
-	Name string `kissorm:"name"`
-	Age  int    `kissorm:"age"`
+	ID      int     `kissorm:"id"`
+	Name    string  `kissorm:"name"`
+	Age     int     `kissorm:"age"`
+
+	// This field will be saved as JSON in the database
+	Address Address `kissorm:"address,json"`
 }
 
 type PartialUpdateUser struct {
-	ID   int     `kissorm:"id"`
-	Name *string `kissorm:"name"`
-	Age  *int    `kissorm:"age"`
+	ID      int      `kissorm:"id"`
+	Name    *string  `kissorm:"name"`
+	Age     *int     `kissorm:"age"`
+	Address *Address `kissorm:"address,json"`
+}
+
+type Address struct {
+	State string `json:"state"`
+	City  string `json:"city"`
 }
 
 func main() {
@@ -110,10 +119,13 @@ func main() {
 		panic(err.Error())
 	}
 
+	// In the definition below, please note that BLOB is
+	// the only type we can use in sqlite for storing JSON.
 	err = db.Exec(ctx, `CREATE TABLE IF NOT EXISTS users (
 	  id INTEGER PRIMARY KEY,
 		age INTEGER,
-		name TEXT
+		name TEXT,
+		address BLOB
 	)`)
 	if err != nil {
 		panic(err.Error())
@@ -122,6 +134,9 @@ func main() {
 	var alison = User{
 		Name: "Alison",
 		Age:  22,
+		Address: Address{
+			State: "MG",
+		},
 	}
 	err = db.Insert(ctx, &alison)
 	if err != nil {
@@ -133,6 +148,9 @@ func main() {
 	err = db.Insert(ctx, &User{
 		Name: "Cristina",
 		Age:  27,
+		Address: Address{
+			State: "SP",
+		},
 	})
 	if err != nil {
 		panic(err.Error())
@@ -182,6 +200,9 @@ func main() {
 	// Note: Using this function it is recommended to set a LIMIT, since
 	// not doing so can load too many users on your computer's memory or
 	// cause an Out Of Memory Kill.
+	//
+	// If you need to query very big numbers of users we recommend using
+	// the `QueryChunks` function.
 	var users []User
 	err = db.Query(ctx, &users, "SELECT * FROM users LIMIT 10")
 	if err != nil {
@@ -234,4 +255,4 @@ ok  	github.com/vingarcia/kissorm	21.740s
 
 - Test if using a pointer on the field info is faster or not
 - Consider passing the cached structInfo as argument for all the functions that use it,
-  so that we don't need to get it twice in the same call.
+  so that we don't need to get it more than once in the same call.
