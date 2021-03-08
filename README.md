@@ -252,7 +252,7 @@ ok  	github.com/vingarcia/kisssql	34.251s
 - Add support for serializing structs as other formats such as YAML
 - Update structs.FillStructWith to work with `json` tagged attributes
 
-### Optimizations Oportunities
+### Optimization Oportunities
 
 - Test if using a pointer on the field info is faster or not
 - Consider passing the cached structInfo as argument for all the functions that use it,
