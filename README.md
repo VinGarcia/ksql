@@ -1,9 +1,9 @@
 
-# KissORM
+# KissSQL
 
-Welcome to the KissORM project, the Keep It Stupid Simple - ORM.
+Welcome to the KissSQL project, the Keep It Stupid Simple sql package.
 
-This ORM was created to be used by any developer efficiently and safely.
+This package was created to be used by any developer efficiently and safely.
 The goals were:
 
 - To be easy to use
@@ -19,11 +19,11 @@ Currently we only support 2 Drivers:
 - `"postgres"`
 - `"sqlite3"`
 
-### Why KissORM?
+### Why KissSQL?
 
 > Note: If you want numbers see our Benchmark section below
 
-KissORM was created to fill a hole between the complexity
+KissSQL was created to fill a hole between the complexity
 we find in the tools I've seen so far, namely:
 
 - ORMs such as `GORM` that do a lot and have literally hundreds
@@ -43,9 +43,9 @@ So the goal was to be high level enough that it would
 avoid the complications from the `sql` package and
 at the same time to be simple enough to avoid
 the big learning curve and complexity of the hundreds
-of functions offered by more complete ORMs.
+of functions offered by ORMs.
 
-That said, KissORM attempts to apply the Kiss principle,
+That said, KissSQL attempts to apply the Kiss principle,
 in order to save development time for your team, i.e.:
 
 - Less time spent learning (few methods to learn)
@@ -59,8 +59,8 @@ The current interface is as follows and we plan to keep
 it with as little functions as possible, so don't expect many additions:
 
 ```go
-// ORMProvider describes the public behavior of this ORM
-type ORMProvider interface {
+// SQLProvider describes the public behavior of this ORM
+type SQLProvider interface {
 	Insert(ctx context.Context, records ...interface{}) error
 	Delete(ctx context.Context, ids ...interface{}) error
 	Update(ctx context.Context, records ...interface{}) error
@@ -70,7 +70,7 @@ type ORMProvider interface {
 	QueryChunks(ctx context.Context, parser ChunkParser) error
 
 	Exec(ctx context.Context, query string, params ...interface{}) error
-	Transaction(ctx context.Context, fn func(ORMProvider) error) error
+	Transaction(ctx context.Context, fn func(SQLProvider) error) error
 }
 ```
 
@@ -87,24 +87,24 @@ import (
 	"fmt"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/vingarcia/kissorm"
-	"github.com/vingarcia/kissorm/nullable"
+	"github.com/vingarcia/kisssql"
+	"github.com/vingarcia/kisssql/nullable"
 )
 
 type User struct {
-	ID      int     `kissorm:"id"`
-	Name    string  `kissorm:"name"`
-	Age     int     `kissorm:"age"`
+	ID      int     `kisssql:"id"`
+	Name    string  `kisssql:"name"`
+	Age     int     `kisssql:"age"`
 
 	// This field will be saved as JSON in the database
-	Address Address `kissorm:"address,json"`
+	Address Address `kisssql:"address,json"`
 }
 
 type PartialUpdateUser struct {
-	ID      int      `kissorm:"id"`
-	Name    *string  `kissorm:"name"`
-	Age     *int     `kissorm:"age"`
-	Address *Address `kissorm:"address,json"`
+	ID      int      `kisssql:"id"`
+	Name    *string  `kisssql:"name"`
+	Age     *int     `kisssql:"age"`
+	Address *Address `kisssql:"address,json"`
 }
 
 type Address struct {
@@ -114,7 +114,7 @@ type Address struct {
 
 func main() {
 	ctx := context.Background()
-	db, err := kissorm.New("sqlite3", "/tmp/hello.sqlite", 1, "users")
+	db, err := kisssql.New("sqlite3", "/tmp/hello.sqlite", 1, "users")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -178,8 +178,8 @@ func main() {
 
 	// Partial update technique 1:
 	err = db.Update(ctx, struct {
-		ID  int `kissorm:"id"`
-		Age int `kissorm:"age"`
+		ID  int `kisssql:"id"`
+		Age int `kisssql:"age"`
 	}{ID: cris.ID, Age: 28})
 	if err != nil {
 		panic(err.Error())
@@ -216,9 +216,9 @@ func main() {
 
 This library has a few helper functions for helping your tests:
 
-- `kissorm.FillStructWith(struct interface{}, dbRow map[string]interface{}) error`
-- `kissorm.FillSliceWith(structSlice interface{}, dbRows []map[string]interface{}) error`
-- `kissorm.StructToMap(struct interface{}) (map[string]interface{}, error)`
+- `kisssql.FillStructWith(struct interface{}, dbRow map[string]interface{}) error`
+- `kisssql.FillSliceWith(structSlice interface{}, dbRows []map[string]interface{}) error`
+- `kisssql.StructToMap(struct interface{}) (map[string]interface{}, error)`
 
 If you want to see examples (we have examples for all the public functions) just
 read the example tests available on our [example service](./examples/example_service)
@@ -232,16 +232,16 @@ $ make bench TIME=3s
 go test -bench=. -benchtime=3s
 goos: linux
 goarch: amd64
-pkg: github.com/vingarcia/kissorm
+pkg: github.com/vingarcia/kisssql
 cpu: Intel(R) Core(TM) i5-3210M CPU @ 2.50GHz
-BenchmarkInsert/kissorm-setup/insert-one-4         	    4302	    776648 ns/op
+BenchmarkInsert/kisssql-setup/insert-one-4         	    4302	    776648 ns/op
 BenchmarkInsert/sqlx-setup/insert-one-4            	    4716	    762358 ns/op
-BenchmarkQuery/kissorm-setup/single-row-4          	   12204	    293858 ns/op
-BenchmarkQuery/kissorm-setup/multiple-rows-4       	   11145	    323571 ns/op
+BenchmarkQuery/kisssql-setup/single-row-4          	   12204	    293858 ns/op
+BenchmarkQuery/kisssql-setup/multiple-rows-4       	   11145	    323571 ns/op
 BenchmarkQuery/sqlx-setup/single-row-4             	   12440	    290937 ns/op
 BenchmarkQuery/sqlx-setup/multiple-rows-4          	   10000	    310314 ns/op
 PASS
-ok  	github.com/vingarcia/kissorm	34.251s
+ok  	github.com/vingarcia/kisssql	34.251s
 ```
 
 ### TODO List

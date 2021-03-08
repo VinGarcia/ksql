@@ -1,4 +1,4 @@
-package kissorm
+package kisssql
 
 import (
 	"context"
@@ -9,13 +9,13 @@ import (
 )
 
 // ErrRecordNotFound ...
-var ErrRecordNotFound error = errors.Wrap(sql.ErrNoRows, "kissorm: the query returned no results")
+var ErrRecordNotFound error = errors.Wrap(sql.ErrNoRows, "kisssql: the query returned no results")
 
 // ErrAbortIteration ...
-var ErrAbortIteration error = fmt.Errorf("kissorm: abort iteration, should only be used inside QueryChunks function")
+var ErrAbortIteration error = fmt.Errorf("kisssql: abort iteration, should only be used inside QueryChunks function")
 
-// ORMProvider describes the public behavior of this ORM
-type ORMProvider interface {
+// SQLProvider describes the public behavior of this ORM
+type SQLProvider interface {
 	Insert(ctx context.Context, records ...interface{}) error
 	Delete(ctx context.Context, ids ...interface{}) error
 	Update(ctx context.Context, records ...interface{}) error
@@ -25,7 +25,7 @@ type ORMProvider interface {
 	QueryChunks(ctx context.Context, parser ChunkParser) error
 
 	Exec(ctx context.Context, query string, params ...interface{}) error
-	Transaction(ctx context.Context, fn func(ORMProvider) error) error
+	Transaction(ctx context.Context, fn func(SQLProvider) error) error
 }
 
 // ChunkParser stores the arguments of the QueryChunks function

@@ -5,26 +5,26 @@ import (
 	"fmt"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/vingarcia/kissorm"
-	"github.com/vingarcia/kissorm/nullable"
+	"github.com/vingarcia/kisssql"
+	"github.com/vingarcia/kisssql/nullable"
 )
 
 // User ...
 type User struct {
-	ID   int    `kissorm:"id"`
-	Name string `kissorm:"name"`
-	Age  int    `kissorm:"age"`
+	ID   int    `kisssql:"id"`
+	Name string `kisssql:"name"`
+	Age  int    `kisssql:"age"`
 
 	// This field will be saved as JSON in the database
-	Address Address `kissorm:"address,json"`
+	Address Address `kisssql:"address,json"`
 }
 
 // PartialUpdateUser ...
 type PartialUpdateUser struct {
-	ID      int      `kissorm:"id"`
-	Name    *string  `kissorm:"name"`
-	Age     *int     `kissorm:"age"`
-	Address *Address `kissorm:"address,json"`
+	ID      int      `kisssql:"id"`
+	Name    *string  `kisssql:"name"`
+	Age     *int     `kisssql:"age"`
+	Address *Address `kisssql:"address,json"`
 }
 
 // Address ...
@@ -35,7 +35,7 @@ type Address struct {
 
 func main() {
 	ctx := context.Background()
-	db, err := kissorm.New("sqlite3", "/tmp/hello.sqlite", kissorm.Config{
+	db, err := kisssql.New("sqlite3", "/tmp/hello.sqlite", kisssql.Config{
 		MaxOpenConns: 1,
 		TableName:    "users",
 	})
@@ -102,8 +102,8 @@ func main() {
 
 	// Partial update technique 1:
 	err = db.Update(ctx, struct {
-		ID  int `kissorm:"id"`
-		Age int `kissorm:"age"`
+		ID  int `kisssql:"id"`
+		Age int `kisssql:"age"`
 	}{ID: cris.ID, Age: 28})
 	if err != nil {
 		panic(err.Error())

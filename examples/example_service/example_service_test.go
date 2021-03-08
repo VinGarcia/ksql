@@ -7,17 +7,17 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"github.com/tj/assert"
-	"github.com/vingarcia/kissorm"
-	"github.com/vingarcia/kissorm/nullable"
-	"github.com/vingarcia/kissorm/structs"
+	"github.com/vingarcia/kisssql"
+	"github.com/vingarcia/kisssql/nullable"
+	"github.com/vingarcia/kisssql/structs"
 )
 
 func TestCreateUser(t *testing.T) {
-	t.Run("should call kissorm.Insert correctly", func(t *testing.T) {
+	t.Run("should call kisssql.Insert correctly", func(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		usersTableMock := NewMockORMProvider(controller)
+		usersTableMock := NewMockSQLProvider(controller)
 
 		s := Service{
 			usersTable:      usersTableMock,
@@ -43,7 +43,7 @@ func TestCreateUser(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		usersTableMock := NewMockORMProvider(controller)
+		usersTableMock := NewMockSQLProvider(controller)
 
 		s := Service{
 			usersTable:      usersTableMock,
@@ -54,8 +54,8 @@ func TestCreateUser(t *testing.T) {
 		usersTableMock.EXPECT().Insert(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(ctx context.Context, records ...interface{}) error {
 				for _, record := range records {
-					// The StructToMap function will convert a struct with `kissorm` tags
-					// into a map using the kissorm attr names as keys.
+					// The StructToMap function will convert a struct with `kisssql` tags
+					// into a map using the kisssql attr names as keys.
 					//
 					// If you are inserting an anonymous struct (not usual) this function
 					// can make your tests shorter:
@@ -79,11 +79,11 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestUpdateUserScore(t *testing.T) {
-	t.Run("should call kissorm.QueryOne() & Update() correctly", func(t *testing.T) {
+	t.Run("should call kisssql.QueryOne() & Update() correctly", func(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		usersTableMock := NewMockORMProvider(controller)
+		usersTableMock := NewMockSQLProvider(controller)
 
 		s := Service{
 			usersTable:      usersTableMock,
@@ -97,7 +97,7 @@ func TestUpdateUserScore(t *testing.T) {
 					// This function will use reflection to fill the
 					// struct fields with the values from the map
 					return structs.FillStructWith(result, map[string]interface{}{
-						// Use int this map the keys you set on the kissorm tags, e.g. `kissorm:"score"`
+						// Use int this map the keys you set on the kisssql tags, e.g. `kisssql:"score"`
 						// Each of these fields represent the database rows returned
 						// by the query.
 						"score": 42,
@@ -123,11 +123,11 @@ func TestUpdateUserScore(t *testing.T) {
 }
 
 func TestListUsers(t *testing.T) {
-	t.Run("should call kissorm.QueryOne() & Query() correctly", func(t *testing.T) {
+	t.Run("should call kisssql.QueryOne() & Query() correctly", func(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		usersTableMock := NewMockORMProvider(controller)
+		usersTableMock := NewMockSQLProvider(controller)
 
 		s := Service{
 			usersTable:      usersTableMock,
@@ -140,7 +140,7 @@ func TestListUsers(t *testing.T) {
 					// This function will use reflection to fill the
 					// struct fields with the values from the map
 					return structs.FillStructWith(result, map[string]interface{}{
-						// Use int this map the keys you set on the kissorm tags, e.g. `kissorm:"score"`
+						// Use int this map the keys you set on the kisssql tags, e.g. `kisssql:"score"`
 						// Each of these fields represent the database rows returned
 						// by the query.
 						"count": 420,
@@ -185,11 +185,11 @@ func TestListUsers(t *testing.T) {
 }
 
 func TestStreamAllUsers(t *testing.T) {
-	t.Run("should call kissorm.QueryChunks correctly", func(t *testing.T) {
+	t.Run("should call kisssql.QueryChunks correctly", func(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		usersTableMock := NewMockORMProvider(controller)
+		usersTableMock := NewMockSQLProvider(controller)
 
 		s := Service{
 			usersTable:      usersTableMock,
@@ -197,7 +197,7 @@ func TestStreamAllUsers(t *testing.T) {
 		}
 
 		usersTableMock.EXPECT().QueryChunks(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, parser kissorm.ChunkParser) error {
+			DoAndReturn(func(ctx context.Context, parser kisssql.ChunkParser) error {
 				fn, ok := parser.ForEachChunk.(func(users []UserEntity) error)
 				require.True(t, ok)
 				// Chunk 1:
@@ -259,11 +259,11 @@ func TestStreamAllUsers(t *testing.T) {
 }
 
 func TestDeleteUser(t *testing.T) {
-	t.Run("should call kissorm.Delete correctly", func(t *testing.T) {
+	t.Run("should call kisssql.Delete correctly", func(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		usersTableMock := NewMockORMProvider(controller)
+		usersTableMock := NewMockSQLProvider(controller)
 
 		s := Service{
 			usersTable:      usersTableMock,

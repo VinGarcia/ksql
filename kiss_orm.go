@@ -1,4 +1,4 @@
-package kissorm
+package kisssql
 
 import (
 	"context"
@@ -8,12 +8,12 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/vingarcia/kissorm/structs"
+	"github.com/vingarcia/kisssql/structs"
 )
 
-// DB represents the kissorm client responsible for
+// DB represents the kisssql client responsible for
 // interfacing with the "database/sql" package implementing
-// the Kissorm interface `ORMProvider`.
+// the KissSQL interface `SQLProvider`.
 type DB struct {
 	driver    string
 	dialect   dialect
@@ -21,7 +21,7 @@ type DB struct {
 	db        sqlProvider
 
 	// Most dbs have a single primary key,
-	// But in future kissorm should work with compound keys as well
+	// But in future kisssql should work with compound keys as well
 	idCols []string
 
 	insertMethod insertMethod
@@ -41,7 +41,7 @@ const (
 )
 
 // Config describes the optional arguments accepted
-// by the kissorm.New() function.
+// by the kisssql.New() function.
 type Config struct {
 	// MaxOpenCons defaults to 1 if not set
 	MaxOpenConns int
@@ -55,7 +55,7 @@ type Config struct {
 	IDColumns []string
 }
 
-// New instantiates a new Kissorm client
+// New instantiates a new KissSQL client
 func New(
 	dbDriver string,
 	connectionString string,
@@ -124,7 +124,7 @@ func (c DB) Query(
 	slicePtr := reflect.ValueOf(records)
 	slicePtrType := slicePtr.Type()
 	if slicePtrType.Kind() != reflect.Ptr {
-		return fmt.Errorf("kissorm: expected to receive a pointer to slice of structs, but got: %T", records)
+		return fmt.Errorf("kisssql: expected to receive a pointer to slice of structs, but got: %T", records)
 	}
 	sliceType := slicePtrType.Elem()
 	slice := slicePtr.Elem()
@@ -198,11 +198,11 @@ func (c DB) QueryOne(
 ) error {
 	t := reflect.TypeOf(record)
 	if t.Kind() != reflect.Ptr {
-		return fmt.Errorf("kissorm: expected to receive a pointer to struct, but got: %T", record)
+		return fmt.Errorf("kisssql: expected to receive a pointer to struct, but got: %T", record)
 	}
 	t = t.Elem()
 	if t.Kind() != reflect.Struct {
-		return fmt.Errorf("kissorm: expected to receive a pointer to struct, but got: %T", record)
+		return fmt.Errorf("kisssql: expected to receive a pointer to struct, but got: %T", record)
 	}
 
 	rows, err := c.db.QueryContext(ctx, query, params...)
@@ -509,7 +509,7 @@ func (c DB) Delete(
 
 func normalizeIDsAsMaps(idNames []string, ids []interface{}) ([]map[string]interface{}, error) {
 	if len(idNames) == 0 {
-		return nil, fmt.Errorf("internal kissorm error: missing idNames")
+		return nil, fmt.Errorf("internal kisssql error: missing idNames")
 	}
 
 	idMaps := []map[string]interface{}{}
@@ -698,7 +698,7 @@ func (c DB) Exec(ctx context.Context, query string, params ...interface{}) error
 }
 
 // Transaction just runs an SQL command on the database returning no rows.
-func (c DB) Transaction(ctx context.Context, fn func(ORMProvider) error) error {
+func (c DB) Transaction(ctx context.Context, fn func(SQLProvider) error) error {
 	switch db := c.db.(type) {
 	case *sql.Tx:
 		return fn(c)
@@ -736,7 +736,7 @@ func (c DB) Transaction(ctx context.Context, fn func(ORMProvider) error) error {
 		return tx.Commit()
 
 	default:
-		return fmt.Errorf("unexpected error on kissorm: db attribute has an invalid type")
+		return fmt.Errorf("unexpected error on kisssql: db attribute has an invalid type")
 	}
 }
 
@@ -789,14 +789,14 @@ func scanRows(rows *sql.Rows, record interface{}) error {
 	v := reflect.ValueOf(record)
 	t := v.Type()
 	if t.Kind() != reflect.Ptr {
-		return fmt.Errorf("kissorm: expected record to be a pointer to struct, but got: %T", record)
+		return fmt.Errorf("kisssql: expected record to be a pointer to struct, but got: %T", record)
 	}
 
 	v = v.Elem()
 	t = t.Elem()
 
 	if t.Kind() != reflect.Struct {
-		return fmt.Errorf("kissorm: expected record to be a pointer to struct, but got: %T", record)
+		return fmt.Errorf("kisssql: expected record to be a pointer to struct, but got: %T", record)
 	}
 
 	info := structs.GetTagInfo(t)

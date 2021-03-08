@@ -1,4 +1,4 @@
-module github.com/vingarcia/kissorm
+module github.com/vingarcia/kisssql
 
 go 1.14
 

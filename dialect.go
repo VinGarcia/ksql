@@ -1,4 +1,4 @@
-package kissorm
+package kisssql
 
 import "strconv"
 

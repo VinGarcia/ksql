@@ -1,4 +1,4 @@
-package kissorm
+package kisssql
 
 import (
 	"database/sql/driver"

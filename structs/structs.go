@@ -68,7 +68,7 @@ func getCachedTagInfo(tagInfoCache map[reflect.Type]structInfo, key reflect.Type
 }
 
 // StructToMap converts any struct type to a map based on
-// the tag named `kissorm`, i.e. `kissorm:"map_key_name"`
+// the tag named `kisssql`, i.e. `kisssql:"map_key_name"`
 //
 // Valid pointers are dereferenced and copied to the map,
 // null pointers are ignored.
@@ -111,7 +111,7 @@ func StructToMap(obj interface{}) (map[string]interface{}, error) {
 // FillStructWith is meant to be used on unit tests to mock
 // the response from the database.
 //
-// The first argument is any struct you are passing to a kissorm func,
+// The first argument is any struct you are passing to a kisssql func,
 // and the second is a map representing a database row you want
 // to use to update this struct.
 func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
@@ -139,7 +139,7 @@ func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
 	for colName, rawSrc := range dbRow {
 		fieldInfo := info.ByName(colName)
 		if !fieldInfo.Valid {
-			// Ignore columns not tagged with `kissorm:"..."`
+			// Ignore columns not tagged with `kisssql:"..."`
 			continue
 		}
 
@@ -242,7 +242,7 @@ func (p PtrConverter) Convert(destType reflect.Type) (reflect.Value, error) {
 // FillSliceWith is meant to be used on unit tests to mock
 // the response from the database.
 //
-// The first argument is any slice of structs you are passing to a kissorm func,
+// The first argument is any slice of structs you are passing to a kisssql func,
 // and the second is a slice of maps representing the database rows you want
 // to use to update this struct.
 func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error {
@@ -293,7 +293,7 @@ func getTagNames(t reflect.Type) structInfo {
 		byName:  map[string]*fieldInfo{},
 	}
 	for i := 0; i < t.NumField(); i++ {
-		name := t.Field(i).Tag.Get("kissorm")
+		name := t.Field(i).Tag.Get("kisssql")
 		if name == "" {
 			continue
 		}

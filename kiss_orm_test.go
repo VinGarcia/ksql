@@ -1,4 +1,4 @@
-package kissorm
+package kisssql
 
 import (
 	"context"
@@ -12,15 +12,15 @@ import (
 	"github.com/ditointernet/go-assert"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/vingarcia/kissorm/nullable"
+	"github.com/vingarcia/kisssql/nullable"
 )
 
 type User struct {
-	ID   uint   `kissorm:"id"`
-	Name string `kissorm:"name"`
-	Age  int    `kissorm:"age"`
+	ID   uint   `kisssql:"id"`
+	Name string `kisssql:"name"`
+	Age  int    `kisssql:"age"`
 
-	Address Address `kissorm:"address,json"`
+	Address Address `kisssql:"address,json"`
 }
 
 type Address struct {
@@ -702,9 +702,9 @@ func TestUpdate(t *testing.T) {
 				c := newTestDB(db, driver, "users")
 
 				type partialUser struct {
-					ID   uint   `kissorm:"id"`
-					Name string `kissorm:"name"`
-					Age  *int   `kissorm:"age"`
+					ID   uint   `kisssql:"id"`
+					Name string `kisssql:"name"`
+					Age  *int   `kisssql:"age"`
 				}
 				u := partialUser{
 					Name: "Letícia",
@@ -743,9 +743,9 @@ func TestUpdate(t *testing.T) {
 				c := newTestDB(db, driver, "users")
 
 				type partialUser struct {
-					ID   uint   `kissorm:"id"`
-					Name string `kissorm:"name"`
-					Age  *int   `kissorm:"age"`
+					ID   uint   `kisssql:"id"`
+					Name string `kisssql:"name"`
+					Age  *int   `kisssql:"age"`
 				}
 				u := partialUser{
 					Name: "Letícia",
@@ -1210,7 +1210,7 @@ func TestTransaction(t *testing.T) {
 				_ = c.Insert(ctx, &User{Name: "User2"})
 
 				var users []User
-				err = c.Transaction(ctx, func(db ORMProvider) error {
+				err = c.Transaction(ctx, func(db SQLProvider) error {
 					db.Query(ctx, &users, "SELECT * FROM users ORDER BY id ASC")
 					return nil
 				})
@@ -1238,7 +1238,7 @@ func TestTransaction(t *testing.T) {
 				_ = c.Insert(ctx, &u1)
 				_ = c.Insert(ctx, &u2)
 
-				err = c.Transaction(ctx, func(db ORMProvider) error {
+				err = c.Transaction(ctx, func(db SQLProvider) error {
 					err = db.Insert(ctx, &User{Name: "User3"})
 					assert.Equal(t, nil, err)
 					err = db.Insert(ctx, &User{Name: "User4"})
@@ -1309,11 +1309,11 @@ func TestScanRows(t *testing.T) {
 		assert.Equal(t, true, rows.Next())
 
 		var user struct {
-			ID  int `kissorm:"id"`
-			Age int `kissorm:"age"`
+			ID  int `kisssql:"id"`
+			Age int `kisssql:"age"`
 
 			// Omitted for testing purposes:
-			// Name string `kissorm:"name"`
+			// Name string `kisssql:"name"`
 		}
 		err = scanRows(rows, &user)
 		assert.Equal(t, nil, err)
@@ -1379,8 +1379,8 @@ func TestScanRows(t *testing.T) {
 }
 
 var connectionString = map[string]string{
-	"postgres": "host=localhost port=5432 user=postgres password=postgres dbname=kissorm sslmode=disable",
-	"sqlite3":  "/tmp/kissorm.db",
+	"postgres": "host=localhost port=5432 user=postgres password=postgres dbname=kisssql sslmode=disable",
+	"sqlite3":  "/tmp/kisssql.db",
 }
 
 func createTable(driver string) error {

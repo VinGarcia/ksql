@@ -1,11 +1,11 @@
-package kissorm
+package kisssql
 
 import "context"
 
-var _ ORMProvider = MockORMProvider{}
+var _ SQLProvider = MockSQLProvider{}
 
-// MockORMProvider ...
-type MockORMProvider struct {
+// MockSQLProvider ...
+type MockSQLProvider struct {
 	InsertFn func(ctx context.Context, records ...interface{}) error
 	DeleteFn func(ctx context.Context, ids ...interface{}) error
 	UpdateFn func(ctx context.Context, records ...interface{}) error
@@ -15,45 +15,45 @@ type MockORMProvider struct {
 	QueryChunksFn func(ctx context.Context, parser ChunkParser) error
 
 	ExecFn        func(ctx context.Context, query string, params ...interface{}) error
-	TransactionFn func(ctx context.Context, fn func(db ORMProvider) error) error
+	TransactionFn func(ctx context.Context, fn func(db SQLProvider) error) error
 }
 
 // Insert ...
-func (m MockORMProvider) Insert(ctx context.Context, records ...interface{}) error {
+func (m MockSQLProvider) Insert(ctx context.Context, records ...interface{}) error {
 	return m.InsertFn(ctx, records...)
 }
 
 // Delete ...
-func (m MockORMProvider) Delete(ctx context.Context, ids ...interface{}) error {
+func (m MockSQLProvider) Delete(ctx context.Context, ids ...interface{}) error {
 	return m.DeleteFn(ctx, ids...)
 }
 
 // Update ...
-func (m MockORMProvider) Update(ctx context.Context, records ...interface{}) error {
+func (m MockSQLProvider) Update(ctx context.Context, records ...interface{}) error {
 	return m.UpdateFn(ctx, records...)
 }
 
 // Query ...
-func (m MockORMProvider) Query(ctx context.Context, records interface{}, query string, params ...interface{}) error {
+func (m MockSQLProvider) Query(ctx context.Context, records interface{}, query string, params ...interface{}) error {
 	return m.QueryFn(ctx, records, query, params...)
 }
 
 // QueryOne ...
-func (m MockORMProvider) QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error {
+func (m MockSQLProvider) QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error {
 	return m.QueryOneFn(ctx, record, query, params...)
 }
 
 // QueryChunks ...
-func (m MockORMProvider) QueryChunks(ctx context.Context, parser ChunkParser) error {
+func (m MockSQLProvider) QueryChunks(ctx context.Context, parser ChunkParser) error {
 	return m.QueryChunksFn(ctx, parser)
 }
 
 // Exec ...
-func (m MockORMProvider) Exec(ctx context.Context, query string, params ...interface{}) error {
+func (m MockSQLProvider) Exec(ctx context.Context, query string, params ...interface{}) error {
 	return m.ExecFn(ctx, query, params...)
 }
 
 // Transaction ...
-func (m MockORMProvider) Transaction(ctx context.Context, fn func(db ORMProvider) error) error {
+func (m MockSQLProvider) Transaction(ctx context.Context, fn func(db SQLProvider) error) error {
 	return m.TransactionFn(ctx, fn)
 }
