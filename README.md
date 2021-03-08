@@ -208,6 +208,33 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
+
+	// Making transactions:
+	err = db.Transaction(ctx, func(db kisssql.SQLProvider) error {
+		var cris2 User
+		err = db.QueryOne(ctx, &cris2, "SELECT * FROM users WHERE id = ?", cris.ID)
+		if err != nil {
+			// This will cause an automatic rollback:
+			return err
+		}
+
+		err = db.Update(ctx, PartialUpdateUser{
+			ID:  cris2.ID,
+			Age: nullable.Int(29),
+		})
+		if err != nil {
+			// This will also cause an automatic rollback and then panic again
+			// so that we don't hide the panic inside the KissSQL library
+			panic(err.Error())
+		}
+
+		// Commits the transaction
+		return nil
+	})
+	if err != nil {
+		panic(err.Error())
+	}
+
 	fmt.Printf("Users: %#v\n", users)
 }
 ```
