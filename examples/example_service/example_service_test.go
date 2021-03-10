@@ -7,13 +7,13 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"github.com/tj/assert"
-	"github.com/vingarcia/kisssql"
-	"github.com/vingarcia/kisssql/nullable"
-	"github.com/vingarcia/kisssql/structs"
+	"github.com/vingarcia/ksql"
+	"github.com/vingarcia/ksql/nullable"
+	"github.com/vingarcia/ksql/structs"
 )
 
 func TestCreateUser(t *testing.T) {
-	t.Run("should call kisssql.Insert correctly", func(t *testing.T) {
+	t.Run("should call ksql.Insert correctly", func(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
@@ -54,8 +54,8 @@ func TestCreateUser(t *testing.T) {
 		usersTableMock.EXPECT().Insert(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(ctx context.Context, records ...interface{}) error {
 				for _, record := range records {
-					// The StructToMap function will convert a struct with `kisssql` tags
-					// into a map using the kisssql attr names as keys.
+					// The StructToMap function will convert a struct with `ksql` tags
+					// into a map using the ksql attr names as keys.
 					//
 					// If you are inserting an anonymous struct (not usual) this function
 					// can make your tests shorter:
@@ -79,7 +79,7 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestUpdateUserScore(t *testing.T) {
-	t.Run("should call kisssql.QueryOne() & Update() correctly", func(t *testing.T) {
+	t.Run("should call ksql.QueryOne() & Update() correctly", func(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
@@ -97,7 +97,7 @@ func TestUpdateUserScore(t *testing.T) {
 					// This function will use reflection to fill the
 					// struct fields with the values from the map
 					return structs.FillStructWith(result, map[string]interface{}{
-						// Use int this map the keys you set on the kisssql tags, e.g. `kisssql:"score"`
+						// Use int this map the keys you set on the ksql tags, e.g. `ksql:"score"`
 						// Each of these fields represent the database rows returned
 						// by the query.
 						"score": 42,
@@ -123,7 +123,7 @@ func TestUpdateUserScore(t *testing.T) {
 }
 
 func TestListUsers(t *testing.T) {
-	t.Run("should call kisssql.QueryOne() & Query() correctly", func(t *testing.T) {
+	t.Run("should call ksql.QueryOne() & Query() correctly", func(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
@@ -140,7 +140,7 @@ func TestListUsers(t *testing.T) {
 					// This function will use reflection to fill the
 					// struct fields with the values from the map
 					return structs.FillStructWith(result, map[string]interface{}{
-						// Use int this map the keys you set on the kisssql tags, e.g. `kisssql:"score"`
+						// Use int this map the keys you set on the ksql tags, e.g. `ksql:"score"`
 						// Each of these fields represent the database rows returned
 						// by the query.
 						"count": 420,
@@ -185,7 +185,7 @@ func TestListUsers(t *testing.T) {
 }
 
 func TestStreamAllUsers(t *testing.T) {
-	t.Run("should call kisssql.QueryChunks correctly", func(t *testing.T) {
+	t.Run("should call ksql.QueryChunks correctly", func(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
@@ -197,7 +197,7 @@ func TestStreamAllUsers(t *testing.T) {
 		}
 
 		usersTableMock.EXPECT().QueryChunks(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, parser kisssql.ChunkParser) error {
+			DoAndReturn(func(ctx context.Context, parser ksql.ChunkParser) error {
 				fn, ok := parser.ForEachChunk.(func(users []UserEntity) error)
 				require.True(t, ok)
 				// Chunk 1:
@@ -259,7 +259,7 @@ func TestStreamAllUsers(t *testing.T) {
 }
 
 func TestDeleteUser(t *testing.T) {
-	t.Run("should call kisssql.Delete correctly", func(t *testing.T) {
+	t.Run("should call ksql.Delete correctly", func(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 

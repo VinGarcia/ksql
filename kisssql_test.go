@@ -1,4 +1,4 @@
-package kisssql
+package ksql
 
 import (
 	"context"
@@ -12,15 +12,15 @@ import (
 	"github.com/ditointernet/go-assert"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/vingarcia/kisssql/nullable"
+	"github.com/vingarcia/ksql/nullable"
 )
 
 type User struct {
-	ID   uint   `kisssql:"id"`
-	Name string `kisssql:"name"`
-	Age  int    `kisssql:"age"`
+	ID   uint   `ksql:"id"`
+	Name string `ksql:"name"`
+	Age  int    `ksql:"age"`
 
-	Address Address `kisssql:"address,json"`
+	Address Address `ksql:"address,json"`
 }
 
 type Address struct {
@@ -702,9 +702,9 @@ func TestUpdate(t *testing.T) {
 				c := newTestDB(db, driver, "users")
 
 				type partialUser struct {
-					ID   uint   `kisssql:"id"`
-					Name string `kisssql:"name"`
-					Age  *int   `kisssql:"age"`
+					ID   uint   `ksql:"id"`
+					Name string `ksql:"name"`
+					Age  *int   `ksql:"age"`
 				}
 				u := partialUser{
 					Name: "Letícia",
@@ -743,9 +743,9 @@ func TestUpdate(t *testing.T) {
 				c := newTestDB(db, driver, "users")
 
 				type partialUser struct {
-					ID   uint   `kisssql:"id"`
-					Name string `kisssql:"name"`
-					Age  *int   `kisssql:"age"`
+					ID   uint   `ksql:"id"`
+					Name string `ksql:"name"`
+					Age  *int   `ksql:"age"`
 				}
 				u := partialUser{
 					Name: "Letícia",
@@ -1309,11 +1309,11 @@ func TestScanRows(t *testing.T) {
 		assert.Equal(t, true, rows.Next())
 
 		var user struct {
-			ID  int `kisssql:"id"`
-			Age int `kisssql:"age"`
+			ID  int `ksql:"id"`
+			Age int `ksql:"age"`
 
 			// Omitted for testing purposes:
-			// Name string `kisssql:"name"`
+			// Name string `ksql:"name"`
 		}
 		err = scanRows(rows, &user)
 		assert.Equal(t, nil, err)
@@ -1379,8 +1379,8 @@ func TestScanRows(t *testing.T) {
 }
 
 var connectionString = map[string]string{
-	"postgres": "host=localhost port=5432 user=postgres password=postgres dbname=kisssql sslmode=disable",
-	"sqlite3":  "/tmp/kisssql.db",
+	"postgres": "host=localhost port=5432 user=postgres password=postgres dbname=ksql sslmode=disable",
+	"sqlite3":  "/tmp/ksql.db",
 }
 
 func createTable(driver string) error {

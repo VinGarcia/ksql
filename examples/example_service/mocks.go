@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	kisssql "github.com/vingarcia/kisssql"
+	ksql "github.com/vingarcia/ksql"
 )
 
 // MockSQLProvider is a mock of SQLProvider interface.
@@ -112,7 +112,7 @@ func (mr *MockSQLProviderMockRecorder) Query(ctx, records, query interface{}, pa
 }
 
 // QueryChunks mocks base method.
-func (m *MockSQLProvider) QueryChunks(ctx context.Context, parser kisssql.ChunkParser) error {
+func (m *MockSQLProvider) QueryChunks(ctx context.Context, parser ksql.ChunkParser) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "QueryChunks", ctx, parser)
 	ret0, _ := ret[0].(error)
@@ -145,7 +145,7 @@ func (mr *MockSQLProviderMockRecorder) QueryOne(ctx, record, query interface{}, 
 }
 
 // Transaction mocks base method.
-func (m *MockSQLProvider) Transaction(ctx context.Context, fn func(kisssql.SQLProvider) error) error {
+func (m *MockSQLProvider) Transaction(ctx context.Context, fn func(ksql.SQLProvider) error) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Transaction", ctx, fn)
 	ret0, _ := ret[0].(error)

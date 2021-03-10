@@ -5,26 +5,26 @@ import (
 	"fmt"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/vingarcia/kisssql"
-	"github.com/vingarcia/kisssql/nullable"
+	"github.com/vingarcia/ksql"
+	"github.com/vingarcia/ksql/nullable"
 )
 
 // User ...
 type User struct {
-	ID   int    `kisssql:"id"`
-	Name string `kisssql:"name"`
-	Age  int    `kisssql:"age"`
+	ID   int    `ksql:"id"`
+	Name string `ksql:"name"`
+	Age  int    `ksql:"age"`
 
 	// This field will be saved as JSON in the database
-	Address Address `kisssql:"address,json"`
+	Address Address `ksql:"address,json"`
 }
 
 // PartialUpdateUser ...
 type PartialUpdateUser struct {
-	ID      int      `kisssql:"id"`
-	Name    *string  `kisssql:"name"`
-	Age     *int     `kisssql:"age"`
-	Address *Address `kisssql:"address,json"`
+	ID      int      `ksql:"id"`
+	Name    *string  `ksql:"name"`
+	Age     *int     `ksql:"age"`
+	Address *Address `ksql:"address,json"`
 }
 
 // Address ...
@@ -35,7 +35,7 @@ type Address struct {
 
 func main() {
 	ctx := context.Background()
-	db, err := kisssql.New("sqlite3", "/tmp/hello.sqlite", kisssql.Config{
+	db, err := ksql.New("sqlite3", "/tmp/hello.sqlite", ksql.Config{
 		MaxOpenConns: 1,
 		TableName:    "users",
 	})
@@ -102,8 +102,8 @@ func main() {
 
 	// Partial update technique 1:
 	err = db.Update(ctx, struct {
-		ID  int `kisssql:"id"`
-		Age int `kisssql:"age"`
+		ID  int `ksql:"id"`
+		Age int `ksql:"age"`
 	}{ID: cris.ID, Age: 28})
 	if err != nil {
 		panic(err.Error())
@@ -134,7 +134,7 @@ func main() {
 	}
 
 	// Making transactions:
-	err = db.Transaction(ctx, func(db kisssql.SQLProvider) error {
+	err = db.Transaction(ctx, func(db ksql.SQLProvider) error {
 		var cris2 User
 		err = db.QueryOne(ctx, &cris2, "SELECT * FROM users WHERE id = ?", cris.ID)
 		if err != nil {

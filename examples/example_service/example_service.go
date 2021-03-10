@@ -4,13 +4,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/vingarcia/kisssql"
-	"github.com/vingarcia/kisssql/nullable"
+	"github.com/vingarcia/ksql"
+	"github.com/vingarcia/ksql/nullable"
 )
 
 // Service ...
 type Service struct {
-	usersTable      kisssql.SQLProvider
+	usersTable      ksql.SQLProvider
 	streamChunkSize int
 }
 
@@ -25,12 +25,12 @@ type Service struct {
 // If this is not the case, it might be a good idea
 // to create a DTO struct to receive select queries.
 type UserEntity struct {
-	ID          int       `kisssql:"id"`
-	Name        *string   `kisssql:"name"`
-	Age         *int      `kisssql:"age"`
-	Score       *int      `kisssql:"score"`
-	LastPayment time.Time `kisssql:"last_payment"`
-	Address     *Address  `kisssql:"address,json"`
+	ID          int       `ksql:"id"`
+	Name        *string   `ksql:"name"`
+	Age         *int      `ksql:"age"`
+	Score       *int      `ksql:"score"`
+	LastPayment time.Time `ksql:"last_payment"`
+	Address     *Address  `ksql:"address,json"`
 }
 
 // Address contains the user's address
@@ -42,7 +42,7 @@ type Address struct {
 }
 
 // NewUserService ...
-func NewUserService(usersTable kisssql.SQLProvider) Service {
+func NewUserService(usersTable ksql.SQLProvider) Service {
 	return Service{
 		usersTable:      usersTable,
 		streamChunkSize: 100,
@@ -58,7 +58,7 @@ func (s Service) CreateUser(ctx context.Context, u UserEntity) error {
 // user score. Defaults to 0 if not set.
 func (s Service) UpdateUserScore(ctx context.Context, uID int, scoreChange int) error {
 	var scoreRow struct {
-		Score int `kisssql:"score"`
+		Score int `ksql:"score"`
 	}
 	err := s.usersTable.QueryOne(ctx, &scoreRow, "SELECT score FROM users WHERE id = ?", uID)
 	if err != nil {
@@ -74,7 +74,7 @@ func (s Service) UpdateUserScore(ctx context.Context, uID int, scoreChange int) 
 // ListUsers returns a page of users
 func (s Service) ListUsers(ctx context.Context, offset, limit int) (total int, users []UserEntity, err error) {
 	var countRow struct {
-		Count int `kisssql:"count"`
+		Count int `ksql:"count"`
 	}
 	err = s.usersTable.QueryOne(ctx, &countRow, "SELECT count(*) as count FROM users")
 	if err != nil {
@@ -91,7 +91,7 @@ func (s Service) ListUsers(ctx context.Context, offset, limit int) (total int, u
 // function only when the ammount of data loaded might exceed the available memory and/or
 // when you can't put an upper limit on the number of values returned.
 func (s Service) StreamAllUsers(ctx context.Context, sendUser func(u UserEntity) error) error {
-	return s.usersTable.QueryChunks(ctx, kisssql.ChunkParser{
+	return s.usersTable.QueryChunks(ctx, ksql.ChunkParser{
 		Query:     "SELECT * FROM users",
 		Params:    []interface{}{},
 		ChunkSize: s.streamChunkSize,

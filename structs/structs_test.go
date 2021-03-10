@@ -4,13 +4,13 @@ import (
 	"testing"
 
 	"github.com/ditointernet/go-assert"
-	"github.com/vingarcia/kisssql/nullable"
+	"github.com/vingarcia/ksql/nullable"
 )
 
 func TestStructToMap(t *testing.T) {
 	type S1 struct {
-		Name string `kisssql:"name_attr"`
-		Age  int    `kisssql:"age_attr"`
+		Name string `ksql:"name_attr"`
+		Age  int    `ksql:"age_attr"`
 	}
 	t.Run("should convert plain structs to maps", func(t *testing.T) {
 		m, err := StructToMap(S1{
@@ -39,8 +39,8 @@ func TestStructToMap(t *testing.T) {
 	})
 
 	type S2 struct {
-		Name *string `kisssql:"name"`
-		Age  *int    `kisssql:"age"`
+		Name *string `ksql:"name"`
+		Age  *int    `ksql:"age"`
 	}
 
 	t.Run("should not ignore not nil pointers", func(t *testing.T) {
@@ -72,8 +72,8 @@ func TestStructToMap(t *testing.T) {
 func TestFillStructWith(t *testing.T) {
 	t.Run("should fill a struct correctly", func(t *testing.T) {
 		var user struct {
-			Name string `kisssql:"name"`
-			Age  int    `kisssql:"age"`
+			Name string `ksql:"name"`
+			Age  int    `ksql:"age"`
 		}
 		err := FillStructWith(&user, map[string]interface{}{
 			"name": "Breno",
@@ -87,8 +87,8 @@ func TestFillStructWith(t *testing.T) {
 
 	t.Run("should fill ptr fields with ptr values", func(t *testing.T) {
 		var user struct {
-			Name *string `kisssql:"name"`
-			Age  *int    `kisssql:"age"`
+			Name *string `ksql:"name"`
+			Age  *int    `ksql:"age"`
 		}
 		err := FillStructWith(&user, map[string]interface{}{
 			"name": nullable.String("Breno"),
@@ -102,8 +102,8 @@ func TestFillStructWith(t *testing.T) {
 
 	t.Run("should fill ptr fields with non-ptr values", func(t *testing.T) {
 		var user struct {
-			Name *string `kisssql:"name"`
-			Age  *int    `kisssql:"age"`
+			Name *string `ksql:"name"`
+			Age  *int    `ksql:"age"`
 		}
 		err := FillStructWith(&user, map[string]interface{}{
 			"name": "Breno",
@@ -117,8 +117,8 @@ func TestFillStructWith(t *testing.T) {
 
 	t.Run("should fill non ptr fields with ptr values", func(t *testing.T) {
 		var user struct {
-			Name string `kisssql:"name"`
-			Age  int    `kisssql:"age"`
+			Name string `ksql:"name"`
+			Age  int    `ksql:"age"`
 		}
 		err := FillStructWith(&user, map[string]interface{}{
 			"name": nullable.String("Breno"),
@@ -132,8 +132,8 @@ func TestFillStructWith(t *testing.T) {
 
 	t.Run("should fill ptr fields with nil when necessary", func(t *testing.T) {
 		var user struct {
-			Name *string `kisssql:"name"`
-			Age  *int    `kisssql:"age"`
+			Name *string `ksql:"name"`
+			Age  *int    `ksql:"age"`
 		}
 		err := FillStructWith(&user, map[string]interface{}{
 			"name": nil,
@@ -147,8 +147,8 @@ func TestFillStructWith(t *testing.T) {
 
 	t.Run("should interpret nil fields as zero values when necessary", func(t *testing.T) {
 		var user struct {
-			Name string `kisssql:"name"`
-			Age  int    `kisssql:"age"`
+			Name string `ksql:"name"`
+			Age  int    `ksql:"age"`
 		}
 		user.Name = "not empty"
 		user.Age = 42
@@ -165,9 +165,9 @@ func TestFillStructWith(t *testing.T) {
 
 	t.Run("should ignore extra or missing fields", func(t *testing.T) {
 		var user struct {
-			Name    string `kisssql:"name"`
-			Age     int    `kisssql:"age"`
-			Missing string `kisssql:"missing"`
+			Name    string `ksql:"name"`
+			Age     int    `ksql:"age"`
+			Missing string `ksql:"missing"`
 		}
 		user.Missing = "should be untouched"
 
@@ -187,8 +187,8 @@ func TestFillStructWith(t *testing.T) {
 func TestFillSliceWith(t *testing.T) {
 	t.Run("should fill a list correctly", func(t *testing.T) {
 		var users []struct {
-			Name string `kisssql:"name"`
-			Age  int    `kisssql:"age"`
+			Name string `ksql:"name"`
+			Age  int    `ksql:"age"`
 		}
 		err := FillSliceWith(&users, []map[string]interface{}{
 			{

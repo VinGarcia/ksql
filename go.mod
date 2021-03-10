@@ -1,4 +1,4 @@
-module github.com/vingarcia/kisssql
+module github.com/vingarcia/ksql
 
 go 1.14
 

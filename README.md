@@ -87,24 +87,24 @@ import (
 	"fmt"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/vingarcia/kisssql"
-	"github.com/vingarcia/kisssql/nullable"
+	"github.com/vingarcia/ksql"
+	"github.com/vingarcia/ksql/nullable"
 )
 
 type User struct {
-	ID      int     `kisssql:"id"`
-	Name    string  `kisssql:"name"`
-	Age     int     `kisssql:"age"`
+	ID      int     `ksql:"id"`
+	Name    string  `ksql:"name"`
+	Age     int     `ksql:"age"`
 
 	// This field will be saved as JSON in the database
-	Address Address `kisssql:"address,json"`
+	Address Address `ksql:"address,json"`
 }
 
 type PartialUpdateUser struct {
-	ID      int      `kisssql:"id"`
-	Name    *string  `kisssql:"name"`
-	Age     *int     `kisssql:"age"`
-	Address *Address `kisssql:"address,json"`
+	ID      int      `ksql:"id"`
+	Name    *string  `ksql:"name"`
+	Age     *int     `ksql:"age"`
+	Address *Address `ksql:"address,json"`
 }
 
 type Address struct {
@@ -114,7 +114,7 @@ type Address struct {
 
 func main() {
 	ctx := context.Background()
-	db, err := kisssql.New("sqlite3", "/tmp/hello.sqlite", 1, "users")
+	db, err := ksql.New("sqlite3", "/tmp/hello.sqlite", 1, "users")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -178,8 +178,8 @@ func main() {
 
 	// Partial update technique 1:
 	err = db.Update(ctx, struct {
-		ID  int `kisssql:"id"`
-		Age int `kisssql:"age"`
+		ID  int `ksql:"id"`
+		Age int `ksql:"age"`
 	}{ID: cris.ID, Age: 28})
 	if err != nil {
 		panic(err.Error())
@@ -210,7 +210,7 @@ func main() {
 	}
 
 	// Making transactions:
-	err = db.Transaction(ctx, func(db kisssql.SQLProvider) error {
+	err = db.Transaction(ctx, func(db ksql.SQLProvider) error {
 		var cris2 User
 		err = db.QueryOne(ctx, &cris2, "SELECT * FROM users WHERE id = ?", cris.ID)
 		if err != nil {
@@ -243,9 +243,9 @@ func main() {
 
 This library has a few helper functions for helping your tests:
 
-- `kisssql.FillStructWith(struct interface{}, dbRow map[string]interface{}) error`
-- `kisssql.FillSliceWith(structSlice interface{}, dbRows []map[string]interface{}) error`
-- `kisssql.StructToMap(struct interface{}) (map[string]interface{}, error)`
+- `ksql.FillStructWith(struct interface{}, dbRow map[string]interface{}) error`
+- `ksql.FillSliceWith(structSlice interface{}, dbRows []map[string]interface{}) error`
+- `ksql.StructToMap(struct interface{}) (map[string]interface{}, error)`
 
 If you want to see examples (we have examples for all the public functions) just
 read the example tests available on our [example service](./examples/example_service)
@@ -259,16 +259,16 @@ $ make bench TIME=3s
 go test -bench=. -benchtime=3s
 goos: linux
 goarch: amd64
-pkg: github.com/vingarcia/kisssql
+pkg: github.com/vingarcia/ksql
 cpu: Intel(R) Core(TM) i5-3210M CPU @ 2.50GHz
-BenchmarkInsert/kisssql-setup/insert-one-4         	    4302	    776648 ns/op
+BenchmarkInsert/ksql-setup/insert-one-4         	    4302	    776648 ns/op
 BenchmarkInsert/sqlx-setup/insert-one-4            	    4716	    762358 ns/op
-BenchmarkQuery/kisssql-setup/single-row-4          	   12204	    293858 ns/op
-BenchmarkQuery/kisssql-setup/multiple-rows-4       	   11145	    323571 ns/op
+BenchmarkQuery/ksql-setup/single-row-4          	   12204	    293858 ns/op
+BenchmarkQuery/ksql-setup/multiple-rows-4       	   11145	    323571 ns/op
 BenchmarkQuery/sqlx-setup/single-row-4             	   12440	    290937 ns/op
 BenchmarkQuery/sqlx-setup/multiple-rows-4          	   10000	    310314 ns/op
 PASS
-ok  	github.com/vingarcia/kisssql	34.251s
+ok  	github.com/vingarcia/ksql	34.251s
 ```
 
 ### TODO List

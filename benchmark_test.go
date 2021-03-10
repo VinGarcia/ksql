@@ -1,4 +1,4 @@
-package kisssql_test
+package ksql_test
 
 import (
 	"context"
@@ -9,16 +9,16 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
-	"github.com/vingarcia/kisssql"
+	"github.com/vingarcia/ksql"
 )
 
 func BenchmarkInsert(b *testing.B) {
 	ctx := context.Background()
 
 	driver := "postgres"
-	connStr := "host=localhost port=5432 user=postgres password=postgres dbname=kisssql sslmode=disable"
+	connStr := "host=localhost port=5432 user=postgres password=postgres dbname=ksql sslmode=disable"
 
-	kisssqlDB, err := kisssql.New(driver, connStr, kisssql.Config{
+	ksqlDB, err := ksql.New(driver, connStr, ksql.Config{
 		MaxOpenConns: 1,
 		TableName:    "users",
 	})
@@ -27,12 +27,12 @@ func BenchmarkInsert(b *testing.B) {
 	}
 
 	type User struct {
-		ID   int    `kisssql:"id" db:"id"`
-		Name string `kisssql:"name" db:"name"`
-		Age  int    `kisssql:"age" db:"age"`
+		ID   int    `ksql:"id" db:"id"`
+		Name string `ksql:"name" db:"name"`
+		Age  int    `ksql:"age" db:"age"`
 	}
 
-	b.Run("kisssql-setup", func(b *testing.B) {
+	b.Run("ksql-setup", func(b *testing.B) {
 		err := recreateTable(connStr)
 		if err != nil {
 			b.Fatalf("error creating table: %s", err.Error())
@@ -40,7 +40,7 @@ func BenchmarkInsert(b *testing.B) {
 
 		b.Run("insert-one", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				err := kisssqlDB.Insert(ctx, &User{
+				err := ksqlDB.Insert(ctx, &User{
 					Name: strconv.Itoa(i),
 					Age:  i,
 				})
@@ -88,9 +88,9 @@ func BenchmarkQuery(b *testing.B) {
 	ctx := context.Background()
 
 	driver := "postgres"
-	connStr := "host=localhost port=5432 user=postgres password=postgres dbname=kisssql sslmode=disable"
+	connStr := "host=localhost port=5432 user=postgres password=postgres dbname=ksql sslmode=disable"
 
-	kisssqlDB, err := kisssql.New(driver, connStr, kisssql.Config{
+	ksqlDB, err := ksql.New(driver, connStr, ksql.Config{
 		MaxOpenConns: 1,
 		TableName:    "users",
 	})
@@ -99,12 +99,12 @@ func BenchmarkQuery(b *testing.B) {
 	}
 
 	type User struct {
-		ID   int    `kisssql:"id" db:"id"`
-		Name string `kisssql:"name" db:"name"`
-		Age  int    `kisssql:"age" db:"age"`
+		ID   int    `ksql:"id" db:"id"`
+		Name string `ksql:"name" db:"name"`
+		Age  int    `ksql:"age" db:"age"`
 	}
 
-	b.Run("kisssql-setup", func(b *testing.B) {
+	b.Run("ksql-setup", func(b *testing.B) {
 		err := recreateTable(connStr)
 		if err != nil {
 			b.Fatalf("error creating table: %s", err.Error())
@@ -118,7 +118,7 @@ func BenchmarkQuery(b *testing.B) {
 		b.Run("single-row", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var user User
-				err := kisssqlDB.QueryOne(ctx, &user, `SELECT * FROM users OFFSET $1 LIMIT 1`, i%100)
+				err := ksqlDB.QueryOne(ctx, &user, `SELECT * FROM users OFFSET $1 LIMIT 1`, i%100)
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}
@@ -128,7 +128,7 @@ func BenchmarkQuery(b *testing.B) {
 		b.Run("multiple-rows", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var users []User
-				err := kisssqlDB.Query(ctx, &users, `SELECT * FROM users OFFSET $1 LIMIT 10`, i%90)
+				err := ksqlDB.Query(ctx, &users, `SELECT * FROM users OFFSET $1 LIMIT 10`, i%90)
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}

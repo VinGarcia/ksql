@@ -1,4 +1,4 @@
-package kisssql
+package ksql
 
 import (
 	"context"
@@ -9,10 +9,10 @@ import (
 )
 
 // ErrRecordNotFound ...
-var ErrRecordNotFound error = errors.Wrap(sql.ErrNoRows, "kisssql: the query returned no results")
+var ErrRecordNotFound error = errors.Wrap(sql.ErrNoRows, "ksql: the query returned no results")
 
 // ErrAbortIteration ...
-var ErrAbortIteration error = fmt.Errorf("kisssql: abort iteration, should only be used inside QueryChunks function")
+var ErrAbortIteration error = fmt.Errorf("ksql: abort iteration, should only be used inside QueryChunks function")
 
 // SQLProvider describes the public behavior of this ORM
 type SQLProvider interface {

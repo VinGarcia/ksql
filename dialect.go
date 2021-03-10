@@ -1,4 +1,4 @@
-package kisssql
+package ksql
 
 import "strconv"
 
