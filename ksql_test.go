@@ -326,17 +326,6 @@ func TestInsert(t *testing.T) {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
 
-				t.Run("should ignore empty lists of users", func(t *testing.T) {
-					db := connectDB(t, driver)
-					defer db.Close()
-
-					ctx := context.Background()
-					c := newTestDB(db, driver, "users")
-
-					err = c.Insert(ctx)
-					assert.Equal(t, nil, err)
-				})
-
 				t.Run("should insert one user correctly", func(t *testing.T) {
 					db := connectDB(t, driver)
 					defer db.Close()
@@ -414,10 +403,10 @@ func TestInsert(t *testing.T) {
 					ctx := context.Background()
 					c := newTestDB(db, driver, "users")
 
-					err = c.Insert(ctx, "foo", "bar")
+					err = c.Insert(ctx, "foo")
 					assert.NotEqual(t, nil, err)
 
-					err = c.Insert(ctx, nullable.String("foo"), nullable.String("bar"))
+					err = c.Insert(ctx, nullable.String("foo"))
 					assert.NotEqual(t, nil, err)
 
 					err = c.Insert(ctx, map[string]interface{}{
@@ -606,31 +595,6 @@ func TestUpdate(t *testing.T) {
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
-
-			t.Run("should ignore empty lists of ids", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
-
-				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
-
-				u := User{
-					Name: "Thay",
-				}
-				err := c.Insert(ctx, &u)
-				assert.Equal(t, nil, err)
-				assert.NotEqual(t, uint(0), u.ID)
-
-				// Empty update, should do nothing:
-				err = c.Update(ctx)
-				assert.Equal(t, nil, err)
-
-				result := User{}
-				err = getUserByID(c.db, c.dialect, &result, u.ID)
-				assert.Equal(t, nil, err)
-
-				assert.Equal(t, "Thay", result.Name)
-			})
 
 			t.Run("should update one user correctly", func(t *testing.T) {
 				db := connectDB(t, driver)

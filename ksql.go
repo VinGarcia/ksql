@@ -330,37 +330,31 @@ func (c DB) QueryChunks(
 // the ID is automatically updated after insertion is completed.
 func (c DB) Insert(
 	ctx context.Context,
-	records ...interface{},
+	record interface{},
 ) error {
 	if c.tableName == "" {
 		return fmt.Errorf("the optional TableName argument was not provided to New(), can't use the Insert method")
 	}
 
-	for _, record := range records {
-		query, params, err := buildInsertQuery(c.dialect, c.tableName, record, c.idCols...)
-		if err != nil {
-			return err
-		}
-
-		switch c.insertMethod {
-		case insertWithReturning:
-			err = c.insertWithReturningID(ctx, record, query, params, c.idCols)
-		case insertWithLastInsertID:
-			err = c.insertWithLastInsertID(ctx, record, query, params, c.idCols[0])
-		case insertWithNoIDRetrieval:
-			err = c.insertWithNoIDRetrieval(ctx, record, query, params)
-		default:
-			// Unsupported drivers should be detected on the New() function,
-			// So we don't expect the code to ever get into this default case.
-			err = fmt.Errorf("code error: unsupported driver `%s`", c.driver)
-		}
-
-		if err != nil {
-			return err
-		}
+	query, params, err := buildInsertQuery(c.dialect, c.tableName, record, c.idCols...)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	switch c.insertMethod {
+	case insertWithReturning:
+		err = c.insertWithReturningID(ctx, record, query, params, c.idCols)
+	case insertWithLastInsertID:
+		err = c.insertWithLastInsertID(ctx, record, query, params, c.idCols[0])
+	case insertWithNoIDRetrieval:
+		err = c.insertWithNoIDRetrieval(ctx, record, query, params)
+	default:
+		// Unsupported drivers should be detected on the New() function,
+		// So we don't expect the code to ever get into this default case.
+		err = fmt.Errorf("code error: unsupported driver `%s`", c.driver)
+	}
+
+	return err
 }
 
 func (c DB) insertWithReturningID(
@@ -551,25 +545,20 @@ func normalizeIDsAsMaps(idNames []string, ids []interface{}) ([]map[string]inter
 // Partial updates are supported, i.e. it will ignore nil pointer attributes
 func (c DB) Update(
 	ctx context.Context,
-	records ...interface{},
+	record interface{},
 ) error {
 	if c.tableName == "" {
 		return fmt.Errorf("the optional TableName argument was not provided to New(), can't use the Update method")
 	}
 
-	for _, record := range records {
-		query, params, err := buildUpdateQuery(c.dialect, c.tableName, record, c.idCols...)
-		if err != nil {
-			return err
-		}
-
-		_, err = c.db.ExecContext(ctx, query, params...)
-		if err != nil {
-			return err
-		}
+	query, params, err := buildUpdateQuery(c.dialect, c.tableName, record, c.idCols...)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	_, err = c.db.ExecContext(ctx, query, params...)
+
+	return err
 }
 
 func buildInsertQuery(

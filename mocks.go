@@ -6,9 +6,9 @@ var _ SQLProvider = MockSQLProvider{}
 
 // MockSQLProvider ...
 type MockSQLProvider struct {
-	InsertFn func(ctx context.Context, records ...interface{}) error
+	InsertFn func(ctx context.Context, record interface{}) error
+	UpdateFn func(ctx context.Context, record interface{}) error
 	DeleteFn func(ctx context.Context, ids ...interface{}) error
-	UpdateFn func(ctx context.Context, records ...interface{}) error
 
 	QueryFn       func(ctx context.Context, records interface{}, query string, params ...interface{}) error
 	QueryOneFn    func(ctx context.Context, record interface{}, query string, params ...interface{}) error
@@ -19,18 +19,18 @@ type MockSQLProvider struct {
 }
 
 // Insert ...
-func (m MockSQLProvider) Insert(ctx context.Context, records ...interface{}) error {
-	return m.InsertFn(ctx, records...)
+func (m MockSQLProvider) Insert(ctx context.Context, record interface{}) error {
+	return m.InsertFn(ctx, record)
+}
+
+// Update ...
+func (m MockSQLProvider) Update(ctx context.Context, record interface{}) error {
+	return m.UpdateFn(ctx, record)
 }
 
 // Delete ...
 func (m MockSQLProvider) Delete(ctx context.Context, ids ...interface{}) error {
 	return m.DeleteFn(ctx, ids...)
-}
-
-// Update ...
-func (m MockSQLProvider) Update(ctx context.Context, records ...interface{}) error {
-	return m.UpdateFn(ctx, records...)
 }
 
 // Query ...
