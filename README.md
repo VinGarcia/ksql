@@ -61,9 +61,9 @@ it with as little functions as possible, so don't expect many additions:
 ```go
 // SQLProvider describes the public behavior of this ORM
 type SQLProvider interface {
-	Insert(ctx context.Context, records ...interface{}) error
-	Delete(ctx context.Context, ids ...interface{}) error
-	Update(ctx context.Context, records ...interface{}) error
+	Insert(ctx context.Context, record interface{}) error
+	Update(ctx context.Context, record interface{}) error
+	Delete(ctx context.Context, idsOrRecords ...interface{}) error
 
 	Query(ctx context.Context, records interface{}, query string, params ...interface{}) error
 	QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error
