@@ -91,15 +91,17 @@ import (
 	"github.com/vingarcia/ksql/nullable"
 )
 
+// User ...
 type User struct {
-	ID      int     `ksql:"id"`
-	Name    string  `ksql:"name"`
-	Age     int     `ksql:"age"`
+	ID   int    `ksql:"id"`
+	Name string `ksql:"name"`
+	Age  int    `ksql:"age"`
 
 	// This field will be saved as JSON in the database
 	Address Address `ksql:"address,json"`
 }
 
+// PartialUpdateUser ...
 type PartialUpdateUser struct {
 	ID      int      `ksql:"id"`
 	Name    *string  `ksql:"name"`
@@ -107,6 +109,7 @@ type PartialUpdateUser struct {
 	Address *Address `ksql:"address,json"`
 }
 
+// Address ...
 type Address struct {
 	State string `json:"state"`
 	City  string `json:"city"`
@@ -114,7 +117,10 @@ type Address struct {
 
 func main() {
 	ctx := context.Background()
-	db, err := ksql.New("sqlite3", "/tmp/hello.sqlite", 1, "users")
+	db, err := ksql.New("sqlite3", "/tmp/hello.sqlite", ksql.Config{
+		MaxOpenConns: 1,
+		TableName:    "users",
+	})
 	if err != nil {
 		panic(err.Error())
 	}
