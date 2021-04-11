@@ -9,12 +9,13 @@ import (
 
 type User struct {
 	Name string `ksql:"name"`
-	Age  string `ksql:"name"`
+	Age  string `ksql:"age"`
 }
 
 func TestBuilder(t *testing.T) {
 	t.Run("should build queries correctly", func(t *testing.T) {
-		b := kbuilder.New("postgres")
+		b, err := kbuilder.New("postgres")
+		assert.Equal(t, nil, err)
 
 		var user User
 		var nullableField *int
@@ -32,7 +33,7 @@ func TestBuilder(t *testing.T) {
 		})
 
 		assert.Equal(t, nil, err)
-		assert.Equal(t, `SELECT * FROM users WHERE foo < $1 AND  bar LIKE $2 ORDER BY id DESC LIMIT 10 OFFSET 100`, query)
+		assert.Equal(t, `SELECT "name", "age" FROM users WHERE foo < $1 AND bar LIKE $2 ORDER BY id DESC LIMIT 10 OFFSET 100`, query)
 		assert.Equal(t, []interface{}{42, "%ending"}, params)
 	})
 }

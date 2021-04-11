@@ -5,27 +5,43 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
+	"github.com/vingarcia/ksql"
+	"github.com/vingarcia/ksql/structs"
 )
 
 type Builder struct {
-	driver string
+	dialect ksql.Dialect
 }
 
-func New(driver string) Builder {
+func New(driver string) (Builder, error) {
+	dialect, err := ksql.GetDriverDialect(driver)
 	return Builder{
-		driver: driver,
-	}
+		dialect: dialect,
+	}, err
 }
 
-func (_ *Builder) Build(query Query) (sqlQuery string, params []interface{}, _ error) {
+func (builder *Builder) Build(query Query) (sqlQuery string, params []interface{}, _ error) {
 	var b strings.Builder
-	// TODO: Actually build the Select from the struct:
-	b.WriteString(fmt.Sprint("SELECT", query.Select))
+
+	switch v := query.Select.(type) {
+	case string:
+		b.WriteString("SELECT " + v)
+	default:
+		selectQuery, err := buildSelectQuery(v, builder.dialect)
+		if err != nil {
+			return "", nil, errors.Wrap(err, "error reading the Select field")
+		}
+		b.WriteString("SELECT " + selectQuery)
+	}
 
 	b.WriteString(" FROM " + query.From)
 
 	if len(query.Where) > 0 {
-		b.WriteString(" WHERE " + query.Where.build())
+		var whereQuery string
+		whereQuery, params = query.Where.build(builder.dialect)
+		b.WriteString(" WHERE " + whereQuery)
 	}
 
 	if query.OrderBy.fields != "" {
@@ -40,10 +56,10 @@ func (_ *Builder) Build(query Query) (sqlQuery string, params []interface{}, _ e
 	}
 
 	if query.Offset > 0 {
-		b.WriteString(" OFFSET " + strconv.Itoa(query.Limit))
+		b.WriteString(" OFFSET " + strconv.Itoa(query.Offset))
 	}
 
-	return b.String(), []interface{}{}, nil
+	return b.String(), params, nil
 }
 
 type Query struct {
@@ -79,9 +95,19 @@ type WhereQuery struct {
 
 type WhereQueries []WhereQuery
 
-func (w WhereQueries) build() string {
-	// TODO: Implement this
-	return ""
+func (w WhereQueries) build(dialect ksql.Dialect) (query string, params []interface{}) {
+	var conds []string
+	for _, whereQuery := range w {
+		var placeholders []interface{}
+		for i := range whereQuery.params {
+			placeholders = append(placeholders, dialect.Placeholder(len(params)+i))
+		}
+
+		conds = append(conds, fmt.Sprintf(whereQuery.cond, placeholders...))
+		params = append(params, whereQuery.params...)
+	}
+
+	return strings.Join(conds, " AND "), params
 }
 
 func (w WhereQueries) Where(cond string, params ...interface{}) WhereQueries {
@@ -137,4 +163,34 @@ func OrderBy(fields string) OrderByQuery {
 		fields: fields,
 		desc:   false,
 	}
+}
+
+var cachedSelectQueries = map[reflect.Type]string{}
+
+// Builds the select query using cached info so that its efficient
+func buildSelectQuery(obj interface{}, dialect ksql.Dialect) (string, error) {
+	t := reflect.TypeOf(obj)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	if t.Kind() != reflect.Struct {
+		return "", fmt.Errorf("expected to receive a pointer to struct, but got: %T", obj)
+	}
+
+	if query, found := cachedSelectQueries[t]; found {
+		return query, nil
+	}
+
+	info := structs.GetTagInfo(t)
+
+	var escapedNames []string
+	for i := 0; i < info.NumFields(); i++ {
+		name := info.ByIndex(i).Name
+		escapedNames = append(escapedNames, dialect.Escape(name))
+	}
+
+	query := strings.Join(escapedNames, ", ")
+	cachedSelectQueries[t] = query
+	return query, nil
 }

@@ -16,7 +16,7 @@ import (
 // the KissSQL interface `SQLProvider`.
 type DB struct {
 	driver    string
-	dialect   dialect
+	dialect   Dialect
 	tableName string
 	db        sqlProvider
 
@@ -75,9 +75,9 @@ func New(
 
 	db.SetMaxOpenConns(config.MaxOpenConns)
 
-	dialect := getDriverDialect(dbDriver)
-	if dialect == nil {
-		return DB{}, fmt.Errorf("unsupported driver `%s`", dbDriver)
+	dialect, err := GetDriverDialect(dbDriver)
+	if err != nil {
+		return DB{}, err
 	}
 
 	if len(config.IDColumns) == 0 {
@@ -562,7 +562,7 @@ func (c DB) Update(
 }
 
 func buildInsertQuery(
-	dialect dialect,
+	dialect Dialect,
 	tableName string,
 	record interface{},
 	idFieldNames ...string,
@@ -619,7 +619,7 @@ func buildInsertQuery(
 }
 
 func buildUpdateQuery(
-	dialect dialect,
+	dialect Dialect,
 	tableName string,
 	record interface{},
 	idFieldNames ...string,
@@ -809,7 +809,7 @@ func scanRows(rows *sql.Rows, record interface{}) error {
 }
 
 func buildSingleKeyDeleteQuery(
-	dialect dialect,
+	dialect Dialect,
 	table string,
 	idName string,
 	idMaps []map[string]interface{},
@@ -829,7 +829,7 @@ func buildSingleKeyDeleteQuery(
 }
 
 func buildCompositeKeyDeleteQuery(
-	dialect dialect,
+	dialect Dialect,
 	table string,
 	idNames []string,
 	idMaps []map[string]interface{},

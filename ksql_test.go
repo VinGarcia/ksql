@@ -1389,9 +1389,14 @@ func newTestDB(db *sql.DB, driver string, tableName string, ids ...string) DB {
 		ids = []string{"id"}
 	}
 
+	dialect, err := GetDriverDialect(driver)
+	if err != nil {
+		panic(err)
+	}
+
 	return DB{
 		driver:    driver,
-		dialect:   getDriverDialect(driver),
+		dialect:   dialect,
 		db:        db,
 		tableName: tableName,
 
@@ -1422,7 +1427,7 @@ func shiftErrSlice(errs *[]error) error {
 	return err
 }
 
-func getUsersByID(dbi sqlProvider, dialect dialect, resultsPtr *[]User, ids ...uint) error {
+func getUsersByID(dbi sqlProvider, dialect Dialect, resultsPtr *[]User, ids ...uint) error {
 	db := dbi.(*sql.DB)
 
 	placeholders := make([]string, len(ids))
@@ -1464,7 +1469,7 @@ func getUsersByID(dbi sqlProvider, dialect dialect, resultsPtr *[]User, ids ...u
 	return nil
 }
 
-func getUserByID(dbi sqlProvider, dialect dialect, result *User, id uint) error {
+func getUserByID(dbi sqlProvider, dialect Dialect, result *User, id uint) error {
 	db := dbi.(*sql.DB)
 
 	row := db.QueryRow(`SELECT id, name, age, address FROM users WHERE id=`+dialect.Placeholder(0), id)
@@ -1485,7 +1490,7 @@ func getUserByID(dbi sqlProvider, dialect dialect, result *User, id uint) error 
 	return json.Unmarshal(rawAddr, &result.Address)
 }
 
-func getUserByName(dbi sqlProvider, dialect dialect, result *User, name string) error {
+func getUserByName(dbi sqlProvider, dialect Dialect, result *User, name string) error {
 	db := dbi.(*sql.DB)
 
 	row := db.QueryRow(`SELECT id, name, age, address FROM users WHERE name=`+dialect.Placeholder(0), name)
