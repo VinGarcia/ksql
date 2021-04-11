@@ -44,6 +44,10 @@ func (builder *Builder) Build(query Query) (sqlQuery string, params []interface{
 		b.WriteString(" WHERE " + whereQuery)
 	}
 
+	if strings.TrimSpace(query.From) == "" {
+		return "", nil, fmt.Errorf("the From field is mandatory for every query")
+	}
+
 	if query.OrderBy.fields != "" {
 		b.WriteString(" ORDER BY " + query.OrderBy.fields)
 		if query.OrderBy.desc {
