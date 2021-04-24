@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"github.com/tj/assert"
 	"github.com/vingarcia/ksql/kbuilder"
 )
@@ -137,8 +138,8 @@ func TestBuilder(t *testing.T) {
 
 func expectError(t *testing.T, expect bool, err error) {
 	if expect {
-		assert.Equal(t, true, err != nil, "expected an error, but got nothing")
+		require.Equal(t, true, err != nil, "expected an error, but got nothing")
 	} else {
-		assert.Equal(t, false, err != nil, fmt.Sprintf("unexpected error %s", err))
+		require.Equal(t, false, err != nil, fmt.Sprintf("unexpected error %s", err))
 	}
 }

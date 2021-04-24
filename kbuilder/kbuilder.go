@@ -67,7 +67,9 @@ func (builder *Builder) Build(query Query) (sqlQuery string, params []interface{
 }
 
 type Query struct {
-	// Select expects a struct using the `ksql` tags
+	// Select expects either a struct using the `ksql` tags
+	// or a string listing the column names using SQL syntax,
+	// e.g.: `id, username, address`
 	Select interface{}
 
 	// From expects the FROM clause from an SQL query, e.g. `users JOIN posts USING(post_id)`
