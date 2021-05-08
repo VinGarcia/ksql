@@ -277,6 +277,27 @@ PASS
 ok  	github.com/vingarcia/ksql	34.251s
 ```
 
+### Running the tests
+
+The tests run in real database instances so the easiest way to have
+them working is to just start them using docker-compose:
+
+```bash
+docker-compose up -d
+```
+
+And then for each of them you will need to run the command:
+
+```sql
+CREATE DATABASE ksql;
+```
+
+After that you can just run the tests by using:
+
+```bash
+make test
+```
+
 ### TODO List
 
 - Implement support for nested objects with prefixed table names
