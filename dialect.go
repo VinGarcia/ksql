@@ -13,7 +13,7 @@ const (
 var supportedDialects = map[string]dialect{
 	"postgres": &postgresDialect{},
 	"sqlite3":  &sqlite3Dialect{},
-	// "mysql":    &mysqlDialect{},
+	"mysql":    &mysqlDialect{},
 }
 
 type dialect interface {

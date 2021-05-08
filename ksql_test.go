@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/ditointernet/go-assert"
+	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/vingarcia/ksql/nullable"
@@ -353,7 +354,7 @@ func TestInsert(t *testing.T) {
 				})
 
 				t.Run("should insert ignoring the ID for sqlite and multiple ids", func(t *testing.T) {
-					if driver != "sqlite3" {
+					if supportedDialects[driver].InsertMethod() != insertWithLastInsertID {
 						return
 					}
 
@@ -1345,6 +1346,7 @@ func TestScanRows(t *testing.T) {
 var connectionString = map[string]string{
 	"postgres": "host=localhost port=5432 user=postgres password=postgres dbname=ksql sslmode=disable",
 	"sqlite3":  "/tmp/ksql.db",
+	"mysql":    "root:mysql@(127.0.0.1:3306)/ksql?timeout=30s",
 }
 
 func createTable(driver string) error {
@@ -1376,6 +1378,13 @@ func createTable(driver string) error {
 			name VARCHAR(50),
 			address jsonb
 		)`)
+	case "mysql":
+		_, err = db.Exec(`CREATE TABLE users (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			age INT,
+			name VARCHAR(50),
+			address JSON
+		)`)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to create new users table: %s", err.Error())
@@ -1399,6 +1408,7 @@ func newTestDB(db *sql.DB, driver string, tableName string, ids ...string) DB {
 		insertMethod: map[string]insertMethod{
 			"sqlite3":  insertWithLastInsertID,
 			"postgres": insertWithReturning,
+			"mysql":    insertWithLastInsertID,
 		}[driver],
 	}
 }
