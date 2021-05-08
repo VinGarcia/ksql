@@ -33,7 +33,7 @@ type Address struct {
 }
 
 func TestQuery(t *testing.T) {
-	for _, driver := range []string{"sqlite3", "postgres"} {
+	for driver := range supportedDialects {
 		t.Run(driver, func(t *testing.T) {
 			t.Run("using slice of structs", func(t *testing.T) {
 				err := createTable(driver)
@@ -222,7 +222,7 @@ func TestQuery(t *testing.T) {
 }
 
 func TestQueryOne(t *testing.T) {
-	for _, driver := range []string{"sqlite3", "postgres"} {
+	for driver := range supportedDialects {
 		t.Run(driver, func(t *testing.T) {
 			err := createTable(driver)
 			if err != nil {
@@ -318,7 +318,7 @@ func TestQueryOne(t *testing.T) {
 }
 
 func TestInsert(t *testing.T) {
-	for _, driver := range []string{"sqlite3", "postgres"} {
+	for driver := range supportedDialects {
 		t.Run(driver, func(t *testing.T) {
 			t.Run("using slice of structs", func(t *testing.T) {
 				err := createTable(driver)
@@ -446,7 +446,7 @@ func TestInsert(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	for _, driver := range []string{"sqlite3", "postgres"} {
+	for driver := range supportedDialects {
 		t.Run(driver, func(t *testing.T) {
 			err := createTable(driver)
 			if err != nil {
@@ -589,7 +589,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	for _, driver := range []string{"sqlite3", "postgres"} {
+	for driver := range supportedDialects {
 		t.Run(driver, func(t *testing.T) {
 			err := createTable(driver)
 			if err != nil {
@@ -758,7 +758,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestQueryChunks(t *testing.T) {
-	for _, driver := range []string{"sqlite3", "postgres"} {
+	for driver := range supportedDialects {
 		t.Run(driver, func(t *testing.T) {
 			t.Run("should query a single row correctly", func(t *testing.T) {
 				err := createTable(driver)
@@ -1156,7 +1156,7 @@ func TestQueryChunks(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	for _, driver := range []string{"sqlite3", "postgres"} {
+	for driver := range supportedDialects {
 		t.Run(driver, func(t *testing.T) {
 			t.Run("should query a single row correctly", func(t *testing.T) {
 				err := createTable(driver)
@@ -1391,7 +1391,7 @@ func newTestDB(db *sql.DB, driver string, tableName string, ids ...string) DB {
 
 	return DB{
 		driver:    driver,
-		dialect:   getDriverDialect(driver),
+		dialect:   supportedDialects[driver],
 		db:        db,
 		tableName: tableName,
 

@@ -32,14 +32,6 @@ type sqlProvider interface {
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 }
 
-type insertMethod int
-
-const (
-	insertWithReturning insertMethod = iota
-	insertWithLastInsertID
-	insertWithNoIDRetrieval
-)
-
 // Config describes the optional arguments accepted
 // by the ksql.New() function.
 type Config struct {
@@ -75,7 +67,7 @@ func New(
 
 	db.SetMaxOpenConns(config.MaxOpenConns)
 
-	dialect := getDriverDialect(dbDriver)
+	dialect := supportedDialects[dbDriver]
 	if dialect == nil {
 		return DB{}, fmt.Errorf("unsupported driver `%s`", dbDriver)
 	}
@@ -84,17 +76,9 @@ func New(
 		config.IDColumns = []string{"id"}
 	}
 
-	var insertMethod insertMethod
-	switch dbDriver {
-	case "sqlite3":
-		insertMethod = insertWithLastInsertID
-		if len(config.IDColumns) > 1 {
-			insertMethod = insertWithNoIDRetrieval
-		}
-	case "postgres":
-		insertMethod = insertWithReturning
-	default:
-		return DB{}, fmt.Errorf("unsupported driver `%s`", dbDriver)
+	insertMethod := dialect.InsertMethod()
+	if len(config.IDColumns) > 1 && insertMethod == insertWithLastInsertID {
+		insertMethod = insertWithNoIDRetrieval
 	}
 
 	return DB{
