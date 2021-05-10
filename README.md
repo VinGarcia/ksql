@@ -260,7 +260,7 @@ read the example tests available on our [example service](./examples/example_ser
 
 ### Benchmark Comparison
 
-The benchmark is not bad, as far the code is in average as fast as sqlx:
+The benchmark is very good, the code is, in practical terms, as fast as sqlx:
 
 ```bash
 $ make bench TIME=3s
