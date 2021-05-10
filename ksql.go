@@ -148,7 +148,7 @@ func (c DB) Query(
 			elemPtr = elemPtr.Elem()
 		}
 
-		err = scanRows(rows, elemPtr.Interface())
+		err = scanRows(c.dialect, rows, elemPtr.Interface())
 		if err != nil {
 			return err
 		}
@@ -202,7 +202,7 @@ func (c DB) QueryOne(
 		return ErrRecordNotFound
 	}
 
-	err = scanRows(rows, record)
+	err = scanRows(c.dialect, rows, record)
 	if err != nil {
 		return err
 	}
@@ -262,7 +262,7 @@ func (c DB) QueryChunks(
 			chunk = reflect.Append(chunk, elemValue)
 		}
 
-		err = scanRows(rows, chunk.Index(idx).Addr().Interface())
+		err = scanRows(c.dialect, rows, chunk.Index(idx).Addr().Interface())
 		if err != nil {
 			return err
 		}
@@ -320,14 +320,14 @@ func (c DB) Insert(
 		return fmt.Errorf("the optional TableName argument was not provided to New(), can't use the Insert method")
 	}
 
-	query, params, err := buildInsertQuery(c.dialect, c.tableName, record, c.idCols...)
+	query, params, scanValues, err := buildInsertQuery(c.dialect, c.tableName, record, c.idCols...)
 	if err != nil {
 		return err
 	}
 
 	switch c.insertMethod {
-	case insertWithReturning:
-		err = c.insertWithReturningID(ctx, record, query, params, c.idCols)
+	case insertWithReturning, insertWithOutput:
+		err = c.insertReturningIDs(ctx, record, query, params, scanValues, c.idCols)
 	case insertWithLastInsertID:
 		err = c.insertWithLastInsertID(ctx, record, query, params, c.idCols[0])
 	case insertWithNoIDRetrieval:
@@ -341,19 +341,14 @@ func (c DB) Insert(
 	return err
 }
 
-func (c DB) insertWithReturningID(
+func (c DB) insertReturningIDs(
 	ctx context.Context,
 	record interface{},
 	query string,
 	params []interface{},
+	scanValues []interface{},
 	idNames []string,
 ) error {
-	escapedIDNames := []string{}
-	for _, id := range idNames {
-		escapedIDNames = append(escapedIDNames, c.dialect.Escape(id))
-	}
-	query += " RETURNING " + strings.Join(idNames, ", ")
-
 	rows, err := c.db.QueryContext(ctx, query, params...)
 	if err != nil {
 		return err
@@ -369,21 +364,7 @@ func (c DB) insertWithReturningID(
 		return err
 	}
 
-	v := reflect.ValueOf(record)
-	t := v.Type()
-	if err = assertStructPtr(t); err != nil {
-		return errors.Wrap(err, "can't write id field")
-	}
-	info := structs.GetTagInfo(t.Elem())
-
-	var scanFields []interface{}
-	for _, id := range idNames {
-		scanFields = append(
-			scanFields,
-			v.Elem().Field(info.ByName(id).Index).Addr().Interface(),
-		)
-	}
-	err = rows.Scan(scanFields...)
+	err = rows.Scan(scanValues...)
 	if err != nil {
 		return err
 	}
@@ -549,20 +530,25 @@ func buildInsertQuery(
 	dialect dialect,
 	tableName string,
 	record interface{},
-	idFieldNames ...string,
-) (query string, params []interface{}, err error) {
+	idNames ...string,
+) (query string, params []interface{}, scanValues []interface{}, err error) {
+	v := reflect.ValueOf(record)
+	t := v.Type()
+	if err = assertStructPtr(t); err != nil {
+		return "", nil, nil, fmt.Errorf(
+			"ksql: expected record to be a pointer to struct, but got: %T",
+			record,
+		)
+	}
+
+	info := structs.GetTagInfo(t.Elem())
+
 	recordMap, err := structs.StructToMap(record)
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 
-	t := reflect.TypeOf(record)
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	info := structs.GetTagInfo(t)
-
-	for _, fieldName := range idFieldNames {
+	for _, fieldName := range idNames {
 		// Remove any ID field that was not set:
 		if reflect.ValueOf(recordMap[fieldName]).IsZero() {
 			delete(recordMap, fieldName)
@@ -580,7 +566,10 @@ func buildInsertQuery(
 		recordValue := recordMap[col]
 		params[i] = recordValue
 		if info.ByName(col).SerializeAsJSON {
-			params[i] = jsonSerializable{Attr: recordValue}
+			params[i] = jsonSerializable{
+				DriverName: dialect.DriverName(),
+				Attr:       recordValue,
+			}
 		}
 
 		valuesQuery[i] = dialect.Placeholder(i)
@@ -592,14 +581,48 @@ func buildInsertQuery(
 		escapedColumnNames = append(escapedColumnNames, dialect.Escape(col))
 	}
 
+	var returningQuery, outputQuery string
+	switch dialect.InsertMethod() {
+	case insertWithReturning:
+		escapedIDNames := []string{}
+		for _, id := range idNames {
+			escapedIDNames = append(escapedIDNames, dialect.Escape(id))
+		}
+		returningQuery = " RETURNING " + strings.Join(escapedIDNames, ", ")
+
+		for _, id := range idNames {
+			scanValues = append(
+				scanValues,
+				v.Elem().Field(info.ByName(id).Index).Addr().Interface(),
+			)
+		}
+	case insertWithOutput:
+		escapedIDNames := []string{}
+		for _, id := range idNames {
+			escapedIDNames = append(escapedIDNames, "INSERTED."+dialect.Escape(id))
+		}
+		outputQuery = " OUTPUT " + strings.Join(escapedIDNames, ", ")
+
+		for _, id := range idNames {
+			scanValues = append(
+				scanValues,
+				v.Elem().Field(info.ByName(id).Index).Addr().Interface(),
+			)
+		}
+	}
+
+	// Note that the outputQuery and the returningQuery depend
+	// on the selected driver, thus, they might be empty strings.
 	query = fmt.Sprintf(
-		"INSERT INTO %s (%s) VALUES (%s)",
+		"INSERT INTO %s (%s)%s VALUES (%s)%s",
 		dialect.Escape(tableName),
 		strings.Join(escapedColumnNames, ", "),
+		outputQuery,
 		strings.Join(valuesQuery, ", "),
+		returningQuery,
 	)
 
-	return query, params, nil
+	return query, params, scanValues, nil
 }
 
 func buildUpdateQuery(
@@ -644,7 +667,10 @@ func buildUpdateQuery(
 	for i, k := range keys {
 		recordValue := recordMap[k]
 		if info.ByName(k).SerializeAsJSON {
-			recordValue = jsonSerializable{Attr: recordValue}
+			recordValue = jsonSerializable{
+				DriverName: dialect.DriverName(),
+				Attr:       recordValue,
+			}
 		}
 		args[i] = recordValue
 		setQuery = append(setQuery, fmt.Sprintf(
@@ -753,7 +779,7 @@ func (nopScanner) Scan(value interface{}) error {
 	return nil
 }
 
-func scanRows(rows *sql.Rows, record interface{}) error {
+func scanRows(dialect dialect, rows *sql.Rows, record interface{}) error {
 	names, err := rows.Columns()
 	if err != nil {
 		return err
@@ -782,7 +808,10 @@ func scanRows(rows *sql.Rows, record interface{}) error {
 		if fieldInfo.Valid {
 			valueScanner = v.Field(fieldInfo.Index).Addr().Interface()
 			if fieldInfo.SerializeAsJSON {
-				valueScanner = &jsonSerializable{Attr: valueScanner}
+				valueScanner = &jsonSerializable{
+					DriverName: dialect.DriverName(),
+					Attr:       valueScanner,
+				}
 			}
 		}
 

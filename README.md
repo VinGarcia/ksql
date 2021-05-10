@@ -14,10 +14,12 @@ The goals were:
 
 **Supported Drivers:**
 
-Currently we only support 2 Drivers:
+Currently we support 4 Drivers:
 
 - `"postgres"`
 - `"sqlite3"`
+- `"mysql"`
+- `"sqlserver"`
 
 ### Why KissSQL?
 

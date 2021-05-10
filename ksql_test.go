@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/ditointernet/go-assert"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
@@ -1233,6 +1234,7 @@ func TestScanRows(t *testing.T) {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
 
+		dialect := supportedDialects["sqlite3"]
 		ctx := context.TODO()
 		db := connectDB(t, "sqlite3")
 		defer db.Close()
@@ -1248,7 +1250,7 @@ func TestScanRows(t *testing.T) {
 		assert.Equal(t, true, rows.Next())
 
 		var u User
-		err = scanRows(rows, &u)
+		err = scanRows(dialect, rows, &u)
 		assert.Equal(t, nil, err)
 
 		assert.Equal(t, "User2", u.Name)
@@ -1261,6 +1263,7 @@ func TestScanRows(t *testing.T) {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
 
+		dialect := supportedDialects["sqlite3"]
 		ctx := context.TODO()
 		db := connectDB(t, "sqlite3")
 		defer db.Close()
@@ -1280,7 +1283,7 @@ func TestScanRows(t *testing.T) {
 			// Omitted for testing purposes:
 			// Name string `ksql:"name"`
 		}
-		err = scanRows(rows, &user)
+		err = scanRows(dialect, rows, &user)
 		assert.Equal(t, nil, err)
 
 		assert.Equal(t, 22, user.Age)
@@ -1292,6 +1295,7 @@ func TestScanRows(t *testing.T) {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
 
+		dialect := supportedDialects["sqlite3"]
 		ctx := context.TODO()
 		db := connectDB(t, "sqlite3")
 		defer db.Close()
@@ -1302,7 +1306,7 @@ func TestScanRows(t *testing.T) {
 		var u User
 		err = rows.Close()
 		assert.Equal(t, nil, err)
-		err = scanRows(rows, &u)
+		err = scanRows(dialect, rows, &u)
 		assert.NotEqual(t, nil, err)
 	})
 
@@ -1312,6 +1316,7 @@ func TestScanRows(t *testing.T) {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
 
+		dialect := supportedDialects["sqlite3"]
 		ctx := context.TODO()
 		db := connectDB(t, "sqlite3")
 		defer db.Close()
@@ -1320,7 +1325,7 @@ func TestScanRows(t *testing.T) {
 		assert.Equal(t, nil, err)
 
 		var u User
-		err = scanRows(rows, u)
+		err = scanRows(dialect, rows, u)
 		assert.NotEqual(t, nil, err)
 	})
 
@@ -1330,6 +1335,7 @@ func TestScanRows(t *testing.T) {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
 
+		dialect := supportedDialects["sqlite3"]
 		ctx := context.TODO()
 		db := connectDB(t, "sqlite3")
 		defer db.Close()
@@ -1338,15 +1344,16 @@ func TestScanRows(t *testing.T) {
 		assert.Equal(t, nil, err)
 
 		var u map[string]interface{}
-		err = scanRows(rows, &u)
+		err = scanRows(dialect, rows, &u)
 		assert.NotEqual(t, nil, err)
 	})
 }
 
 var connectionString = map[string]string{
-	"postgres": "host=localhost port=5432 user=postgres password=postgres dbname=ksql sslmode=disable",
-	"sqlite3":  "/tmp/ksql.db",
-	"mysql":    "root:mysql@(127.0.0.1:3306)/ksql?timeout=30s",
+	"postgres":  "host=localhost port=5432 user=postgres password=postgres dbname=ksql sslmode=disable",
+	"sqlite3":   "/tmp/ksql.db",
+	"mysql":     "root:mysql@(127.0.0.1:3306)/ksql?timeout=30s",
+	"sqlserver": "sqlserver://sa:Sqls3rv3r@127.0.0.1:1433?databaseName=ksql",
 }
 
 func createTable(driver string) error {
@@ -1385,6 +1392,13 @@ func createTable(driver string) error {
 			name VARCHAR(50),
 			address JSON
 		)`)
+	case "sqlserver":
+		_, err = db.Exec(`CREATE TABLE users (
+			id INT IDENTITY(1,1) PRIMARY KEY,
+			age INT,
+			name VARCHAR(50),
+			address NVARCHAR(4000)
+		)`)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to create new users table: %s", err.Error())
@@ -1404,12 +1418,8 @@ func newTestDB(db *sql.DB, driver string, tableName string, ids ...string) DB {
 		db:        db,
 		tableName: tableName,
 
-		idCols: ids,
-		insertMethod: map[string]insertMethod{
-			"sqlite3":  insertWithLastInsertID,
-			"postgres": insertWithReturning,
-			"mysql":    insertWithLastInsertID,
-		}[driver],
+		idCols:       ids,
+		insertMethod: supportedDialects[driver].InsertMethod(),
 	}
 }
 
@@ -1482,17 +1492,17 @@ func getUserByID(dbi sqlProvider, dialect dialect, result *User, id uint) error 
 		return row.Err()
 	}
 
-	var rawAddr []byte
-	err := row.Scan(&result.ID, &result.Name, &result.Age, &rawAddr)
+	value := jsonSerializable{
+		DriverName: dialect.DriverName(),
+		Attr:       &result.Address,
+	}
+
+	err := row.Scan(&result.ID, &result.Name, &result.Age, &value)
 	if err != nil {
 		return err
 	}
 
-	if rawAddr == nil {
-		return nil
-	}
-
-	return json.Unmarshal(rawAddr, &result.Address)
+	return nil
 }
 
 func getUserByName(dbi sqlProvider, dialect dialect, result *User, name string) error {

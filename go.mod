@@ -3,6 +3,7 @@ module github.com/vingarcia/ksql
 go 1.14
 
 require (
+	github.com/denisenkom/go-mssqldb v0.10.0 // indirect
 	github.com/ditointernet/go-assert v0.0.0-20200120164340-9e13125a7018
 	github.com/go-sql-driver/mysql v1.4.0 // indirect
 	github.com/golang/mock v1.5.0

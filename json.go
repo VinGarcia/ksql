@@ -11,7 +11,8 @@ import (
 // input attributes to be convertible to and from JSON
 // before sending or receiving it from the database.
 type jsonSerializable struct {
-	Attr interface{}
+	DriverName string
+	Attr       interface{}
 }
 
 // Scan Implements the Scanner interface in order to load
@@ -40,5 +41,9 @@ func (j *jsonSerializable) Scan(value interface{}) error {
 // Value Implements the Valuer interface in order to save
 // this field as JSON on the database.
 func (j jsonSerializable) Value() (driver.Value, error) {
-	return json.Marshal(j.Attr)
+	b, err := json.Marshal(j.Attr)
+	if j.DriverName == "sqlserver" {
+		return string(b), err
+	}
+	return b, err
 }
