@@ -307,9 +307,13 @@ make test
 - Add tests for tables using composite keys
 - Add support for serializing structs as other formats such as YAML
 - Update structs.FillStructWith to work with `json` tagged attributes
+- Make testing easier by exposing the connection strings in an .env file
+- Make testing easier by automatically creating the ksql database
+- Create a way for users to submit user defined dialects
 
 ### Optimization Oportunities
 
 - Test if using a pointer on the field info is faster or not
 - Consider passing the cached structInfo as argument for all the functions that use it,
   so that we don't need to get it more than once in the same call.
+- Use a cache to store all queries after they are built
