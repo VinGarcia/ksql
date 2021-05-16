@@ -42,6 +42,10 @@ func (s structInfo) Add(field fieldInfo) {
 	s.byName[field.Name] = &field
 }
 
+func (s structInfo) Fields() map[int]*fieldInfo {
+	return s.byIndex
+}
+
 // This cache is kept as a pkg variable
 // because the total number of types on a program
 // should be finite. So keeping a single cache here

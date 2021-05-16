@@ -6,10 +6,19 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"unicode"
 
 	"github.com/pkg/errors"
 	"github.com/vingarcia/ksql/structs"
 )
+
+var selectQueryCache = map[string]map[reflect.Type]string{}
+
+func init() {
+	for dname := range supportedDialects {
+		selectQueryCache[dname] = map[reflect.Type]string{}
+	}
+}
 
 // DB represents the ksql client responsible for
 // interfacing with the "database/sql" package implementing
@@ -124,6 +133,14 @@ func (c DB) Query(
 		slice = slice.Slice(0, 0)
 	}
 
+	if strings.ToUpper(getFirstToken(query)) == "FROM" {
+		selectPrefix, err := buildSelectQuery(c.dialect, structType, selectQueryCache[c.dialect.DriverName()])
+		if err != nil {
+			return err
+		}
+		query = selectPrefix + query
+	}
+
 	rows, err := c.db.QueryContext(ctx, query, params...)
 	if err != nil {
 		return fmt.Errorf("error running query: %s", err.Error())
@@ -189,6 +206,14 @@ func (c DB) QueryOne(
 		return fmt.Errorf("ksql: expected to receive a pointer to struct, but got: %T", record)
 	}
 
+	if strings.ToUpper(getFirstToken(query)) == "FROM" {
+		selectPrefix, err := buildSelectQuery(c.dialect, t, selectQueryCache[c.dialect.DriverName()])
+		if err != nil {
+			return err
+		}
+		query = selectPrefix + query
+	}
+
 	rows, err := c.db.QueryContext(ctx, query, params...)
 	if err != nil {
 		return err
@@ -241,6 +266,14 @@ func (c DB) QueryChunks(
 	structType, isSliceOfPtrs, err := structs.DecodeAsSliceOfStructs(chunkType)
 	if err != nil {
 		return err
+	}
+
+	if strings.ToUpper(getFirstToken(parser.Query)) == "FROM" {
+		selectPrefix, err := buildSelectQuery(c.dialect, structType, selectQueryCache[c.dialect.DriverName()])
+		if err != nil {
+			return err
+		}
+		parser.Query = selectPrefix + parser.Query
 	}
 
 	rows, err := c.db.QueryContext(ctx, parser.Query, parser.Params...)
@@ -868,4 +901,40 @@ func buildCompositeKeyDeleteQuery(
 		strings.Join(escapedNames, ","),
 		strings.Join(values, ","),
 	), params
+}
+
+// We implemented this function instead of using
+// a regex or strings.Fields because we wanted
+// to preserve the performance of the package.
+func getFirstToken(s string) string {
+	s = strings.TrimLeftFunc(s, unicode.IsSpace)
+
+	var token strings.Builder
+	for _, c := range s {
+		if unicode.IsSpace(c) {
+			break
+		}
+		token.WriteRune(c)
+	}
+	return token.String()
+}
+
+func buildSelectQuery(
+	dialect dialect,
+	structType reflect.Type,
+	selectQueryCache map[reflect.Type]string,
+) (string, error) {
+	if selectQuery, found := selectQueryCache[structType]; found {
+		return selectQuery, nil
+	}
+
+	info := structs.GetTagInfo(structType)
+	var fields []string
+	for _, field := range info.Fields() {
+		fields = append(fields, dialect.Escape(field.Name))
+	}
+
+	query := "SELECT " + strings.Join(fields, ", ") + " "
+	selectQueryCache[structType] = query
+	return query, nil
 }
