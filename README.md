@@ -1,7 +1,11 @@
 
 # KissSQL
 
-Welcome to the KissSQL project, the Keep It Stupid Simple sql package.
+If the thing you hate the most when coding is having too much unnecessary
+abstractions and the second thing you hate the most is having verbose
+and repetitive code for routine tasks this library is probably for you.
+
+Welcome to the KissSQL project, the "Keep It Stupid Simple" sql client for Go.
 
 This package was created to be used by any developer efficiently and safely.
 The goals were:
@@ -10,16 +14,19 @@ The goals were:
 - To be hard to make mistakes
 - To have a small API so it's easy to learn
 - To be easy to mock and test (very easy)
-- To be above all readable.
+- And above all to be readable.
 
 **Supported Drivers:**
 
-Currently we support 4 Drivers:
+Currently we support only the 4 most popular Golang database drivers:
 
 - `"postgres"`
 - `"sqlite3"`
 - `"mysql"`
 - `"sqlserver"`
+
+If you need a new one included please open an issue or make
+your own implementation and submit a Pull Request.
 
 ### Why KissSQL?
 
