@@ -813,11 +813,6 @@ func (nopScanner) Scan(value interface{}) error {
 }
 
 func scanRows(dialect dialect, rows *sql.Rows, record interface{}) error {
-	names, err := rows.Columns()
-	if err != nil {
-		return err
-	}
-
 	v := reflect.ValueOf(record)
 	t := v.Type()
 	if t.Kind() != reflect.Ptr {
@@ -833,6 +828,53 @@ func scanRows(dialect dialect, rows *sql.Rows, record interface{}) error {
 
 	info := structs.GetTagInfo(t)
 
+	var scanArgs []interface{}
+	if info.IsNestedStruct {
+		// This version is positional meaning that it expect the arguments
+		// to follow an specific order. It's ok because we don't allow the
+		// user to type the "SELECT" part of the query for nested structs.
+		scanArgs = getScanArgsForNestedStructs(dialect, rows, t, v, info)
+	} else {
+		names, err := rows.Columns()
+		if err != nil {
+			return err
+		}
+		// Since this version uses the names of the columns it works
+		// with any order of attributes/columns.
+		scanArgs = getScanArgsFromNames(dialect, names, v, info)
+	}
+
+	return rows.Scan(scanArgs...)
+}
+
+func getScanArgsForNestedStructs(dialect dialect, rows *sql.Rows, t reflect.Type, v reflect.Value, info structs.StructInfo) []interface{} {
+	scanArgs := []interface{}{}
+	for i := 0; i < v.NumField(); i++ {
+		// TODO(vingarcia00): Handle case where type is pointer
+		nestedStructInfo := structs.GetTagInfo(t.Field(i).Type)
+		nestedStructValue := v.Field(i)
+		for j := 0; j < nestedStructValue.NumField(); j++ {
+			fieldInfo := nestedStructInfo.ByIndex(j)
+
+			valueScanner := nopScannerValue
+			if fieldInfo.Valid {
+				valueScanner = nestedStructValue.Field(fieldInfo.Index).Addr().Interface()
+				if fieldInfo.SerializeAsJSON {
+					valueScanner = &jsonSerializable{
+						DriverName: dialect.DriverName(),
+						Attr:       valueScanner,
+					}
+				}
+			}
+
+			scanArgs = append(scanArgs, valueScanner)
+		}
+	}
+
+	return scanArgs
+}
+
+func getScanArgsFromNames(dialect dialect, names []string, v reflect.Value, info structs.StructInfo) []interface{} {
 	scanArgs := []interface{}{}
 	for _, name := range names {
 		fieldInfo := info.ByName(name)
@@ -851,7 +893,7 @@ func scanRows(dialect dialect, rows *sql.Rows, record interface{}) error {
 		scanArgs = append(scanArgs, valueScanner)
 	}
 
-	return rows.Scan(scanArgs...)
+	return scanArgs
 }
 
 func buildSingleKeyDeleteQuery(
@@ -923,18 +965,54 @@ func buildSelectQuery(
 	dialect dialect,
 	structType reflect.Type,
 	selectQueryCache map[reflect.Type]string,
-) (string, error) {
+) (query string, err error) {
 	if selectQuery, found := selectQueryCache[structType]; found {
 		return selectQuery, nil
 	}
 
 	info := structs.GetTagInfo(structType)
-	var fields []string
-	for _, field := range info.Fields() {
-		fields = append(fields, dialect.Escape(field.Name))
+	if info.IsNestedStruct {
+		query, err = buildSelectQueryForNestedStructs(dialect, structType, info)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		query = buildSelectQueryForPlainStructs(dialect, structType, info)
 	}
 
-	query := "SELECT " + strings.Join(fields, ", ") + " "
 	selectQueryCache[structType] = query
 	return query, nil
+}
+
+func buildSelectQueryForPlainStructs(
+	dialect dialect,
+	structType reflect.Type,
+	info structs.StructInfo,
+) string {
+	var fields []string
+	for i := 0; i < structType.NumField(); i++ {
+		fields = append(fields, dialect.Escape(info.ByIndex(i).Name))
+	}
+
+	return "SELECT " + strings.Join(fields, ", ") + " "
+}
+
+func buildSelectQueryForNestedStructs(
+	dialect dialect,
+	structType reflect.Type,
+	info structs.StructInfo,
+) (string, error) {
+	var fields []string
+	for i := 0; i < structType.NumField(); i++ {
+		nestedStructName := info.ByIndex(i).Name
+		nestedStructInfo := structs.GetTagInfo(structType.Field(i).Type)
+		for j := 0; j < structType.Field(i).Type.NumField(); j++ {
+			fields = append(
+				fields,
+				dialect.Escape(nestedStructName)+"."+dialect.Escape(nestedStructInfo.ByIndex(j).Name),
+			)
+		}
+	}
+
+	return "SELECT " + strings.Join(fields, ", ") + " ", nil
 }

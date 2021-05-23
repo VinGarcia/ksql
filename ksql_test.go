@@ -34,6 +34,12 @@ type Address struct {
 	Country string `json:"country"`
 }
 
+type Post struct {
+	ID     int    `ksql:"id"`
+	UserID uint   `ksql:"user_id"`
+	Title  string `ksql:"title"`
+}
+
 func TestQuery(t *testing.T) {
 	for driver := range supportedDialects {
 		t.Run(driver, func(t *testing.T) {
@@ -53,7 +59,7 @@ func TestQuery(t *testing.T) {
 			for _, variation := range variations {
 				t.Run(variation.desc, func(t *testing.T) {
 					t.Run("using slice of structs", func(t *testing.T) {
-						err := createTable(driver)
+						err := createTables(driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
@@ -123,7 +129,7 @@ func TestQuery(t *testing.T) {
 					})
 
 					t.Run("using slice of pointers to structs", func(t *testing.T) {
-						err := createTable(driver)
+						err := createTables(driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
@@ -190,12 +196,66 @@ func TestQuery(t *testing.T) {
 							assert.Equal(t, "Bia Garcia", users[1].Name)
 							assert.Equal(t, "BR", users[1].Address.Country)
 						})
+
+						t.Run("should query joined tables correctly", func(t *testing.T) {
+							db := connectDB(t, driver)
+							defer db.Close()
+
+							// This test only makes sense with no query prefix
+							if variation.queryPrefix != "" {
+								return
+							}
+
+							_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
+							assert.Equal(t, nil, err)
+							var joaoID uint
+							db.QueryRow(`SELECT id FROM users WHERE name = 'João Ribeiro'`).Scan(&joaoID)
+
+							_, err = db.Exec(`INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
+							assert.Equal(t, nil, err)
+							var biaID uint
+							db.QueryRow(`SELECT id FROM users WHERE name = 'Bia Ribeiro'`).Scan(&biaID)
+
+							_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, biaID, `, 'Bia Post1')`))
+							assert.Equal(t, nil, err)
+							_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, biaID, `, 'Bia Post2')`))
+							assert.Equal(t, nil, err)
+							_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joaoID, `, 'João Post1')`))
+							assert.Equal(t, nil, err)
+
+							ctx := context.Background()
+							c := newTestDB(db, driver, "users")
+							var rows []*struct {
+								User User `tablename:"u"`
+								Post Post `tablename:"p"`
+							}
+							err = c.Query(ctx, &rows, fmt.Sprint(
+								`FROM users u JOIN posts p ON p.user_id = u.id`,
+								` WHERE u.name like `, c.dialect.Placeholder(0),
+								` ORDER BY u.id, p.id`,
+							), "% Ribeiro")
+
+							assert.Equal(t, nil, err)
+							assert.Equal(t, 3, len(rows))
+
+							assert.Equal(t, joaoID, rows[0].User.ID)
+							assert.Equal(t, "João Ribeiro", rows[0].User.Name)
+							assert.Equal(t, "João Post1", rows[0].Post.Title)
+
+							assert.Equal(t, biaID, rows[1].User.ID)
+							assert.Equal(t, "Bia Ribeiro", rows[1].User.Name)
+							assert.Equal(t, "Bia Post1", rows[1].Post.Title)
+
+							assert.Equal(t, biaID, rows[2].User.ID)
+							assert.Equal(t, "Bia Ribeiro", rows[2].User.Name)
+							assert.Equal(t, "Bia Post2", rows[2].Post.Title)
+						})
 					})
 				})
 			}
 
 			t.Run("testing error cases", func(t *testing.T) {
-				err := createTable(driver)
+				err := createTables(driver)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
@@ -258,7 +318,7 @@ func TestQueryOne(t *testing.T) {
 				},
 			}
 			for _, variation := range variations {
-				err := createTable(driver)
+				err := createTables(driver)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
@@ -358,7 +418,7 @@ func TestInsert(t *testing.T) {
 	for driver := range supportedDialects {
 		t.Run(driver, func(t *testing.T) {
 			t.Run("using slice of structs", func(t *testing.T) {
-				err := createTable(driver)
+				err := createTables(driver)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
@@ -428,7 +488,7 @@ func TestInsert(t *testing.T) {
 			})
 
 			t.Run("testing error cases", func(t *testing.T) {
-				err := createTable(driver)
+				err := createTables(driver)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
@@ -485,7 +545,7 @@ func TestInsert(t *testing.T) {
 func TestDelete(t *testing.T) {
 	for driver := range supportedDialects {
 		t.Run(driver, func(t *testing.T) {
-			err := createTable(driver)
+			err := createTables(driver)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
@@ -628,7 +688,7 @@ func TestDelete(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	for driver := range supportedDialects {
 		t.Run(driver, func(t *testing.T) {
-			err := createTable(driver)
+			err := createTables(driver)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
@@ -813,7 +873,7 @@ func TestQueryChunks(t *testing.T) {
 			for _, variation := range variations {
 				t.Run(variation.desc, func(t *testing.T) {
 					t.Run("should query a single row correctly", func(t *testing.T) {
-						err := createTable(driver)
+						err := createTables(driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
@@ -853,7 +913,7 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should query one chunk correctly", func(t *testing.T) {
-						err := createTable(driver)
+						err := createTables(driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
@@ -895,7 +955,7 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should query chunks of 1 correctly", func(t *testing.T) {
-						err := createTable(driver)
+						err := createTables(driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
@@ -937,7 +997,7 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should load partially filled chunks correctly", func(t *testing.T) {
-						err := createTable(driver)
+						err := createTables(driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
@@ -978,7 +1038,7 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should abort the first iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
-						err := createTable(driver)
+						err := createTables(driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
@@ -1017,7 +1077,7 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should abort the last iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
-						err := createTable(driver)
+						err := createTables(driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
@@ -1060,7 +1120,7 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should return error if the callback returns an error in the first iteration", func(t *testing.T) {
-						err := createTable(driver)
+						err := createTables(driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
@@ -1099,7 +1159,7 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should return error if the callback returns an error in the last iteration", func(t *testing.T) {
-						err := createTable(driver)
+						err := createTables(driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
@@ -1213,7 +1273,7 @@ func TestTransaction(t *testing.T) {
 	for driver := range supportedDialects {
 		t.Run(driver, func(t *testing.T) {
 			t.Run("should query a single row correctly", func(t *testing.T) {
-				err := createTable(driver)
+				err := createTables(driver)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
@@ -1240,7 +1300,7 @@ func TestTransaction(t *testing.T) {
 			})
 
 			t.Run("should rollback when there are errors", func(t *testing.T) {
-				err := createTable(driver)
+				err := createTables(driver)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
@@ -1281,7 +1341,7 @@ func TestTransaction(t *testing.T) {
 
 func TestScanRows(t *testing.T) {
 	t.Run("should scan users correctly", func(t *testing.T) {
-		err := createTable("sqlite3")
+		err := createTables("sqlite3")
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
@@ -1310,7 +1370,7 @@ func TestScanRows(t *testing.T) {
 	})
 
 	t.Run("should ignore extra columns from query", func(t *testing.T) {
-		err := createTable("sqlite3")
+		err := createTables("sqlite3")
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
@@ -1342,7 +1402,7 @@ func TestScanRows(t *testing.T) {
 	})
 
 	t.Run("should report error for closed rows", func(t *testing.T) {
-		err := createTable("sqlite3")
+		err := createTables("sqlite3")
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
@@ -1363,7 +1423,7 @@ func TestScanRows(t *testing.T) {
 	})
 
 	t.Run("should report if record is not a pointer", func(t *testing.T) {
-		err := createTable("sqlite3")
+		err := createTables("sqlite3")
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
@@ -1382,7 +1442,7 @@ func TestScanRows(t *testing.T) {
 	})
 
 	t.Run("should report if record is not a pointer to struct", func(t *testing.T) {
-		err := createTable("sqlite3")
+		err := createTables("sqlite3")
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
@@ -1408,7 +1468,7 @@ var connectionString = map[string]string{
 	"sqlserver": "sqlserver://sa:Sqls3rv3r@127.0.0.1:1433?databaseName=ksql",
 }
 
-func createTable(driver string) error {
+func createTables(driver string) error {
 	connStr := connectionString[driver]
 	if connStr == "" {
 		return fmt.Errorf("unsupported driver: '%s'", driver)
@@ -1450,6 +1510,38 @@ func createTable(driver string) error {
 			age INT,
 			name VARCHAR(50),
 			address NVARCHAR(4000)
+		)`)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to create new users table: %s", err.Error())
+	}
+
+	db.Exec(`DROP TABLE posts`)
+
+	switch driver {
+	case "sqlite3":
+		_, err = db.Exec(`CREATE TABLE posts (
+		  id INTEGER PRIMARY KEY,
+		  user_id INTEGER,
+			title TEXT
+		)`)
+	case "postgres":
+		_, err = db.Exec(`CREATE TABLE posts (
+		  id serial PRIMARY KEY,
+			user_id INT,
+			title VARCHAR(50)
+		)`)
+	case "mysql":
+		_, err = db.Exec(`CREATE TABLE posts (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			user_id INT,
+			title VARCHAR(50)
+		)`)
+	case "sqlserver":
+		_, err = db.Exec(`CREATE TABLE posts (
+			id INT IDENTITY(1,1) PRIMARY KEY,
+			user_id INT,
+			title VARCHAR(50)
 		)`)
 	}
 	if err != nil {

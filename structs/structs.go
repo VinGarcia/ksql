@@ -8,49 +8,56 @@ import (
 	"github.com/pkg/errors"
 )
 
-type structInfo struct {
-	byIndex map[int]*fieldInfo
-	byName  map[string]*fieldInfo
+// StructInfo stores metainformation of the struct
+// parser in order to help the ksql library to work
+// efectively and efficiently with reflection.
+type StructInfo struct {
+	IsNestedStruct bool
+	byIndex        map[int]*FieldInfo
+	byName         map[string]*FieldInfo
 }
 
-type fieldInfo struct {
+// FieldInfo contains reflection and tags
+// information regarding a specific field
+// of a struct.
+type FieldInfo struct {
 	Name            string
 	Index           int
 	Valid           bool
 	SerializeAsJSON bool
 }
 
-func (s structInfo) ByIndex(idx int) *fieldInfo {
+// ByIndex returns either the *FieldInfo of a valid
+// empty struct with Valid set to false
+func (s StructInfo) ByIndex(idx int) *FieldInfo {
 	field, found := s.byIndex[idx]
 	if !found {
-		return &fieldInfo{}
+		return &FieldInfo{}
 	}
 	return field
 }
 
-func (s structInfo) ByName(name string) *fieldInfo {
+// ByName returns either the *FieldInfo of a valid
+// empty struct with Valid set to false
+func (s StructInfo) ByName(name string) *FieldInfo {
 	field, found := s.byName[name]
 	if !found {
-		return &fieldInfo{}
+		return &FieldInfo{}
 	}
 	return field
 }
 
-func (s structInfo) Add(field fieldInfo) {
+func (s StructInfo) add(field FieldInfo) {
 	field.Valid = true
 	s.byIndex[field.Index] = &field
 	s.byName[field.Name] = &field
-}
-
-func (s structInfo) Fields() map[int]*fieldInfo {
-	return s.byIndex
 }
 
 // This cache is kept as a pkg variable
 // because the total number of types on a program
 // should be finite. So keeping a single cache here
 // works fine.
-var tagInfoCache = map[reflect.Type]structInfo{}
+var tagInfoCache = map[reflect.Type]StructInfo{}
 
 // GetTagInfo efficiently returns the type information
 // using a global private cache
@@ -58,16 +65,17 @@ var tagInfoCache = map[reflect.Type]structInfo{}
 // In the future we might move this cache inside
 // a struct, but for now this accessor is the one
 // we are using
-func GetTagInfo(key reflect.Type) structInfo {
+func GetTagInfo(key reflect.Type) StructInfo {
 	return getCachedTagInfo(tagInfoCache, key)
 }
 
-func getCachedTagInfo(tagInfoCache map[reflect.Type]structInfo, key reflect.Type) structInfo {
-	info, found := tagInfoCache[key]
-	if !found {
-		info = getTagNames(key)
-		tagInfoCache[key] = info
+func getCachedTagInfo(tagInfoCache map[reflect.Type]StructInfo, key reflect.Type) StructInfo {
+	if info, found := tagInfoCache[key]; found {
+		return info
 	}
+
+	info := getTagNames(key)
+	tagInfoCache[key] = info
 	return info
 }
 
@@ -291,10 +299,10 @@ func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error 
 //
 // This should save several calls to `Field(i).Tag.Get("foo")`
 // which improves performance by a lot.
-func getTagNames(t reflect.Type) structInfo {
-	info := structInfo{
-		byIndex: map[int]*fieldInfo{},
-		byName:  map[string]*fieldInfo{},
+func getTagNames(t reflect.Type) StructInfo {
+	info := StructInfo{
+		byIndex: map[int]*FieldInfo{},
+		byName:  map[string]*FieldInfo{},
 	}
 	for i := 0; i < t.NumField(); i++ {
 		name := t.Field(i).Tag.Get("ksql")
@@ -309,11 +317,34 @@ func getTagNames(t reflect.Type) structInfo {
 			serializeAsJSON = tags[1] == "json"
 		}
 
-		info.Add(fieldInfo{
+		info.add(FieldInfo{
 			Name:            name,
 			Index:           i,
 			SerializeAsJSON: serializeAsJSON,
 		})
+	}
+
+	// If there were `ksql` tags present, then we are finished:
+	if len(info.byIndex) > 0 {
+		return info
+	}
+
+	// If there are no `ksql` tags in the struct, lets assume
+	// it is a struct tagged with `tablename` for allowing JOINs
+	for i := 0; i < t.NumField(); i++ {
+		name := t.Field(i).Tag.Get("tablename")
+		if name == "" {
+			continue
+		}
+
+		info.add(FieldInfo{
+			Name:  name,
+			Index: i,
+		})
+	}
+
+	if len(info.byIndex) > 0 {
+		info.IsNestedStruct = true
 	}
 
 	return info
