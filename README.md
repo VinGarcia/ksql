@@ -5,7 +5,7 @@ If the thing you hate the most when coding is having too much unnecessary
 abstractions and the second thing you hate the most is having verbose
 and repetitive code for routine tasks this library is probably for you.
 
-Welcome to the KissSQL project, the "Keep It Stupid Simple" sql client for Go.
+Welcome to the KissSQL project, the "Keep It Stupid Simple" SQL client for Go.
 
 This package was created to be used by any developer efficiently and safely.
 The goals were:
@@ -87,6 +87,10 @@ type SQLProvider interface {
 
 This example is also available [here](./examples/crud/crud.go)
 if you want to compile it yourself.
+
+Also we have a small feature for building the "SELECT" part of the query if
+you rather not use `SELECT *` queries, you may skip to the
+[Select Generator Feature](#Select-Generator-Feature) which is very clean too.
 
 ```Go
 package main
@@ -254,6 +258,90 @@ func main() {
 }
 ```
 
+### Query Chunks Feature
+
+It's very unsual for us to need to load a number of records from the
+database that might be too big for fitting in memory, e.g. load all the
+users and send them somewhere. But it might happen.
+
+For these cases it's best to load chunks of data at a time so
+that we can work on a substantial amount of data at a time and never
+overload our memory capacity. For this use case we have a specific
+function called `QueryChunks`:
+
+```golang
+err = db.QueryChunks(ctx, ksql.ChunkParser{
+	Query:     "SELECT * FROM users WHERE type = ?",
+	Params:    []interface{}{usersType},
+	ChunkSize: 100,
+	ForEachChunk: func(users []User) error {
+		err := sendUsersSomewhere(users)
+		if err != nil {
+			// This will abort the QueryChunks loop and return this error
+			return err
+		}
+		return nil
+	},
+})
+if err != nil {
+	panic(err.Error())
+}
+```
+
+It's signature is more complicated but the use-case is also
+less common so it's as simple as it gets.
+
+### Select Generator Feature
+
+There are good reasons not to use `SELECT *` queries the most important
+of them is that you might end up loading more information than you are actually
+going to use putting more pressure in your database for no good reason.
+
+To prevent that `ksql` has a feature specifically for building the `SELECT`
+part of the query for you using the tags from the input struct and using
+it is very simple and it works with all the 3 Query\* functions:
+
+Querying a single user:
+
+```golang
+var user User
+err = db.QueryOne(ctx, &user, "FROM users WHERE id = ?", userID)
+if err != nil {
+	panic(err.Error())
+}
+```
+
+Querying a page of users:
+
+```golang
+var users []User
+err = db.Query(ctx, &users, "FROM users WHERE type = ? ORDER BY id LIMIT ? OFFSET ?", "Cristina", limit, offset)
+if err != nil {
+	panic(err.Error())
+}
+```
+
+Querying all the users, or any potentially big number of users, from the database (not usual, but supported):
+
+```golang
+err = db.QueryChunks(ctx, ksql.ChunkParser{
+	Query:     "FROM users WHERE type = ?",
+	Params:    []interface{}{usersType},
+	ChunkSize: 100,
+	ForEachChunk: func(users []User) error {
+		err := sendUsersSomewhere(users)
+		if err != nil {
+			// This will abort the QueryChunks loop and return this error
+			return err
+		}
+		return nil
+	},
+})
+if err != nil {
+	panic(err.Error())
+}
+```
+
 ### Testing Examples
 
 This library has a few helper functions for helping your tests:
@@ -286,7 +374,7 @@ PASS
 ok  	github.com/vingarcia/ksql	34.251s
 ```
 
-### Running the tests
+### Running the ksql tests (for contributors)
 
 The tests run in real database instances so the easiest way to have
 them working is to just start them using docker-compose:
@@ -309,7 +397,6 @@ make test
 
 ### TODO List
 
-- Implement support for nested objects with prefixed table names
 - Improve error messages
 - Add tests for tables using composite keys
 - Add support for serializing structs as other formats such as YAML
