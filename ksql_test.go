@@ -126,6 +126,60 @@ func TestQuery(t *testing.T) {
 							assert.Equal(t, "Bia Garcia", users[1].Name)
 							assert.Equal(t, "BR", users[1].Address.Country)
 						})
+
+						t.Run("should query joined tables correctly", func(t *testing.T) {
+							db := connectDB(t, driver)
+							defer db.Close()
+
+							// This test only makes sense with no query prefix
+							if variation.queryPrefix != "" {
+								return
+							}
+
+							_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
+							assert.Equal(t, nil, err)
+							var joaoID uint
+							db.QueryRow(`SELECT id FROM users WHERE name = 'João Ribeiro'`).Scan(&joaoID)
+
+							_, err = db.Exec(`INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
+							assert.Equal(t, nil, err)
+							var biaID uint
+							db.QueryRow(`SELECT id FROM users WHERE name = 'Bia Ribeiro'`).Scan(&biaID)
+
+							_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, biaID, `, 'Bia Post1')`))
+							assert.Equal(t, nil, err)
+							_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, biaID, `, 'Bia Post2')`))
+							assert.Equal(t, nil, err)
+							_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joaoID, `, 'João Post1')`))
+							assert.Equal(t, nil, err)
+
+							ctx := context.Background()
+							c := newTestDB(db, driver, "users")
+							var rows []struct {
+								User User `tablename:"u"`
+								Post Post `tablename:"p"`
+							}
+							err = c.Query(ctx, &rows, fmt.Sprint(
+								`FROM users u JOIN posts p ON p.user_id = u.id`,
+								` WHERE u.name like `, c.dialect.Placeholder(0),
+								` ORDER BY u.id, p.id`,
+							), "% Ribeiro")
+
+							assert.Equal(t, nil, err)
+							assert.Equal(t, 3, len(rows))
+
+							assert.Equal(t, joaoID, rows[0].User.ID)
+							assert.Equal(t, "João Ribeiro", rows[0].User.Name)
+							assert.Equal(t, "João Post1", rows[0].Post.Title)
+
+							assert.Equal(t, biaID, rows[1].User.ID)
+							assert.Equal(t, "Bia Ribeiro", rows[1].User.Name)
+							assert.Equal(t, "Bia Post1", rows[1].Post.Title)
+
+							assert.Equal(t, biaID, rows[2].User.ID)
+							assert.Equal(t, "Bia Ribeiro", rows[2].User.Name)
+							assert.Equal(t, "Bia Post2", rows[2].Post.Title)
+						})
 					})
 
 					t.Run("using slice of pointers to structs", func(t *testing.T) {
