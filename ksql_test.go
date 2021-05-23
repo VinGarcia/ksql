@@ -477,6 +477,41 @@ func TestQueryOne(t *testing.T) {
 							Country: "US",
 						}, u.Address)
 					})
+
+					t.Run("should query joined tables correctly", func(t *testing.T) {
+						db := connectDB(t, driver)
+						defer db.Close()
+
+						// This test only makes sense with no query prefix
+						if variation.queryPrefix != "" {
+							return
+						}
+
+						_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
+						assert.Equal(t, nil, err)
+						var joaoID uint
+						db.QueryRow(`SELECT id FROM users WHERE name = 'João Ribeiro'`).Scan(&joaoID)
+
+						_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joaoID, `, 'João Post1')`))
+						assert.Equal(t, nil, err)
+
+						ctx := context.Background()
+						c := newTestDB(db, driver, "users")
+						var row struct {
+							User User `tablename:"u"`
+							Post Post `tablename:"p"`
+						}
+						err = c.QueryOne(ctx, &row, fmt.Sprint(
+							`FROM users u JOIN posts p ON p.user_id = u.id`,
+							` WHERE u.name like `, c.dialect.Placeholder(0),
+							` ORDER BY u.id, p.id`,
+						), "% Ribeiro")
+
+						assert.Equal(t, nil, err)
+						assert.Equal(t, joaoID, row.User.ID)
+						assert.Equal(t, "João Ribeiro", row.User.Name)
+						assert.Equal(t, "João Post1", row.Post.Title)
+					})
 				})
 			}
 
