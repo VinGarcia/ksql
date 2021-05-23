@@ -351,6 +351,52 @@ func TestQuery(t *testing.T) {
 					assert.NotEqual(t, nil, err)
 				})
 			})
+
+			t.Run("should report error for nested structs with invalid types", func(t *testing.T) {
+				t.Run("int", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, driver, "users")
+					var rows []struct {
+						Foo int `tablename:"foo"`
+					}
+					err := c.Query(ctx, &rows, fmt.Sprint(
+						`FROM users u JOIN posts p ON p.user_id = u.id`,
+						` WHERE u.name like `, c.dialect.Placeholder(0),
+						` ORDER BY u.id, p.id`,
+					), "% Ribeiro")
+
+					assert.NotEqual(t, nil, err)
+					msg := err.Error()
+					for _, str := range []string{"foo", "int"} {
+						assert.Equal(t, true, strings.Contains(msg, str), fmt.Sprintf("missing expected substr '%s' in error message: '%s'", str, msg))
+					}
+				})
+
+				t.Run("*struct", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, driver, "users")
+					var rows []struct {
+						Foo *User `tablename:"foo"`
+					}
+					err := c.Query(ctx, &rows, fmt.Sprint(
+						`FROM users u JOIN posts p ON p.user_id = u.id`,
+						` WHERE u.name like `, c.dialect.Placeholder(0),
+						` ORDER BY u.id, p.id`,
+					), "% Ribeiro")
+
+					assert.NotEqual(t, nil, err)
+					msg := err.Error()
+					for _, str := range []string{"foo", "*ksql.User"} {
+						assert.Equal(t, true, strings.Contains(msg, str), fmt.Sprintf("missing expected substr '%s' in error message: '%s'", str, msg))
+					}
+				})
+			})
 		})
 	}
 }

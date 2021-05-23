@@ -1005,7 +1005,15 @@ func buildSelectQueryForNestedStructs(
 	var fields []string
 	for i := 0; i < structType.NumField(); i++ {
 		nestedStructName := info.ByIndex(i).Name
-		nestedStructInfo := structs.GetTagInfo(structType.Field(i).Type)
+		nestedStructType := structType.Field(i).Type
+		if nestedStructType.Kind() != reflect.Struct {
+			return "", fmt.Errorf(
+				"expected nested struct with `tablename:\"%s\"` to be a kind of Struct, but got %v",
+				nestedStructName, nestedStructType,
+			)
+		}
+
+		nestedStructInfo := structs.GetTagInfo(nestedStructType)
 		for j := 0; j < structType.Field(i).Type.NumField(); j++ {
 			fields = append(
 				fields,
