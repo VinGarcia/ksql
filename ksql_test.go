@@ -1172,6 +1172,78 @@ func TestQueryChunks(t *testing.T) {
 						assert.Equal(t, []int{2, 1}, lengths)
 					})
 
+					// xxx
+					t.Run("should query joined tables correctly", func(t *testing.T) {
+						// This test only makes sense with no query prefix
+						if variation.queryPrefix != "" {
+							return
+						}
+
+						db := connectDB(t, driver)
+						defer db.Close()
+
+						joao := User{
+							Name: "Thiago Ribeiro",
+							Age:  24,
+						}
+						thatiana := User{
+							Name: "Thatiana Ribeiro",
+							Age:  20,
+						}
+
+						ctx := context.Background()
+						c := newTestDB(db, driver, "users")
+						_ = c.Insert(ctx, &joao)
+						_ = c.Insert(ctx, &thatiana)
+
+						_, err := db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, thatiana.ID, `, 'Thatiana Post1')`))
+						assert.Equal(t, nil, err)
+						_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, thatiana.ID, `, 'Thatiana Post2')`))
+						assert.Equal(t, nil, err)
+						_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'Thiago Post1')`))
+						assert.Equal(t, nil, err)
+
+						var lengths []int
+						var users []User
+						var posts []Post
+						err = c.QueryChunks(ctx, ChunkParser{
+							Query: fmt.Sprint(
+								`FROM users u JOIN posts p ON p.user_id = u.id`,
+								` WHERE u.name like `, c.dialect.Placeholder(0),
+								` ORDER BY u.id, p.id`,
+							),
+							Params: []interface{}{"% Ribeiro"},
+
+							ChunkSize: 2,
+							ForEachChunk: func(chunk []struct {
+								User User `tablename:"u"`
+								Post Post `tablename:"p"`
+							}) error {
+								lengths = append(lengths, len(chunk))
+								for _, row := range chunk {
+									users = append(users, row.User)
+									posts = append(posts, row.Post)
+								}
+								return nil
+							},
+						})
+
+						assert.Equal(t, nil, err)
+						assert.Equal(t, 3, len(posts))
+
+						assert.Equal(t, joao.ID, users[0].ID)
+						assert.Equal(t, "Thiago Ribeiro", users[0].Name)
+						assert.Equal(t, "Thiago Post1", posts[0].Title)
+
+						assert.Equal(t, thatiana.ID, users[1].ID)
+						assert.Equal(t, "Thatiana Ribeiro", users[1].Name)
+						assert.Equal(t, "Thatiana Post1", posts[1].Title)
+
+						assert.Equal(t, thatiana.ID, users[2].ID)
+						assert.Equal(t, "Thatiana Ribeiro", users[2].Name)
+						assert.Equal(t, "Thatiana Post2", posts[2].Title)
+					})
+
 					t.Run("should abort the first iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
 						err := createTables(driver)
 						if err != nil {
