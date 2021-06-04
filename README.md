@@ -59,12 +59,12 @@ in order to save development time for your team, i.e.:
 
 - Less time spent learning (few methods to learn)
 - Less time spent testing (helper tools made to help you)
-- less time spent debugging (simple apis are easier to debug)
+- Less time spent debugging (simple apis are easier to debug)
 - and less time reading & understanding the code
 
 ### Kiss Interface
 
-The current interface is as follows and we plan to keep
+The current interface is as follows and we plan on keeping
 it with as little functions as possible, so don't expect many additions:
 
 ```go
