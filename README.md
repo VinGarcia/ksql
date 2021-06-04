@@ -214,14 +214,14 @@ func main() {
 	}
 
 	// Listing first 10 users from the database
-	// (each time you run this example a new Cristina is created)
+	// (each time you run this example a new "Cristina" is created)
 	//
 	// Note: Using this function it is recommended to set a LIMIT, since
-	// not doing so can load too many users on your computer's memory or
-	// cause an Out Of Memory Kill.
+	// not doing so can load too many users on your computer's memory
+	// causing an "Out Of Memory Kill".
 	//
 	// If you need to query very big numbers of users we recommend using
-	// the `QueryChunks` function.
+	// the `QueryChunks` function instead.
 	var users []User
 	err = db.Query(ctx, &users, "SELECT * FROM users LIMIT 10")
 	if err != nil {
@@ -288,8 +288,10 @@ if err != nil {
 }
 ```
 
-It's signature is more complicated but the use-case is also
-less common so it's as simple as it gets.
+It's signature is more complicated than the other two Query\* methods,
+thus, it is adivisible to always prefer using the other two when possible
+reserving this one for the rare use-case where you are actually
+loading big sections of the database into memory.
 
 ### Select Generator Feature
 
@@ -298,8 +300,8 @@ of them is that you might end up loading more information than you are actually
 going to use putting more pressure in your database for no good reason.
 
 To prevent that `ksql` has a feature specifically for building the `SELECT`
-part of the query for you using the tags from the input struct and using
-it is very simple and it works with all the 3 Query\* functions:
+part of the query using the tags from the input struct.
+Using it is very simple and it works with all the 3 Query\* functions:
 
 Querying a single user:
 
@@ -342,6 +344,124 @@ if err != nil {
 }
 ```
 
+The implementation of this feature is actually simple internally.
+First we check if the query is starting with the word `FROM`,
+if it is then we just get the `ksql` tags from the struct and
+then use it for building the `SELECT` statement.
+
+The `SELECT` statement is then cached so we don't have to build it again
+the next time in order to keep the library efficient even when
+using this feature.
+
+### Select Generation with Joins
+
+So there is one use-case that was not covered by `ksql` so far:
+
+What if you want to JOIN multiple tables for which you already have
+structs defined? Would you need to create a new struct to represent
+the joined columns of the two tables? no, we actually have this covered as well.
+
+`ksql` has a special feature for allowing the reuse of existing
+structs by using composition in an anonymous struct, and then
+generating the `SELECT` part of the query accordingly:
+
+Querying a single joined row:
+
+```golang
+var row struct{
+  User User `tablename:"u"` // (here the tablename must match the aliased tablename in the query)
+  Post Post `tablename:"p"` // (if no alias is used you should use the actual name of the table)
+}
+err = db.QueryOne(ctx, &row, "FROM users as u JOIN posts as p ON u.id = p.user_id WHERE u.id = ?", userID)
+if err != nil {
+	panic(err.Error())
+}
+```
+
+Querying a page of joined rows:
+
+```golang
+var rows []struct{
+  User User `tablename:"u"`
+  Post Post `tablename:"p"`
+}
+err = db.Query(ctx, &rows,
+  "FROM users as u JOIN posts as p ON u.id = p.user_id WHERE name = ? LIMIT ? OFFSET ?",
+  "Cristina", limit, offset,
+)
+if err != nil {
+	panic(err.Error())
+}
+```
+
+Querying all the users, or any potentially big number of users, from the database (not usual, but supported):
+
+```golang
+err = db.QueryChunks(ctx, ksql.ChunkParser{
+	Query:     "FROM users as u JOIN posts as p ON u.id = p.user_id WHERE type = ?",
+	Params:    []interface{}{usersType},
+	ChunkSize: 100,
+	ForEachChunk: func(rows []struct{
+    User User `tablename:"u"`
+    Post Post `tablename:"p"`
+  }) error {
+		err := sendRowsSomewhere(rows)
+		if err != nil {
+			// This will abort the QueryChunks loop and return this error
+			return err
+		}
+		return nil
+	},
+})
+if err != nil {
+	panic(err.Error())
+}
+```
+
+As advanced as this feature might seem we don't do any parsing of the query,
+and all the work is done only once and then cached.
+
+What actually happens is that we use the "tablename" tag to build the `SELECT`
+part of the query like this:
+
+- `SELECT u.id, u.name, u.age, p.id, p.title `
+
+This is then cached, and when we need it again we concatenate it with the rest
+of the query.
+
+This feature has two important limitations:
+
+1. It is not possible to use `tablename` tags together with normal `ksql` tags.
+   Doing so will cause the `tablename` tags to be ignored in favor of the `ksql` ones.
+2. It is not possible to use it without omitting the `SELECT` part of the query.
+   While in normal queries we match the selected field with the attribute by name,
+   in queries joining multiple tables we can't use this strategy because
+   different tables might have columns with the same name, and we don't
+   really have access to the full name of these columns making for exemple
+   it impossible to differentiate between `u.id` and `p.id` except by the
+   order in which these fields were passed. Thus, it is necessary to
+   leave the job of generating the `SELECT` for the library when using
+   this technique with composite anonymous structs.
+
+Ok, but what if I don't want to use this feature?
+
+You are not forced to, and there are a few use-cases where you would prefer not to, e.g.:
+
+```golang
+var rows []struct{
+  UserName string `ksql:"name"`
+  PostTitle string `ksql:"title"`
+}
+err := db.Query(ctx, &rows, "SELECT u.name, p.title FROM users u JOIN posts p ON u.id = p.user_id LIMIT 10")
+if err != nil {
+  panic(err.Error())
+}
+```
+
+Here, since we are only interested in a couple of columns it is far
+simpler and more efficient for the database to only select the columns
+that we actually care about like in the example above.
+
 ### Testing Examples
 
 This library has a few helper functions for helping your tests:
@@ -376,8 +496,8 @@ ok  	github.com/vingarcia/ksql	34.251s
 
 ### Running the ksql tests (for contributors)
 
-The tests run in real database instances so the easiest way to have
-them working is to just start them using docker-compose:
+The tests run in dockerized database instances so the easiest way
+to have them working is to just start them using docker-compose:
 
 ```bash
 docker-compose up -d
