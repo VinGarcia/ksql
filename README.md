@@ -369,8 +369,8 @@ Querying a single joined row:
 
 ```golang
 var row struct{
-  User User `tablename:"u"` // (here the tablename must match the aliased tablename in the query)
-  Post Post `tablename:"p"` // (if no alias is used you should use the actual name of the table)
+	User User `tablename:"u"` // (here the tablename must match the aliased tablename in the query)
+	Post Post `tablename:"p"` // (if no alias is used you should use the actual name of the table)
 }
 err = db.QueryOne(ctx, &row, "FROM users as u JOIN posts as p ON u.id = p.user_id WHERE u.id = ?", userID)
 if err != nil {
@@ -382,12 +382,12 @@ Querying a page of joined rows:
 
 ```golang
 var rows []struct{
-  User User `tablename:"u"`
-  Post Post `tablename:"p"`
+	User User `tablename:"u"`
+	Post Post `tablename:"p"`
 }
 err = db.Query(ctx, &rows,
-  "FROM users as u JOIN posts as p ON u.id = p.user_id WHERE name = ? LIMIT ? OFFSET ?",
-  "Cristina", limit, offset,
+	"FROM users as u JOIN posts as p ON u.id = p.user_id WHERE name = ? LIMIT ? OFFSET ?",
+	"Cristina", limit, offset,
 )
 if err != nil {
 	panic(err.Error())
@@ -402,9 +402,9 @@ err = db.QueryChunks(ctx, ksql.ChunkParser{
 	Params:    []interface{}{usersType},
 	ChunkSize: 100,
 	ForEachChunk: func(rows []struct{
-    User User `tablename:"u"`
-    Post Post `tablename:"p"`
-  }) error {
+		User User `tablename:"u"`
+		Post Post `tablename:"p"`
+	}) error {
 		err := sendRowsSomewhere(rows)
 		if err != nil {
 			// This will abort the QueryChunks loop and return this error
@@ -449,12 +449,12 @@ You are not forced to, and there are a few use-cases where you would prefer not 
 
 ```golang
 var rows []struct{
-  UserName string `ksql:"name"`
-  PostTitle string `ksql:"title"`
+	UserName string `ksql:"name"`
+	PostTitle string `ksql:"title"`
 }
 err := db.Query(ctx, &rows, "SELECT u.name, p.title FROM users u JOIN posts p ON u.id = p.user_id LIMIT 10")
 if err != nil {
-  panic(err.Error())
+	panic(err.Error())
 }
 ```
 
