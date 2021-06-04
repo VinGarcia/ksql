@@ -520,9 +520,9 @@ make test
 - Improve error messages
 - Add tests for tables using composite keys
 - Add support for serializing structs as other formats such as YAML
-- Update structs.FillStructWith to work with `json` tagged attributes
+- Update `structs.FillStructWith` to work with `json` tagged attributes
 - Make testing easier by exposing the connection strings in an .env file
-- Make testing easier by automatically creating the ksql database
+- Make testing easier by automatically creating the `ksql` database
 - Create a way for users to submit user defined dialects
 
 ### Optimization Oportunities
