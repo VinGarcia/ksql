@@ -437,11 +437,11 @@ This feature has two important limitations:
    While in normal queries we match the selected field with the attribute by name,
    in queries joining multiple tables we can't use this strategy because
    different tables might have columns with the same name, and we don't
-   really have access to the full name of these columns making for exemple
+   really have access to the full name of these columns making, for example,
    it impossible to differentiate between `u.id` and `p.id` except by the
-   order in which these fields were passed. Thus, it is necessary to
-   leave the job of generating the `SELECT` for the library when using
-   this technique with composite anonymous structs.
+   order in which these fields were passed. Thus, it is necessary that
+   the library itself writes the `SELECT` part of the query when using
+   this technique so that we can control the order or the selected fields.
 
 Ok, but what if I don't want to use this feature?
 
@@ -458,9 +458,9 @@ if err != nil {
 }
 ```
 
-Here, since we are only interested in a couple of columns it is far
-simpler and more efficient for the database to only select the columns
-that we actually care about like in the example above.
+In the example above, since we are only interested in a couple of columns it
+is far simpler and more efficient for the database to only select the columns
+that we actually care about, so it's better not to use composite structs.
 
 ### Testing Examples
 
