@@ -1,32 +1,36 @@
 args=
 path=./...
 
-GOPATH=$(shell go env GOPATH)
+GOBIN=$(shell go env GOPATH)/bin
 
 TIME=1s
 
 test: setup
-	$(GOPATH)/bin/richgo test $(path) $(args)
+	$(GOBIN)/richgo test $(path) $(args)
 
 bench:
 	go test -bench=. -benchtime=$(TIME)
 
 lint: setup
-	@$(GOPATH)/bin/golint -set_exit_status -min_confidence 0.9 $(path) $(args)
+	@$(GOBIN)/golint -set_exit_status -min_confidence 0.9 $(path) $(args)
 	@go vet $(path) $(args)
 	@echo "Golint & Go Vet found no problems on your code!"
 
 mock: setup
-	mockgen -package=exampleservice -source=contracts.go -destination=examples/example_service/mocks.go
+	$(GOBIN)/mockgen -package=exampleservice -source=contracts.go -destination=examples/example_service/mocks.go
 
-setup: .make.setup
-.make.setup:
+setup: $(GOBIN)/richgo $(GOBIN)/golint $(GOBIN)/mockgen
+
+$(GOBIN)/richgo:
 	go get github.com/kyoh86/richgo
+
+$(GOBIN)/golint:
 	go get golang.org/x/lint
+
+$(GOBIN)/mockgen:
 	@# (Gomock is used on examples/example_service)
 	go get github.com/golang/mock/gomock
 	go get github.com/golang/mock/mockgen
-	touch .make.setup
 
 # Running examples:
 exampleservice: mock
