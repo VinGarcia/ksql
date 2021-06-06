@@ -36,9 +36,9 @@ func (m *MockSQLProvider) EXPECT() *MockSQLProviderMockRecorder {
 }
 
 // Delete mocks base method.
-func (m *MockSQLProvider) Delete(ctx context.Context, idsOrRecords ...interface{}) error {
+func (m *MockSQLProvider) Delete(ctx context.Context, table ksql.Table, idsOrRecords ...interface{}) error {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{ctx}
+	varargs := []interface{}{ctx, table}
 	for _, a := range idsOrRecords {
 		varargs = append(varargs, a)
 	}
@@ -48,9 +48,9 @@ func (m *MockSQLProvider) Delete(ctx context.Context, idsOrRecords ...interface{
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockSQLProviderMockRecorder) Delete(ctx interface{}, idsOrRecords ...interface{}) *gomock.Call {
+func (mr *MockSQLProviderMockRecorder) Delete(ctx, table interface{}, idsOrRecords ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{ctx}, idsOrRecords...)
+	varargs := append([]interface{}{ctx, table}, idsOrRecords...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockSQLProvider)(nil).Delete), varargs...)
 }
 
@@ -74,17 +74,17 @@ func (mr *MockSQLProviderMockRecorder) Exec(ctx, query interface{}, params ...in
 }
 
 // Insert mocks base method.
-func (m *MockSQLProvider) Insert(ctx context.Context, record interface{}) error {
+func (m *MockSQLProvider) Insert(ctx context.Context, table ksql.Table, record interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Insert", ctx, record)
+	ret := m.ctrl.Call(m, "Insert", ctx, table, record)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Insert indicates an expected call of Insert.
-func (mr *MockSQLProviderMockRecorder) Insert(ctx, record interface{}) *gomock.Call {
+func (mr *MockSQLProviderMockRecorder) Insert(ctx, table, record interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Insert", reflect.TypeOf((*MockSQLProvider)(nil).Insert), ctx, record)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Insert", reflect.TypeOf((*MockSQLProvider)(nil).Insert), ctx, table, record)
 }
 
 // Query mocks base method.
@@ -154,15 +154,15 @@ func (mr *MockSQLProviderMockRecorder) Transaction(ctx, fn interface{}) *gomock.
 }
 
 // Update mocks base method.
-func (m *MockSQLProvider) Update(ctx context.Context, record interface{}) error {
+func (m *MockSQLProvider) Update(ctx context.Context, table ksql.Table, record interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Update", ctx, record)
+	ret := m.ctrl.Call(m, "Update", ctx, table, record)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Update indicates an expected call of Update.
-func (mr *MockSQLProviderMockRecorder) Update(ctx, record interface{}) *gomock.Call {
+func (mr *MockSQLProviderMockRecorder) Update(ctx, table, record interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockSQLProvider)(nil).Update), ctx, record)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockSQLProvider)(nil).Update), ctx, table, record)
 }

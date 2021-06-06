@@ -33,11 +33,14 @@ type Address struct {
 	City  string `json:"city"`
 }
 
+// UsersTable informs ksql the name of the table and that it can
+// use the default value for the primary key column name: "id"
+var UsersTable = ksql.NewTable("users")
+
 func main() {
 	ctx := context.Background()
 	db, err := ksql.New("sqlite3", "/tmp/hello.sqlite", ksql.Config{
 		MaxOpenConns: 1,
-		TableName:    "users",
 	})
 	if err != nil {
 		panic(err.Error())
@@ -62,14 +65,14 @@ func main() {
 			State: "MG",
 		},
 	}
-	err = db.Insert(ctx, &alison)
+	err = db.Insert(ctx, UsersTable, &alison)
 	if err != nil {
 		panic(err.Error())
 	}
 	fmt.Println("Alison ID:", alison.ID)
 
 	// Inserting inline:
-	err = db.Insert(ctx, &User{
+	err = db.Insert(ctx, UsersTable, &User{
 		Name: "Cristina",
 		Age:  27,
 		Address: Address{
@@ -81,7 +84,7 @@ func main() {
 	}
 
 	// Deleting Alison:
-	err = db.Delete(ctx, alison.ID)
+	err = db.Delete(ctx, UsersTable, alison.ID)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -96,12 +99,12 @@ func main() {
 
 	// Updating all fields from Cristina:
 	cris.Name = "Cris"
-	err = db.Update(ctx, cris)
+	err = db.Update(ctx, UsersTable, cris)
 
 	// Changing the age of Cristina but not touching any other fields:
 
 	// Partial update technique 1:
-	err = db.Update(ctx, struct {
+	err = db.Update(ctx, UsersTable, struct {
 		ID  int `ksql:"id"`
 		Age int `ksql:"age"`
 	}{ID: cris.ID, Age: 28})
@@ -110,7 +113,7 @@ func main() {
 	}
 
 	// Partial update technique 2:
-	err = db.Update(ctx, PartialUpdateUser{
+	err = db.Update(ctx, UsersTable, PartialUpdateUser{
 		ID:  cris.ID,
 		Age: nullable.Int(28),
 	})
@@ -142,7 +145,7 @@ func main() {
 			return err
 		}
 
-		err = db.Update(ctx, PartialUpdateUser{
+		err = db.Update(ctx, UsersTable, PartialUpdateUser{
 			ID:  cris2.ID,
 			Age: nullable.Int(29),
 		})

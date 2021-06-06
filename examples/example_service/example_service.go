@@ -8,11 +8,8 @@ import (
 	"github.com/vingarcia/ksql/nullable"
 )
 
-// Service ...
-type Service struct {
-	usersTable      ksql.SQLProvider
-	streamChunkSize int
-}
+// UsersTable informs ksql that the ID column is named "id"
+var UsersTable = ksql.NewTable("users", "id")
 
 // UserEntity represents a domain user,
 // the pointer fields represent optional fields that
@@ -41,17 +38,23 @@ type Address struct {
 	Country   string   `json:"country"`
 }
 
+// Service ...
+type Service struct {
+	db              ksql.SQLProvider
+	streamChunkSize int
+}
+
 // NewUserService ...
-func NewUserService(usersTable ksql.SQLProvider) Service {
+func NewUserService(db ksql.SQLProvider) Service {
 	return Service{
-		usersTable:      usersTable,
+		db:              db,
 		streamChunkSize: 100,
 	}
 }
 
 // CreateUser ...
 func (s Service) CreateUser(ctx context.Context, u UserEntity) error {
-	return s.usersTable.Insert(ctx, &u)
+	return s.db.Insert(ctx, UsersTable, &u)
 }
 
 // UpdateUserScore update the user score adding scoreChange with the current
@@ -60,12 +63,12 @@ func (s Service) UpdateUserScore(ctx context.Context, uID int, scoreChange int) 
 	var scoreRow struct {
 		Score int `ksql:"score"`
 	}
-	err := s.usersTable.QueryOne(ctx, &scoreRow, "SELECT score FROM users WHERE id = ?", uID)
+	err := s.db.QueryOne(ctx, &scoreRow, "SELECT score FROM users WHERE id = ?", uID)
 	if err != nil {
 		return err
 	}
 
-	return s.usersTable.Update(ctx, &UserEntity{
+	return s.db.Update(ctx, UsersTable, &UserEntity{
 		ID:    uID,
 		Score: nullable.Int(scoreRow.Score + scoreChange),
 	})
@@ -76,12 +79,12 @@ func (s Service) ListUsers(ctx context.Context, offset, limit int) (total int, u
 	var countRow struct {
 		Count int `ksql:"count"`
 	}
-	err = s.usersTable.QueryOne(ctx, &countRow, "SELECT count(*) as count FROM users")
+	err = s.db.QueryOne(ctx, &countRow, "SELECT count(*) as count FROM users")
 	if err != nil {
 		return 0, nil, err
 	}
 
-	return countRow.Count, users, s.usersTable.Query(ctx, &users, "SELECT * FROM users OFFSET ? LIMIT ?", offset, limit)
+	return countRow.Count, users, s.db.Query(ctx, &users, "SELECT * FROM users OFFSET ? LIMIT ?", offset, limit)
 }
 
 // StreamAllUsers sends all users from the database to an external client
@@ -91,7 +94,7 @@ func (s Service) ListUsers(ctx context.Context, offset, limit int) (total int, u
 // function only when the ammount of data loaded might exceed the available memory and/or
 // when you can't put an upper limit on the number of values returned.
 func (s Service) StreamAllUsers(ctx context.Context, sendUser func(u UserEntity) error) error {
-	return s.usersTable.QueryChunks(ctx, ksql.ChunkParser{
+	return s.db.QueryChunks(ctx, ksql.ChunkParser{
 		Query:     "SELECT * FROM users",
 		Params:    []interface{}{},
 		ChunkSize: s.streamChunkSize,
@@ -110,5 +113,5 @@ func (s Service) StreamAllUsers(ctx context.Context, sendUser func(u UserEntity)
 
 // DeleteUser deletes a user by its ID
 func (s Service) DeleteUser(ctx context.Context, uID int) error {
-	return s.usersTable.Delete(ctx, uID)
+	return s.db.Delete(ctx, UsersTable, uID)
 }

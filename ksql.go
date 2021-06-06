@@ -24,16 +24,9 @@ func init() {
 // interfacing with the "database/sql" package implementing
 // the KissSQL interface `SQLProvider`.
 type DB struct {
-	driver    string
-	dialect   dialect
-	tableName string
-	db        sqlProvider
-
-	// Most dbs have a single primary key,
-	// But in future ksql should work with compound keys as well
-	idCols []string
-
-	insertMethod insertMethod
+	driver  string
+	dialect dialect
+	db      sqlProvider
 }
 
 type sqlProvider interface {
@@ -46,14 +39,6 @@ type sqlProvider interface {
 type Config struct {
 	// MaxOpenCons defaults to 1 if not set
 	MaxOpenConns int
-
-	// TableName must be set in order to use the Insert, Delete and Update helper
-	// functions. If you only intend to make queries or to use the Exec function
-	// it is safe to leave this field unset.
-	TableName string
-
-	// IDColumns defaults to []string{"id"} if unset
-	IDColumns []string
 }
 
 // New instantiates a new KissSQL client
@@ -81,23 +66,10 @@ func New(
 		return DB{}, fmt.Errorf("unsupported driver `%s`", dbDriver)
 	}
 
-	if len(config.IDColumns) == 0 {
-		config.IDColumns = []string{"id"}
-	}
-
-	insertMethod := dialect.InsertMethod()
-	if len(config.IDColumns) > 1 && insertMethod == insertWithLastInsertID {
-		insertMethod = insertWithNoIDRetrieval
-	}
-
 	return DB{
-		dialect:   dialect,
-		driver:    dbDriver,
-		db:        db,
-		tableName: config.TableName,
-
-		idCols:       config.IDColumns,
-		insertMethod: insertMethod,
+		dialect: dialect,
+		driver:  dbDriver,
+		db:      db,
 	}, nil
 }
 
@@ -133,8 +105,16 @@ func (c DB) Query(
 		slice = slice.Slice(0, 0)
 	}
 
-	if strings.ToUpper(getFirstToken(query)) == "FROM" {
-		selectPrefix, err := buildSelectQuery(c.dialect, structType, selectQueryCache[c.dialect.DriverName()])
+	info := structs.GetTagInfo(structType)
+
+	firstToken := strings.ToUpper(getFirstToken(query))
+	if info.IsNestedStruct && firstToken == "SELECT" {
+		// This error check is necessary, since if we can't build the select part of the query this feature won't work.
+		return fmt.Errorf("can't generate SELECT query for nested struct: when using this feature omit the SELECT part of the query")
+	}
+
+	if firstToken == "FROM" {
+		selectPrefix, err := buildSelectQuery(c.dialect, structType, info, selectQueryCache[c.dialect.DriverName()])
 		if err != nil {
 			return err
 		}
@@ -206,8 +186,16 @@ func (c DB) QueryOne(
 		return fmt.Errorf("ksql: expected to receive a pointer to struct, but got: %T", record)
 	}
 
-	if strings.ToUpper(getFirstToken(query)) == "FROM" {
-		selectPrefix, err := buildSelectQuery(c.dialect, t, selectQueryCache[c.dialect.DriverName()])
+	info := structs.GetTagInfo(t)
+
+	firstToken := strings.ToUpper(getFirstToken(query))
+	if info.IsNestedStruct && firstToken == "SELECT" {
+		// This error check is necessary, since if we can't build the select part of the query this feature won't work.
+		return fmt.Errorf("can't generate SELECT query for nested struct: when using this feature omit the SELECT part of the query")
+	}
+
+	if firstToken == "FROM" {
+		selectPrefix, err := buildSelectQuery(c.dialect, t, info, selectQueryCache[c.dialect.DriverName()])
 		if err != nil {
 			return err
 		}
@@ -268,8 +256,16 @@ func (c DB) QueryChunks(
 		return err
 	}
 
-	if strings.ToUpper(getFirstToken(parser.Query)) == "FROM" {
-		selectPrefix, err := buildSelectQuery(c.dialect, structType, selectQueryCache[c.dialect.DriverName()])
+	info := structs.GetTagInfo(structType)
+
+	firstToken := strings.ToUpper(getFirstToken(parser.Query))
+	if info.IsNestedStruct && firstToken == "SELECT" {
+		// This error check is necessary, since if we can't build the select part of the query this feature won't work.
+		return fmt.Errorf("can't generate SELECT query for nested struct: when using this feature omit the SELECT part of the query")
+	}
+
+	if firstToken == "FROM" {
+		selectPrefix, err := buildSelectQuery(c.dialect, structType, info, selectQueryCache[c.dialect.DriverName()])
 		if err != nil {
 			return err
 		}
@@ -347,22 +343,19 @@ func (c DB) QueryChunks(
 // the ID is automatically updated after insertion is completed.
 func (c DB) Insert(
 	ctx context.Context,
+	table Table,
 	record interface{},
 ) error {
-	if c.tableName == "" {
-		return fmt.Errorf("the optional TableName argument was not provided to New(), can't use the Insert method")
-	}
-
-	query, params, scanValues, err := buildInsertQuery(c.dialect, c.tableName, record, c.idCols...)
+	query, params, scanValues, err := buildInsertQuery(c.dialect, table.name, record, table.idColumns...)
 	if err != nil {
 		return err
 	}
 
-	switch c.insertMethod {
+	switch table.insertMethodFor(c.dialect) {
 	case insertWithReturning, insertWithOutput:
-		err = c.insertReturningIDs(ctx, record, query, params, scanValues, c.idCols)
+		err = c.insertReturningIDs(ctx, record, query, params, scanValues, table.idColumns)
 	case insertWithLastInsertID:
-		err = c.insertWithLastInsertID(ctx, record, query, params, c.idCols[0])
+		err = c.insertWithLastInsertID(ctx, record, query, params, table.idColumns[0])
 	case insertWithNoIDRetrieval:
 		err = c.insertWithNoIDRetrieval(ctx, record, query, params)
 	default:
@@ -471,27 +464,24 @@ func assertStructPtr(t reflect.Type) error {
 // Delete deletes one or more instances from the database by id
 func (c DB) Delete(
 	ctx context.Context,
+	table Table,
 	ids ...interface{},
 ) error {
-	if c.tableName == "" {
-		return fmt.Errorf("the optional TableName argument was not provided to New(), can't use the Delete method")
-	}
-
 	if len(ids) == 0 {
 		return nil
 	}
 
-	idMaps, err := normalizeIDsAsMaps(c.idCols, ids)
+	idMaps, err := normalizeIDsAsMaps(table.idColumns, ids)
 	if err != nil {
 		return err
 	}
 
 	var query string
 	var params []interface{}
-	if len(c.idCols) == 1 {
-		query, params = buildSingleKeyDeleteQuery(c.dialect, c.tableName, c.idCols[0], idMaps)
+	if len(table.idColumns) == 1 {
+		query, params = buildSingleKeyDeleteQuery(c.dialect, table.name, table.idColumns[0], idMaps)
 	} else {
-		query, params = buildCompositeKeyDeleteQuery(c.dialect, c.tableName, c.idCols, idMaps)
+		query, params = buildCompositeKeyDeleteQuery(c.dialect, table.name, table.idColumns, idMaps)
 	}
 
 	_, err = c.db.ExecContext(ctx, query, params...)
@@ -543,13 +533,10 @@ func normalizeIDsAsMaps(idNames []string, ids []interface{}) ([]map[string]inter
 // Partial updates are supported, i.e. it will ignore nil pointer attributes
 func (c DB) Update(
 	ctx context.Context,
+	table Table,
 	record interface{},
 ) error {
-	if c.tableName == "" {
-		return fmt.Errorf("the optional TableName argument was not provided to New(), can't use the Update method")
-	}
-
-	query, params, err := buildUpdateQuery(c.dialect, c.tableName, record, c.idCols...)
+	query, params, err := buildUpdateQuery(c.dialect, table.name, record, table.idColumns...)
 	if err != nil {
 		return err
 	}
@@ -964,13 +951,13 @@ func getFirstToken(s string) string {
 func buildSelectQuery(
 	dialect dialect,
 	structType reflect.Type,
+	info structs.StructInfo,
 	selectQueryCache map[reflect.Type]string,
 ) (query string, err error) {
 	if selectQuery, found := selectQueryCache[structType]; found {
 		return selectQuery, nil
 	}
 
-	info := structs.GetTagInfo(structType)
 	if info.IsNestedStruct {
 		query, err = buildSelectQueryForNestedStructs(dialect, structType, info)
 		if err != nil {

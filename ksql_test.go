@@ -25,6 +25,8 @@ type User struct {
 	Address Address `ksql:"address,json"`
 }
 
+var UsersTable = NewTable("users")
+
 type Address struct {
 	Street string `json:"street"`
 	Number string `json:"number"`
@@ -39,6 +41,8 @@ type Post struct {
 	UserID uint   `ksql:"user_id"`
 	Title  string `ksql:"title"`
 }
+
+var PostsTable = NewTable("posts")
 
 func TestQuery(t *testing.T) {
 	for driver := range supportedDialects {
@@ -69,7 +73,7 @@ func TestQuery(t *testing.T) {
 							defer db.Close()
 
 							ctx := context.Background()
-							c := newTestDB(db, driver, "users")
+							c := newTestDB(db, driver)
 							var users []User
 							err := c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
 							assert.Equal(t, nil, err)
@@ -89,7 +93,7 @@ func TestQuery(t *testing.T) {
 							assert.Equal(t, nil, err)
 
 							ctx := context.Background()
-							c := newTestDB(db, driver, "users")
+							c := newTestDB(db, driver)
 							var users []User
 							err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
 
@@ -111,7 +115,7 @@ func TestQuery(t *testing.T) {
 							assert.Equal(t, nil, err)
 
 							ctx := context.Background()
-							c := newTestDB(db, driver, "users")
+							c := newTestDB(db, driver)
 							var users []User
 							err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
 
@@ -154,7 +158,7 @@ func TestQuery(t *testing.T) {
 							assert.Equal(t, nil, err)
 
 							ctx := context.Background()
-							c := newTestDB(db, driver, "users")
+							c := newTestDB(db, driver)
 							var rows []struct {
 								User User `tablename:"u"`
 								Post Post `tablename:"p"`
@@ -193,7 +197,7 @@ func TestQuery(t *testing.T) {
 							defer db.Close()
 
 							ctx := context.Background()
-							c := newTestDB(db, driver, "users")
+							c := newTestDB(db, driver)
 							var users []*User
 							err := c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
 							assert.Equal(t, nil, err)
@@ -213,7 +217,7 @@ func TestQuery(t *testing.T) {
 							assert.Equal(t, nil, err)
 
 							ctx := context.Background()
-							c := newTestDB(db, driver, "users")
+							c := newTestDB(db, driver)
 							var users []*User
 							err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
 
@@ -235,7 +239,7 @@ func TestQuery(t *testing.T) {
 							assert.Equal(t, nil, err)
 
 							ctx := context.Background()
-							c := newTestDB(db, driver, "users")
+							c := newTestDB(db, driver)
 							var users []*User
 							err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
 
@@ -278,7 +282,7 @@ func TestQuery(t *testing.T) {
 							assert.Equal(t, nil, err)
 
 							ctx := context.Background()
-							c := newTestDB(db, driver, "users")
+							c := newTestDB(db, driver)
 							var rows []*struct {
 								User User `tablename:"u"`
 								Post Post `tablename:"p"`
@@ -325,7 +329,7 @@ func TestQuery(t *testing.T) {
 					assert.Equal(t, nil, err)
 
 					ctx := context.Background()
-					c := newTestDB(db, driver, "users")
+					c := newTestDB(db, driver)
 					err = c.Query(ctx, &User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
 					assert.NotEqual(t, nil, err)
 
@@ -345,56 +349,72 @@ func TestQuery(t *testing.T) {
 					defer db.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, driver, "users")
+					c := newTestDB(db, driver)
 					var users []User
-					err = c.Query(ctx, &users, `SELECT * FROM not a valid query`)
+					err := c.Query(ctx, &users, `SELECT * FROM not a valid query`)
 					assert.NotEqual(t, nil, err)
 				})
-			})
 
-			t.Run("should report error for nested structs with invalid types", func(t *testing.T) {
-				t.Run("int", func(t *testing.T) {
+				t.Run("should report error if using nested struct and the query starts with SELECT", func(t *testing.T) {
 					db := connectDB(t, driver)
 					defer db.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, driver, "users")
+					c := newTestDB(db, driver)
 					var rows []struct {
-						Foo int `tablename:"foo"`
+						User User `tablename:"users"`
+						Post Post `tablename:"posts"`
 					}
-					err := c.Query(ctx, &rows, fmt.Sprint(
-						`FROM users u JOIN posts p ON p.user_id = u.id`,
-						` WHERE u.name like `, c.dialect.Placeholder(0),
-						` ORDER BY u.id, p.id`,
-					), "% Ribeiro")
-
+					err := c.Query(ctx, &rows, `SELECT * FROM users u JOIN posts p ON u.id = p.user_id`)
 					assert.NotEqual(t, nil, err)
-					msg := err.Error()
-					for _, str := range []string{"foo", "int"} {
-						assert.Equal(t, true, strings.Contains(msg, str), fmt.Sprintf("missing expected substr '%s' in error message: '%s'", str, msg))
-					}
+					assert.Equal(t, true, strings.Contains(err.Error(), "nested struct"), "unexpected error msg: "+err.Error())
+					assert.Equal(t, true, strings.Contains(err.Error(), "feature"), "unexpected error msg: "+err.Error())
 				})
 
-				t.Run("*struct", func(t *testing.T) {
-					db := connectDB(t, driver)
-					defer db.Close()
+				t.Run("should report error for nested structs with invalid types", func(t *testing.T) {
+					t.Run("int", func(t *testing.T) {
+						db := connectDB(t, driver)
+						defer db.Close()
 
-					ctx := context.Background()
-					c := newTestDB(db, driver, "users")
-					var rows []struct {
-						Foo *User `tablename:"foo"`
-					}
-					err := c.Query(ctx, &rows, fmt.Sprint(
-						`FROM users u JOIN posts p ON p.user_id = u.id`,
-						` WHERE u.name like `, c.dialect.Placeholder(0),
-						` ORDER BY u.id, p.id`,
-					), "% Ribeiro")
+						ctx := context.Background()
+						c := newTestDB(db, driver)
+						var rows []struct {
+							Foo int `tablename:"foo"`
+						}
+						err := c.Query(ctx, &rows, fmt.Sprint(
+							`FROM users u JOIN posts p ON p.user_id = u.id`,
+							` WHERE u.name like `, c.dialect.Placeholder(0),
+							` ORDER BY u.id, p.id`,
+						), "% Ribeiro")
 
-					assert.NotEqual(t, nil, err)
-					msg := err.Error()
-					for _, str := range []string{"foo", "*ksql.User"} {
-						assert.Equal(t, true, strings.Contains(msg, str), fmt.Sprintf("missing expected substr '%s' in error message: '%s'", str, msg))
-					}
+						assert.NotEqual(t, nil, err)
+						msg := err.Error()
+						for _, str := range []string{"foo", "int"} {
+							assert.Equal(t, true, strings.Contains(msg, str), fmt.Sprintf("missing expected substr '%s' in error message: '%s'", str, msg))
+						}
+					})
+
+					t.Run("*struct", func(t *testing.T) {
+						db := connectDB(t, driver)
+						defer db.Close()
+
+						ctx := context.Background()
+						c := newTestDB(db, driver)
+						var rows []struct {
+							Foo *User `tablename:"foo"`
+						}
+						err := c.Query(ctx, &rows, fmt.Sprint(
+							`FROM users u JOIN posts p ON p.user_id = u.id`,
+							` WHERE u.name like `, c.dialect.Placeholder(0),
+							` ORDER BY u.id, p.id`,
+						), "% Ribeiro")
+
+						assert.NotEqual(t, nil, err)
+						msg := err.Error()
+						for _, str := range []string{"foo", "*ksql.User"} {
+							assert.Equal(t, true, strings.Contains(msg, str), fmt.Sprintf("missing expected substr '%s' in error message: '%s'", str, msg))
+						}
+					})
 				})
 			})
 		})
@@ -429,7 +449,7 @@ func TestQueryOne(t *testing.T) {
 						defer db.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver, "users")
+						c := newTestDB(db, driver)
 						u := User{}
 						err := c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE id=1;`)
 						assert.Equal(t, ErrRecordNotFound, err)
@@ -443,7 +463,7 @@ func TestQueryOne(t *testing.T) {
 						assert.Equal(t, nil, err)
 
 						ctx := context.Background()
-						c := newTestDB(db, driver, "users")
+						c := newTestDB(db, driver)
 						u := User{}
 						err = c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
 
@@ -466,7 +486,7 @@ func TestQueryOne(t *testing.T) {
 						assert.Equal(t, nil, err)
 
 						ctx := context.Background()
-						c := newTestDB(db, driver, "users")
+						c := newTestDB(db, driver)
 
 						var u User
 						err = c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0)+` ORDER BY id ASC`, "% Sá")
@@ -496,7 +516,7 @@ func TestQueryOne(t *testing.T) {
 						assert.Equal(t, nil, err)
 
 						ctx := context.Background()
-						c := newTestDB(db, driver, "users")
+						c := newTestDB(db, driver)
 						var row struct {
 							User User `tablename:"u"`
 							Post Post `tablename:"p"`
@@ -526,7 +546,7 @@ func TestQueryOne(t *testing.T) {
 				assert.Equal(t, nil, err)
 
 				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
+				c := newTestDB(db, driver)
 
 				err = c.QueryOne(ctx, &[]User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
 				assert.NotEqual(t, nil, err)
@@ -540,10 +560,26 @@ func TestQueryOne(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
+				c := newTestDB(db, driver)
 				var user User
 				err := c.QueryOne(ctx, &user, `SELECT * FROM not a valid query`)
 				assert.NotEqual(t, nil, err)
+			})
+
+			t.Run("should report error if using nested struct and the query starts with SELECT", func(t *testing.T) {
+				db := connectDB(t, driver)
+				defer db.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, driver)
+				var row struct {
+					User User `tablename:"users"`
+					Post Post `tablename:"posts"`
+				}
+				err := c.QueryOne(ctx, &row, `SELECT * FROM users u JOIN posts p ON u.id = p.user_id LIMIT 1`)
+				assert.NotEqual(t, nil, err)
+				assert.Equal(t, true, strings.Contains(err.Error(), "nested struct"), "unexpected error msg: "+err.Error())
+				assert.Equal(t, true, strings.Contains(err.Error(), "feature"), "unexpected error msg: "+err.Error())
 			})
 		})
 	}
@@ -563,7 +599,7 @@ func TestInsert(t *testing.T) {
 					defer db.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, driver, "users")
+					c := newTestDB(db, driver)
 
 					u := User{
 						Name: "Fernanda",
@@ -572,7 +608,7 @@ func TestInsert(t *testing.T) {
 						},
 					}
 
-					err := c.Insert(ctx, &u)
+					err := c.Insert(ctx, UsersTable, &u)
 					assert.Equal(t, nil, err)
 					assert.NotEqual(t, 0, u.ID)
 
@@ -593,11 +629,11 @@ func TestInsert(t *testing.T) {
 					defer db.Close()
 
 					ctx := context.Background()
+
 					// Using columns "id" and "name" as IDs:
-					c, err := New(driver, connectionString[driver], Config{
-						TableName: "users",
-						IDColumns: []string{"id", "name"},
-					})
+					table := NewTable("users", "id", "name")
+
+					c, err := New(driver, connectionString[driver], Config{})
 					assert.Equal(t, nil, err)
 
 					u := User{
@@ -609,7 +645,7 @@ func TestInsert(t *testing.T) {
 						},
 					}
 
-					err = c.Insert(ctx, &u)
+					err = c.Insert(ctx, table, &u)
 					assert.Equal(t, nil, err)
 					assert.Equal(t, uint(0), u.ID)
 
@@ -633,15 +669,15 @@ func TestInsert(t *testing.T) {
 					defer db.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, driver, "users")
+					c := newTestDB(db, driver)
 
-					err = c.Insert(ctx, "foo")
+					err = c.Insert(ctx, UsersTable, "foo")
 					assert.NotEqual(t, nil, err)
 
-					err = c.Insert(ctx, nullable.String("foo"))
+					err = c.Insert(ctx, UsersTable, nullable.String("foo"))
 					assert.NotEqual(t, nil, err)
 
-					err = c.Insert(ctx, map[string]interface{}{
+					err = c.Insert(ctx, UsersTable, map[string]interface{}{
 						"name": "foo",
 						"age":  12,
 					})
@@ -651,11 +687,11 @@ func TestInsert(t *testing.T) {
 						&User{Name: "foo", Age: 22},
 						&User{Name: "bar", Age: 32},
 					}
-					err = c.Insert(ctx, ifUserForgetToExpandList)
+					err = c.Insert(ctx, UsersTable, ifUserForgetToExpandList)
 					assert.NotEqual(t, nil, err)
 
 					// We might want to support this in the future, but not for now:
-					err = c.Insert(ctx, User{Name: "not a ptr to user", Age: 42})
+					err = c.Insert(ctx, UsersTable, User{Name: "not a ptr to user", Age: 42})
 					assert.NotEqual(t, nil, err)
 				})
 
@@ -664,17 +700,35 @@ func TestInsert(t *testing.T) {
 					defer db.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, driver, "users")
+					c := newTestDB(db, driver)
 
 					// This is an invalid value:
-					c.insertMethod = insertMethod(42)
+					c.dialect = brokenDialect{}
 
-					err = c.Insert(ctx, &User{Name: "foo"})
+					err = c.Insert(ctx, UsersTable, &User{Name: "foo"})
 					assert.NotEqual(t, nil, err)
 				})
 			})
 		})
 	}
+}
+
+type brokenDialect struct{}
+
+func (brokenDialect) InsertMethod() insertMethod {
+	return insertMethod(42)
+}
+
+func (brokenDialect) Escape(str string) string {
+	return str
+}
+
+func (brokenDialect) Placeholder(idx int) string {
+	return "?"
+}
+
+func (brokenDialect) DriverName() string {
+	return "fake-driver-name"
 }
 
 func TestDelete(t *testing.T) {
@@ -690,13 +744,13 @@ func TestDelete(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
+				c := newTestDB(db, driver)
 
 				u := User{
 					Name: "Won't be deleted",
 				}
 
-				err := c.Insert(ctx, &u)
+				err := c.Insert(ctx, UsersTable, &u)
 				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u.ID)
 
@@ -706,7 +760,7 @@ func TestDelete(t *testing.T) {
 
 				assert.Equal(t, u.ID, result.ID)
 
-				err = c.Delete(ctx)
+				err = c.Delete(ctx, UsersTable)
 				assert.Equal(t, nil, err)
 
 				result = User{}
@@ -720,13 +774,13 @@ func TestDelete(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
+				c := newTestDB(db, driver)
 
 				u1 := User{
 					Name: "Fernanda",
 				}
 
-				err := c.Insert(ctx, &u1)
+				err := c.Insert(ctx, UsersTable, &u1)
 				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u1.ID)
 
@@ -739,7 +793,7 @@ func TestDelete(t *testing.T) {
 					Name: "Won't be deleted",
 				}
 
-				err = c.Insert(ctx, &u2)
+				err = c.Insert(ctx, UsersTable, &u2)
 				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u2.ID)
 
@@ -748,7 +802,7 @@ func TestDelete(t *testing.T) {
 				assert.Equal(t, nil, err)
 				assert.Equal(t, u2.ID, result.ID)
 
-				err = c.Delete(ctx, u1.ID)
+				err = c.Delete(ctx, UsersTable, u1.ID)
 				assert.Equal(t, nil, err)
 
 				result = User{}
@@ -768,26 +822,26 @@ func TestDelete(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
+				c := newTestDB(db, driver)
 
 				u1 := User{
 					Name: "Fernanda",
 				}
-				err := c.Insert(ctx, &u1)
+				err := c.Insert(ctx, UsersTable, &u1)
 				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u1.ID)
 
 				u2 := User{
 					Name: "Juliano",
 				}
-				err = c.Insert(ctx, &u2)
+				err = c.Insert(ctx, UsersTable, &u2)
 				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u2.ID)
 
 				u3 := User{
 					Name: "This won't be deleted",
 				}
-				err = c.Insert(ctx, &u3)
+				err = c.Insert(ctx, UsersTable, &u3)
 				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u3.ID)
 
@@ -806,7 +860,7 @@ func TestDelete(t *testing.T) {
 				assert.Equal(t, nil, err)
 				assert.Equal(t, u3.ID, result.ID)
 
-				err = c.Delete(ctx, u1.ID, u2.ID)
+				err = c.Delete(ctx, UsersTable, u1.ID, u2.ID)
 				assert.Equal(t, nil, err)
 
 				results := []User{}
@@ -833,7 +887,7 @@ func TestUpdate(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
+				c := newTestDB(db, driver)
 
 				u := User{
 					Name: "Letícia",
@@ -847,7 +901,7 @@ func TestUpdate(t *testing.T) {
 				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u.ID)
 
-				err = c.Update(ctx, User{
+				err = c.Update(ctx, UsersTable, User{
 					ID:   u.ID,
 					Name: "Thayane",
 				})
@@ -864,7 +918,7 @@ func TestUpdate(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
+				c := newTestDB(db, driver)
 
 				u := User{
 					Name: "Letícia",
@@ -878,7 +932,7 @@ func TestUpdate(t *testing.T) {
 				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u.ID)
 
-				err = c.Update(ctx, User{
+				err = c.Update(ctx, UsersTable, User{
 					ID:   u.ID,
 					Name: "Thayane",
 				})
@@ -895,7 +949,7 @@ func TestUpdate(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
+				c := newTestDB(db, driver)
 
 				type partialUser struct {
 					ID   uint   `ksql:"id"`
@@ -915,7 +969,7 @@ func TestUpdate(t *testing.T) {
 				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u.ID)
 
-				err = c.Update(ctx, partialUser{
+				err = c.Update(ctx, UsersTable, partialUser{
 					ID: u.ID,
 					// Should be updated because it is not null, just empty:
 					Name: "",
@@ -936,7 +990,7 @@ func TestUpdate(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
+				c := newTestDB(db, driver)
 
 				type partialUser struct {
 					ID   uint   `ksql:"id"`
@@ -957,7 +1011,7 @@ func TestUpdate(t *testing.T) {
 				assert.NotEqual(t, uint(0), u.ID)
 
 				// Should update all fields:
-				err = c.Update(ctx, partialUser{
+				err = c.Update(ctx, UsersTable, partialUser{
 					ID:   u.ID,
 					Name: "Thay",
 					Age:  nullable.Int(42),
@@ -977,9 +1031,9 @@ func TestUpdate(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver, "non_existing_table")
+				c := newTestDB(db, driver)
 
-				err = c.Update(ctx, User{
+				err = c.Update(ctx, NewTable("non_existing_table"), User{
 					ID:   1,
 					Name: "Thayane",
 				})
@@ -1017,9 +1071,9 @@ func TestQueryChunks(t *testing.T) {
 						defer db.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver, "users")
+						c := newTestDB(db, driver)
 
-						_ = c.Insert(ctx, &User{
+						_ = c.Insert(ctx, UsersTable, &User{
 							Name:    "User1",
 							Address: Address{Country: "BR"},
 						})
@@ -1057,10 +1111,10 @@ func TestQueryChunks(t *testing.T) {
 						defer db.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver, "users")
+						c := newTestDB(db, driver)
 
-						_ = c.Insert(ctx, &User{Name: "User1", Address: Address{Country: "US"}})
-						_ = c.Insert(ctx, &User{Name: "User2", Address: Address{Country: "BR"}})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Address: Address{Country: "US"}})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User2", Address: Address{Country: "BR"}})
 
 						var lengths []int
 						var users []User
@@ -1099,10 +1153,10 @@ func TestQueryChunks(t *testing.T) {
 						defer db.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver, "users")
+						c := newTestDB(db, driver)
 
-						_ = c.Insert(ctx, &User{Name: "User1", Address: Address{Country: "US"}})
-						_ = c.Insert(ctx, &User{Name: "User2", Address: Address{Country: "BR"}})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Address: Address{Country: "US"}})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User2", Address: Address{Country: "BR"}})
 
 						var lengths []int
 						var users []User
@@ -1141,11 +1195,11 @@ func TestQueryChunks(t *testing.T) {
 						defer db.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver, "users")
+						c := newTestDB(db, driver)
 
-						_ = c.Insert(ctx, &User{Name: "User1"})
-						_ = c.Insert(ctx, &User{Name: "User2"})
-						_ = c.Insert(ctx, &User{Name: "User3"})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User3"})
 
 						var lengths []int
 						var users []User
@@ -1192,9 +1246,9 @@ func TestQueryChunks(t *testing.T) {
 						}
 
 						ctx := context.Background()
-						c := newTestDB(db, driver, "users")
-						_ = c.Insert(ctx, &joao)
-						_ = c.Insert(ctx, &thatiana)
+						c := newTestDB(db, driver)
+						_ = c.Insert(ctx, UsersTable, &joao)
+						_ = c.Insert(ctx, UsersTable, &thatiana)
 
 						_, err := db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, thatiana.ID, `, 'Thatiana Post1')`))
 						assert.Equal(t, nil, err)
@@ -1254,11 +1308,11 @@ func TestQueryChunks(t *testing.T) {
 						defer db.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver, "users")
+						c := newTestDB(db, driver)
 
-						_ = c.Insert(ctx, &User{Name: "User1"})
-						_ = c.Insert(ctx, &User{Name: "User2"})
-						_ = c.Insert(ctx, &User{Name: "User3"})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User3"})
 
 						var lengths []int
 						var users []User
@@ -1293,11 +1347,11 @@ func TestQueryChunks(t *testing.T) {
 						defer db.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver, "users")
+						c := newTestDB(db, driver)
 
-						_ = c.Insert(ctx, &User{Name: "User1"})
-						_ = c.Insert(ctx, &User{Name: "User2"})
-						_ = c.Insert(ctx, &User{Name: "User3"})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User3"})
 
 						returnVals := []error{nil, ErrAbortIteration}
 						var lengths []int
@@ -1336,11 +1390,11 @@ func TestQueryChunks(t *testing.T) {
 						defer db.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver, "users")
+						c := newTestDB(db, driver)
 
-						_ = c.Insert(ctx, &User{Name: "User1"})
-						_ = c.Insert(ctx, &User{Name: "User2"})
-						_ = c.Insert(ctx, &User{Name: "User3"})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User3"})
 
 						var lengths []int
 						var users []User
@@ -1375,11 +1429,11 @@ func TestQueryChunks(t *testing.T) {
 						defer db.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver, "users")
+						c := newTestDB(db, driver)
 
-						_ = c.Insert(ctx, &User{Name: "User1"})
-						_ = c.Insert(ctx, &User{Name: "User2"})
-						_ = c.Insert(ctx, &User{Name: "User3"})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
+						_ = c.Insert(ctx, UsersTable, &User{Name: "User3"})
 
 						returnVals := []error{nil, errors.New("fake error msg")}
 						var lengths []int
@@ -1413,7 +1467,7 @@ func TestQueryChunks(t *testing.T) {
 						defer db.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver, "users")
+						c := newTestDB(db, driver)
 
 						funcs := []interface{}{
 							nil,
@@ -1458,7 +1512,7 @@ func TestQueryChunks(t *testing.T) {
 						defer db.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver, "users")
+						c := newTestDB(db, driver)
 						err := c.QueryChunks(ctx, ChunkParser{
 							Query:  `SELECT * FROM not a valid query`,
 							Params: []interface{}{},
@@ -1469,6 +1523,31 @@ func TestQueryChunks(t *testing.T) {
 							},
 						})
 						assert.NotEqual(t, nil, err)
+					})
+
+					t.Run("should report error if using nested struct and the query starts with SELECT", func(t *testing.T) {
+						db := connectDB(t, driver)
+						defer db.Close()
+
+						ctx := context.Background()
+						c := newTestDB(db, driver)
+
+						err := c.QueryChunks(ctx, ChunkParser{
+							Query:  `SELECT * FROM users u JOIN posts p ON u.id = p.user_id`,
+							Params: []interface{}{},
+
+							ChunkSize: 2,
+							ForEachChunk: func(buffer []struct {
+								User User `tablename:"users"`
+								Post Post `tablename:"posts"`
+							}) error {
+								return nil
+							},
+						})
+
+						assert.NotEqual(t, nil, err)
+						assert.Equal(t, true, strings.Contains(err.Error(), "nested struct"), "unexpected error msg: "+err.Error())
+						assert.Equal(t, true, strings.Contains(err.Error(), "feature"), "unexpected error msg: "+err.Error())
 					})
 				})
 			}
@@ -1489,10 +1568,10 @@ func TestTransaction(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
+				c := newTestDB(db, driver)
 
-				_ = c.Insert(ctx, &User{Name: "User1"})
-				_ = c.Insert(ctx, &User{Name: "User2"})
+				_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
+				_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
 
 				var users []User
 				err = c.Transaction(ctx, func(db SQLProvider) error {
@@ -1516,17 +1595,17 @@ func TestTransaction(t *testing.T) {
 				defer db.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver, "users")
+				c := newTestDB(db, driver)
 
 				u1 := User{Name: "User1", Age: 42}
 				u2 := User{Name: "User2", Age: 42}
-				_ = c.Insert(ctx, &u1)
-				_ = c.Insert(ctx, &u2)
+				_ = c.Insert(ctx, UsersTable, &u1)
+				_ = c.Insert(ctx, UsersTable, &u2)
 
 				err = c.Transaction(ctx, func(db SQLProvider) error {
-					err = db.Insert(ctx, &User{Name: "User3"})
+					err = db.Insert(ctx, UsersTable, &User{Name: "User3"})
 					assert.Equal(t, nil, err)
-					err = db.Insert(ctx, &User{Name: "User4"})
+					err = db.Insert(ctx, UsersTable, &User{Name: "User4"})
 					assert.Equal(t, nil, err)
 					err = db.Exec(ctx, "UPDATE users SET age = 22")
 					assert.Equal(t, nil, err)
@@ -1557,10 +1636,10 @@ func TestScanRows(t *testing.T) {
 		ctx := context.TODO()
 		db := connectDB(t, "sqlite3")
 		defer db.Close()
-		c := newTestDB(db, "sqlite3", "users")
-		_ = c.Insert(ctx, &User{Name: "User1", Age: 22})
-		_ = c.Insert(ctx, &User{Name: "User2", Age: 14})
-		_ = c.Insert(ctx, &User{Name: "User3", Age: 43})
+		c := newTestDB(db, "sqlite3")
+		_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Age: 22})
+		_ = c.Insert(ctx, UsersTable, &User{Name: "User2", Age: 14})
+		_ = c.Insert(ctx, UsersTable, &User{Name: "User3", Age: 43})
 
 		rows, err := db.QueryContext(ctx, "select * from users where name='User2'")
 		assert.Equal(t, nil, err)
@@ -1586,8 +1665,8 @@ func TestScanRows(t *testing.T) {
 		ctx := context.TODO()
 		db := connectDB(t, "sqlite3")
 		defer db.Close()
-		c := newTestDB(db, "sqlite3", "users")
-		_ = c.Insert(ctx, &User{Name: "User1", Age: 22})
+		c := newTestDB(db, "sqlite3")
+		_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Age: 22})
 
 		rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User1'")
 		assert.Equal(t, nil, err)
@@ -1758,19 +1837,11 @@ func createTables(driver string) error {
 	return nil
 }
 
-func newTestDB(db *sql.DB, driver string, tableName string, ids ...string) DB {
-	if len(ids) == 0 {
-		ids = []string{"id"}
-	}
-
+func newTestDB(db *sql.DB, driver string) DB {
 	return DB{
-		driver:    driver,
-		dialect:   supportedDialects[driver],
-		db:        db,
-		tableName: tableName,
-
-		idCols:       ids,
-		insertMethod: supportedDialects[driver].InsertMethod(),
+		driver:  driver,
+		dialect: supportedDialects[driver],
+		db:      db,
 	}
 }
 

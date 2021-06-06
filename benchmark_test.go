@@ -12,6 +12,8 @@ import (
 	"github.com/vingarcia/ksql"
 )
 
+var UsersTable = ksql.NewTable("users")
+
 func BenchmarkInsert(b *testing.B) {
 	ctx := context.Background()
 
@@ -20,7 +22,6 @@ func BenchmarkInsert(b *testing.B) {
 
 	ksqlDB, err := ksql.New(driver, connStr, ksql.Config{
 		MaxOpenConns: 1,
-		TableName:    "users",
 	})
 	if err != nil {
 		b.FailNow()
@@ -40,7 +41,7 @@ func BenchmarkInsert(b *testing.B) {
 
 		b.Run("insert-one", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				err := ksqlDB.Insert(ctx, &User{
+				err := ksqlDB.Insert(ctx, UsersTable, &User{
 					Name: strconv.Itoa(i),
 					Age:  i,
 				})
@@ -92,7 +93,6 @@ func BenchmarkQuery(b *testing.B) {
 
 	ksqlDB, err := ksql.New(driver, connStr, ksql.Config{
 		MaxOpenConns: 1,
-		TableName:    "users",
 	})
 	if err != nil {
 		b.FailNow()
