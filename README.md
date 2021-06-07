@@ -487,14 +487,14 @@ goos: linux
 goarch: amd64
 pkg: github.com/vingarcia/ksql
 cpu: Intel(R) Core(TM) i5-3210M CPU @ 2.50GHz
-BenchmarkInsert/ksql-setup/insert-one-4         	    4302	    776648 ns/op
-BenchmarkInsert/sqlx-setup/insert-one-4            	    4716	    762358 ns/op
-BenchmarkQuery/ksql-setup/single-row-4          	   12204	    293858 ns/op
-BenchmarkQuery/ksql-setup/multiple-rows-4       	   11145	    323571 ns/op
-BenchmarkQuery/sqlx-setup/single-row-4             	   12440	    290937 ns/op
-BenchmarkQuery/sqlx-setup/multiple-rows-4          	   10000	    310314 ns/op
+BenchmarkInsert/ksql-setup/insert-one-4         	    4970	    727724 ns/op
+BenchmarkInsert/sqlx-setup/insert-one-4         	    4842	    703503 ns/op
+BenchmarkQuery/ksql-setup/single-row-4          	   12692	    282544 ns/op
+BenchmarkQuery/ksql-setup/multiple-rows-4       	   10000	    313662 ns/op
+BenchmarkQuery/sqlx-setup/single-row-4          	   12328	    291965 ns/op
+BenchmarkQuery/sqlx-setup/multiple-rows-4       	   10000	    301910 ns/op
 PASS
-ok  	github.com/vingarcia/ksql	34.251s
+ok  	github.com/vingarcia/ksql	39.995s
 ```
 
 ### Running the ksql tests (for contributors)
