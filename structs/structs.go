@@ -262,7 +262,7 @@ func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error 
 	sliceType := sliceRef.Type()
 	if sliceType.Kind() != reflect.Ptr {
 		return fmt.Errorf(
-			"FillSliceWith: expected input to be a pointer to struct but got %v",
+			"FillSliceWith: expected input to be a pointer to a slice of structs but got %v",
 			sliceType,
 		)
 	}

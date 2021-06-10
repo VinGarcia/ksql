@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	gomock "github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
 	"github.com/tj/assert"
 	"github.com/vingarcia/ksql"
 	"github.com/vingarcia/ksql/nullable"
@@ -198,19 +197,17 @@ func TestStreamAllUsers(t *testing.T) {
 
 		mockDB.EXPECT().QueryChunks(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(ctx context.Context, parser ksql.ChunkParser) error {
-				fn, ok := parser.ForEachChunk.(func(users []UserEntity) error)
-				require.True(t, ok)
 				// Chunk 1:
-				err := fn([]UserEntity{
+				err := ksql.CallFunctionWithRows(parser.ForEachChunk, []map[string]interface{}{
 					{
-						ID:   1,
-						Name: nullable.String("fake name"),
-						Age:  nullable.Int(42),
+						"id":   1,
+						"name": "fake name",
+						"age":  42,
 					},
 					{
-						ID:   2,
-						Name: nullable.String("another fake name"),
-						Age:  nullable.Int(43),
+						"id":   2,
+						"name": "another fake name",
+						"age":  43,
 					},
 				})
 				if err != nil {
@@ -218,11 +215,11 @@ func TestStreamAllUsers(t *testing.T) {
 				}
 
 				// Chunk 2:
-				err = fn([]UserEntity{
+				err = ksql.CallFunctionWithRows(parser.ForEachChunk, []map[string]interface{}{
 					{
-						ID:   3,
-						Name: nullable.String("yet another fake name"),
-						Age:  nullable.Int(44),
+						"id":   3,
+						"name": "yet another fake name",
+						"age":  44,
 					},
 				})
 				return err
