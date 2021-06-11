@@ -198,7 +198,7 @@ func TestStreamAllUsers(t *testing.T) {
 		mockDB.EXPECT().QueryChunks(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(ctx context.Context, parser ksql.ChunkParser) error {
 				// Chunk 1:
-				err := ksql.CallFunctionWithRows(parser.ForEachChunk, []map[string]interface{}{
+				err := structs.CallFunctionWithRows(parser.ForEachChunk, []map[string]interface{}{
 					{
 						"id":   1,
 						"name": "fake name",
@@ -215,7 +215,7 @@ func TestStreamAllUsers(t *testing.T) {
 				}
 
 				// Chunk 2:
-				err = ksql.CallFunctionWithRows(parser.ForEachChunk, []map[string]interface{}{
+				err = structs.CallFunctionWithRows(parser.ForEachChunk, []map[string]interface{}{
 					{
 						"id":   3,
 						"name": "yet another fake name",

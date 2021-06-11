@@ -469,9 +469,10 @@ that we actually care about, so it's better not to use composite structs.
 
 This library has a few helper functions for helping your tests:
 
-- `ksql.FillStructWith(struct interface{}, dbRow map[string]interface{}) error`
-- `ksql.FillSliceWith(structSlice interface{}, dbRows []map[string]interface{}) error`
-- `ksql.StructToMap(struct interface{}) (map[string]interface{}, error)`
+- `structs.FillStructWith(struct interface{}, dbRow map[string]interface{}) error`
+- `structs.FillSliceWith(structSlice interface{}, dbRows []map[string]interface{}) error`
+- `structs.StructToMap(struct interface{}) (map[string]interface{}, error)`
+- `structs.CallFunctionWithRows(fn interface{}, rows []map[string]interface{}) (map[string]interface{}, error)`
 
 If you want to see examples (we have examples for all the public functions) just
 read the example tests available on our [example service](./examples/example_service)

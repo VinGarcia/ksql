@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // StructInfo stores metainformation of the struct
@@ -120,56 +118,6 @@ func StructToMap(obj interface{}) (map[string]interface{}, error) {
 	return m, nil
 }
 
-// FillStructWith is meant to be used on unit tests to mock
-// the response from the database.
-//
-// The first argument is any struct you are passing to a ksql func,
-// and the second is a map representing a database row you want
-// to use to update this struct.
-func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
-	v := reflect.ValueOf(record)
-	t := v.Type()
-
-	if t.Kind() != reflect.Ptr {
-		return fmt.Errorf(
-			"FillStructWith: expected input to be a pointer to struct but got %T",
-			record,
-		)
-	}
-
-	t = t.Elem()
-	v = v.Elem()
-
-	if t.Kind() != reflect.Struct {
-		return fmt.Errorf(
-			"FillStructWith: expected input kind to be a struct but got %T",
-			record,
-		)
-	}
-
-	info := getCachedTagInfo(tagInfoCache, t)
-	for colName, rawSrc := range dbRow {
-		fieldInfo := info.ByName(colName)
-		if !fieldInfo.Valid {
-			// Ignore columns not tagged with `ksql:"..."`
-			continue
-		}
-
-		src := NewPtrConverter(rawSrc)
-		dest := v.Field(fieldInfo.Index)
-		destType := t.Field(fieldInfo.Index).Type
-
-		destValue, err := src.Convert(destType)
-		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("FillStructWith: error on field `%s`", colName))
-		}
-
-		dest.Set(destValue)
-	}
-
-	return nil
-}
-
 // PtrConverter was created to make it easier
 // to handle conversion between ptr and non ptr types, e.g.:
 //
@@ -249,49 +197,6 @@ func (p PtrConverter) Convert(destType reflect.Type) (reflect.Value, error) {
 	}
 
 	return destValue, nil
-}
-
-// FillSliceWith is meant to be used on unit tests to mock
-// the response from the database.
-//
-// The first argument is any slice of structs you are passing to a ksql func,
-// and the second is a slice of maps representing the database rows you want
-// to use to update this struct.
-func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error {
-	sliceRef := reflect.ValueOf(entities)
-	sliceType := sliceRef.Type()
-	if sliceType.Kind() != reflect.Ptr {
-		return fmt.Errorf(
-			"FillSliceWith: expected input to be a pointer to a slice of structs but got %v",
-			sliceType,
-		)
-	}
-
-	structType, isSliceOfPtrs, err := DecodeAsSliceOfStructs(sliceType.Elem())
-	if err != nil {
-		return errors.Wrap(err, "FillSliceWith")
-	}
-
-	slice := sliceRef.Elem()
-	for idx, row := range dbRows {
-		if slice.Len() <= idx {
-			var elemValue reflect.Value
-			elemValue = reflect.New(structType)
-			if !isSliceOfPtrs {
-				elemValue = elemValue.Elem()
-			}
-			slice = reflect.Append(slice, elemValue)
-		}
-
-		err := FillStructWith(slice.Index(idx).Addr().Interface(), row)
-		if err != nil {
-			return errors.Wrap(err, "FillSliceWith")
-		}
-	}
-
-	sliceRef.Elem().Set(slice)
-
-	return nil
 }
 
 // This function collects only the names
