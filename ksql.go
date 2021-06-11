@@ -9,7 +9,7 @@ import (
 	"unicode"
 
 	"github.com/pkg/errors"
-	"github.com/vingarcia/ksql/structs"
+	"github.com/vingarcia/ksql/kstructs"
 )
 
 var selectQueryCache = map[string]map[reflect.Type]string{}
@@ -93,7 +93,7 @@ func (c DB) Query(
 	}
 	sliceType := slicePtrType.Elem()
 	slice := slicePtr.Elem()
-	structType, isSliceOfPtrs, err := structs.DecodeAsSliceOfStructs(sliceType)
+	structType, isSliceOfPtrs, err := kstructs.DecodeAsSliceOfStructs(sliceType)
 	if err != nil {
 		return err
 	}
@@ -105,7 +105,7 @@ func (c DB) Query(
 		slice = slice.Slice(0, 0)
 	}
 
-	info := structs.GetTagInfo(structType)
+	info := kstructs.GetTagInfo(structType)
 
 	firstToken := strings.ToUpper(getFirstToken(query))
 	if info.IsNestedStruct && firstToken == "SELECT" {
@@ -186,7 +186,7 @@ func (c DB) QueryOne(
 		return fmt.Errorf("ksql: expected to receive a pointer to struct, but got: %T", record)
 	}
 
-	info := structs.GetTagInfo(t)
+	info := kstructs.GetTagInfo(t)
 
 	firstToken := strings.ToUpper(getFirstToken(query))
 	if info.IsNestedStruct && firstToken == "SELECT" {
@@ -244,19 +244,19 @@ func (c DB) QueryChunks(
 	parser ChunkParser,
 ) error {
 	fnValue := reflect.ValueOf(parser.ForEachChunk)
-	chunkType, err := structs.ParseInputFunc(parser.ForEachChunk)
+	chunkType, err := kstructs.ParseInputFunc(parser.ForEachChunk)
 	if err != nil {
 		return err
 	}
 
 	chunk := reflect.MakeSlice(chunkType, 0, parser.ChunkSize)
 
-	structType, isSliceOfPtrs, err := structs.DecodeAsSliceOfStructs(chunkType)
+	structType, isSliceOfPtrs, err := kstructs.DecodeAsSliceOfStructs(chunkType)
 	if err != nil {
 		return err
 	}
 
-	info := structs.GetTagInfo(structType)
+	info := kstructs.GetTagInfo(structType)
 
 	firstToken := strings.ToUpper(getFirstToken(parser.Query))
 	if info.IsNestedStruct && firstToken == "SELECT" {
@@ -416,7 +416,7 @@ func (c DB) insertWithLastInsertID(
 		return errors.Wrap(err, "can't write to `"+idName+"` field")
 	}
 
-	info := structs.GetTagInfo(t.Elem())
+	info := kstructs.GetTagInfo(t.Elem())
 
 	id, err := result.LastInsertId()
 	if err != nil {
@@ -499,7 +499,7 @@ func normalizeIDsAsMaps(idNames []string, ids []interface{}) ([]map[string]inter
 		t := reflect.TypeOf(ids[i])
 		switch t.Kind() {
 		case reflect.Struct:
-			m, err := structs.StructToMap(ids[i])
+			m, err := kstructs.StructToMap(ids[i])
 			if err != nil {
 				return nil, errors.Wrapf(err, "could not get ID(s) from record on idx %d", i)
 			}
@@ -561,9 +561,9 @@ func buildInsertQuery(
 		)
 	}
 
-	info := structs.GetTagInfo(t.Elem())
+	info := kstructs.GetTagInfo(t.Elem())
 
-	recordMap, err := structs.StructToMap(record)
+	recordMap, err := kstructs.StructToMap(record)
 	if err != nil {
 		return "", nil, nil, err
 	}
@@ -651,7 +651,7 @@ func buildUpdateQuery(
 	record interface{},
 	idFieldNames ...string,
 ) (query string, args []interface{}, err error) {
-	recordMap, err := structs.StructToMap(record)
+	recordMap, err := kstructs.StructToMap(record)
 	if err != nil {
 		return "", nil, err
 	}
@@ -681,7 +681,7 @@ func buildUpdateQuery(
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
-	info := structs.GetTagInfo(t)
+	info := kstructs.GetTagInfo(t)
 
 	var setQuery []string
 	for i, k := range keys {
@@ -781,13 +781,13 @@ func scanRows(dialect dialect, rows *sql.Rows, record interface{}) error {
 		return fmt.Errorf("ksql: expected record to be a pointer to struct, but got: %T", record)
 	}
 
-	info := structs.GetTagInfo(t)
+	info := kstructs.GetTagInfo(t)
 
 	var scanArgs []interface{}
 	if info.IsNestedStruct {
 		// This version is positional meaning that it expect the arguments
 		// to follow an specific order. It's ok because we don't allow the
-		// user to type the "SELECT" part of the query for nested structs.
+		// user to type the "SELECT" part of the query for nested kstructs.
 		scanArgs = getScanArgsForNestedStructs(dialect, rows, t, v, info)
 	} else {
 		names, err := rows.Columns()
@@ -802,11 +802,11 @@ func scanRows(dialect dialect, rows *sql.Rows, record interface{}) error {
 	return rows.Scan(scanArgs...)
 }
 
-func getScanArgsForNestedStructs(dialect dialect, rows *sql.Rows, t reflect.Type, v reflect.Value, info structs.StructInfo) []interface{} {
+func getScanArgsForNestedStructs(dialect dialect, rows *sql.Rows, t reflect.Type, v reflect.Value, info kstructs.StructInfo) []interface{} {
 	scanArgs := []interface{}{}
 	for i := 0; i < v.NumField(); i++ {
 		// TODO(vingarcia00): Handle case where type is pointer
-		nestedStructInfo := structs.GetTagInfo(t.Field(i).Type)
+		nestedStructInfo := kstructs.GetTagInfo(t.Field(i).Type)
 		nestedStructValue := v.Field(i)
 		for j := 0; j < nestedStructValue.NumField(); j++ {
 			fieldInfo := nestedStructInfo.ByIndex(j)
@@ -829,7 +829,7 @@ func getScanArgsForNestedStructs(dialect dialect, rows *sql.Rows, t reflect.Type
 	return scanArgs
 }
 
-func getScanArgsFromNames(dialect dialect, names []string, v reflect.Value, info structs.StructInfo) []interface{} {
+func getScanArgsFromNames(dialect dialect, names []string, v reflect.Value, info kstructs.StructInfo) []interface{} {
 	scanArgs := []interface{}{}
 	for _, name := range names {
 		fieldInfo := info.ByName(name)
@@ -919,7 +919,7 @@ func getFirstToken(s string) string {
 func buildSelectQuery(
 	dialect dialect,
 	structType reflect.Type,
-	info structs.StructInfo,
+	info kstructs.StructInfo,
 	selectQueryCache map[reflect.Type]string,
 ) (query string, err error) {
 	if selectQuery, found := selectQueryCache[structType]; found {
@@ -942,7 +942,7 @@ func buildSelectQuery(
 func buildSelectQueryForPlainStructs(
 	dialect dialect,
 	structType reflect.Type,
-	info structs.StructInfo,
+	info kstructs.StructInfo,
 ) string {
 	var fields []string
 	for i := 0; i < structType.NumField(); i++ {
@@ -955,7 +955,7 @@ func buildSelectQueryForPlainStructs(
 func buildSelectQueryForNestedStructs(
 	dialect dialect,
 	structType reflect.Type,
-	info structs.StructInfo,
+	info kstructs.StructInfo,
 ) (string, error) {
 	var fields []string
 	for i := 0; i < structType.NumField(); i++ {
@@ -968,7 +968,7 @@ func buildSelectQueryForNestedStructs(
 			)
 		}
 
-		nestedStructInfo := structs.GetTagInfo(nestedStructType)
+		nestedStructInfo := kstructs.GetTagInfo(nestedStructType)
 		for j := 0; j < structType.Field(i).Type.NumField(); j++ {
 			fields = append(
 				fields,

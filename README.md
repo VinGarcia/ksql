@@ -463,16 +463,16 @@ if err != nil {
 
 In the example above, since we are only interested in a couple of columns it
 is far simpler and more efficient for the database to only select the columns
-that we actually care about, so it's better not to use composite structs.
+that we actually care about, so it's better not to use composite kstructs.
 
 ### Testing Examples
 
 This library has a few helper functions for helping your tests:
 
-- `structs.FillStructWith(struct interface{}, dbRow map[string]interface{}) error`
-- `structs.FillSliceWith(structSlice interface{}, dbRows []map[string]interface{}) error`
-- `structs.StructToMap(struct interface{}) (map[string]interface{}, error)`
-- `structs.CallFunctionWithRows(fn interface{}, rows []map[string]interface{}) (map[string]interface{}, error)`
+- `kstructs.FillStructWith(struct interface{}, dbRow map[string]interface{}) error`
+- `kstructs.FillSliceWith(structSlice interface{}, dbRows []map[string]interface{}) error`
+- `kstructs.StructToMap(struct interface{}) (map[string]interface{}, error)`
+- `kstructs.CallFunctionWithRows(fn interface{}, rows []map[string]interface{}) (map[string]interface{}, error)`
 
 If you want to see examples (we have examples for all the public functions) just
 read the example tests available on our [example service](./examples/example_service)
@@ -524,7 +524,7 @@ make test
 - Improve error messages
 - Add tests for tables using composite keys
 - Add support for serializing structs as other formats such as YAML
-- Update `structs.FillStructWith` to work with `json` tagged attributes
+- Update `kstructs.FillStructWith` to work with `json` tagged attributes
 - Make testing easier by exposing the connection strings in an .env file
 - Make testing easier by automatically creating the `ksql` database
 - Create a way for users to submit user defined dialects
