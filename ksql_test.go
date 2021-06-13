@@ -1026,6 +1026,20 @@ func TestUpdate(t *testing.T) {
 				assert.Equal(t, 42, result.Age)
 			})
 
+			t.Run("should return ErrRecordNotFound when asked to update an inexistent user", func(t *testing.T) {
+				db := connectDB(t, driver)
+				defer db.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, driver)
+
+				err = c.Update(ctx, UsersTable, User{
+					ID:   4200,
+					Name: "Thayane",
+				})
+				assert.Equal(t, ErrRecordNotFound, err)
+			})
+
 			t.Run("should report database errors correctly", func(t *testing.T) {
 				db := connectDB(t, driver)
 				defer db.Close()

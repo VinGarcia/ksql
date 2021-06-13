@@ -541,9 +541,23 @@ func (c DB) Update(
 		return err
 	}
 
-	_, err = c.db.ExecContext(ctx, query, params...)
+	result, err := c.db.ExecContext(ctx, query, params...)
+	if err != nil {
+		return err
+	}
 
-	return err
+	n, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf(
+			"unexpected error: unable to fetch how many rows were affected by the update: %s",
+			err,
+		)
+	}
+	if n < 1 {
+		return ErrRecordNotFound
+	}
+
+	return nil
 }
 
 func buildInsertQuery(
