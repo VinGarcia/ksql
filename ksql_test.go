@@ -1588,7 +1588,7 @@ func TestTransaction(t *testing.T) {
 				_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
 
 				var users []User
-				err = c.Transaction(ctx, func(db SQLProvider) error {
+				err = c.Transaction(ctx, func(db Provider) error {
 					db.Query(ctx, &users, "SELECT * FROM users ORDER BY id ASC")
 					return nil
 				})
@@ -1616,7 +1616,7 @@ func TestTransaction(t *testing.T) {
 				_ = c.Insert(ctx, UsersTable, &u1)
 				_ = c.Insert(ctx, UsersTable, &u2)
 
-				err = c.Transaction(ctx, func(db SQLProvider) error {
+				err = c.Transaction(ctx, func(db Provider) error {
 					err = db.Insert(ctx, UsersTable, &User{Name: "User3"})
 					assert.Equal(t, nil, err)
 					err = db.Insert(ctx, UsersTable, &User{Name: "User4"})
@@ -1878,7 +1878,7 @@ func shiftErrSlice(errs *[]error) error {
 	return err
 }
 
-func getUsersByID(dbi sqlProvider, dialect dialect, resultsPtr *[]User, ids ...uint) error {
+func getUsersByID(dbi DBAdapter, dialect dialect, resultsPtr *[]User, ids ...uint) error {
 	db := dbi.(*sql.DB)
 
 	placeholders := make([]string, len(ids))
@@ -1920,7 +1920,7 @@ func getUsersByID(dbi sqlProvider, dialect dialect, resultsPtr *[]User, ids ...u
 	return nil
 }
 
-func getUserByID(dbi sqlProvider, dialect dialect, result *User, id uint) error {
+func getUserByID(dbi DBAdapter, dialect dialect, result *User, id uint) error {
 	db := dbi.(*sql.DB)
 
 	row := db.QueryRow(`SELECT id, name, age, address FROM users WHERE id=`+dialect.Placeholder(0), id)
@@ -1941,7 +1941,7 @@ func getUserByID(dbi sqlProvider, dialect dialect, result *User, id uint) error 
 	return nil
 }
 
-func getUserByName(dbi sqlProvider, dialect dialect, result *User, name string) error {
+func getUserByName(dbi DBAdapter, dialect dialect, result *User, name string) error {
 	db := dbi.(*sql.DB)
 
 	row := db.QueryRow(`SELECT id, name, age, address FROM users WHERE name=`+dialect.Placeholder(0), name)

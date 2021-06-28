@@ -14,8 +14,8 @@ var ErrRecordNotFound error = errors.Wrap(sql.ErrNoRows, "ksql: the query return
 // ErrAbortIteration ...
 var ErrAbortIteration error = fmt.Errorf("ksql: abort iteration, should only be used inside QueryChunks function")
 
-// SQLProvider describes the public behavior of this ORM
-type SQLProvider interface {
+// Provider describes the public behavior of this ORM
+type Provider interface {
 	Insert(ctx context.Context, table Table, record interface{}) error
 	Update(ctx context.Context, table Table, record interface{}) error
 	Delete(ctx context.Context, table Table, idsOrRecords ...interface{}) error
@@ -25,7 +25,7 @@ type SQLProvider interface {
 	QueryChunks(ctx context.Context, parser ChunkParser) error
 
 	Exec(ctx context.Context, query string, params ...interface{}) error
-	Transaction(ctx context.Context, fn func(SQLProvider) error) error
+	Transaction(ctx context.Context, fn func(Provider) error) error
 }
 
 // Table describes the required information for inserting, updating and

@@ -137,7 +137,7 @@ func main() {
 	}
 
 	// Making transactions:
-	err = db.Transaction(ctx, func(db ksql.SQLProvider) error {
+	err = db.Transaction(ctx, func(db ksql.Provider) error {
 		var cris2 User
 		err = db.QueryOne(ctx, &cris2, "SELECT * FROM users WHERE id = ?", cris.ID)
 		if err != nil {

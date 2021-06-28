@@ -7,8 +7,8 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	"github.com/tj/assert"
 	"github.com/vingarcia/ksql"
-	"github.com/vingarcia/ksql/nullable"
 	"github.com/vingarcia/ksql/kstructs"
+	"github.com/vingarcia/ksql/nullable"
 )
 
 func TestCreateUser(t *testing.T) {
@@ -16,7 +16,7 @@ func TestCreateUser(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		mockDB := NewMockSQLProvider(controller)
+		mockDB := NewMockProvider(controller)
 
 		s := Service{
 			db:              mockDB,
@@ -42,7 +42,7 @@ func TestCreateUser(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		mockDB := NewMockSQLProvider(controller)
+		mockDB := NewMockProvider(controller)
 
 		s := Service{
 			db:              mockDB,
@@ -82,7 +82,7 @@ func TestUpdateUserScore(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		mockDB := NewMockSQLProvider(controller)
+		mockDB := NewMockProvider(controller)
 
 		s := Service{
 			db:              mockDB,
@@ -126,7 +126,7 @@ func TestListUsers(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		mockDB := NewMockSQLProvider(controller)
+		mockDB := NewMockProvider(controller)
 
 		s := Service{
 			db:              mockDB,
@@ -188,7 +188,7 @@ func TestStreamAllUsers(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		mockDB := NewMockSQLProvider(controller)
+		mockDB := NewMockProvider(controller)
 
 		s := Service{
 			db:              mockDB,
@@ -260,7 +260,7 @@ func TestDeleteUser(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		mockDB := NewMockSQLProvider(controller)
+		mockDB := NewMockProvider(controller)
 
 		s := Service{
 			db:              mockDB,

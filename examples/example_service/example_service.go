@@ -40,12 +40,12 @@ type Address struct {
 
 // Service ...
 type Service struct {
-	db              ksql.SQLProvider
+	db              ksql.Provider
 	streamChunkSize int
 }
 
 // NewUserService ...
-func NewUserService(db ksql.SQLProvider) Service {
+func NewUserService(db ksql.Provider) Service {
 	return Service{
 		db:              db,
 		streamChunkSize: 100,

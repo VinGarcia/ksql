@@ -68,8 +68,8 @@ The current interface is as follows and we plan on keeping
 it with as little functions as possible, so don't expect many additions:
 
 ```go
-// SQLProvider describes the public behavior of this ORM
-type SQLProvider interface {
+// Provider describes the public behavior of this ORM
+type Provider interface {
 	Insert(ctx context.Context, table Table, record interface{}) error
 	Update(ctx context.Context, table Table, record interface{}) error
 	Delete(ctx context.Context, table Table, idsOrRecords ...interface{}) error
@@ -79,7 +79,7 @@ type SQLProvider interface {
 	QueryChunks(ctx context.Context, parser ChunkParser) error
 
 	Exec(ctx context.Context, query string, params ...interface{}) error
-	Transaction(ctx context.Context, fn func(SQLProvider) error) error
+	Transaction(ctx context.Context, fn func(Provider) error) error
 }
 ```
 
@@ -232,7 +232,7 @@ func main() {
 	}
 
 	// Making transactions:
-	err = db.Transaction(ctx, func(db ksql.SQLProvider) error {
+	err = db.Transaction(ctx, func(db ksql.Provider) error {
 		var cris2 User
 		err = db.QueryOne(ctx, &cris2, "SELECT * FROM users WHERE id = ?", cris.ID)
 		if err != nil {
@@ -372,10 +372,10 @@ Querying a single joined row:
 
 ```golang
 var row struct{
-	User User `tablename:"u"` // (here the tablename must match the aliased tablename in the query)
-	Post Post `tablename:"p"` // (if no alias is used you should use the actual name of the table)
+	User User `tablename:"u"`     // (here the tablename must match the aliased tablename in the query)
+	Post Post `tablename:"posts"` // (if no alias is used you should use the actual name of the table)
 }
-err = db.QueryOne(ctx, &row, "FROM users as u JOIN posts as p ON u.id = p.user_id WHERE u.id = ?", userID)
+err = db.QueryOne(ctx, &row, "FROM users as u JOIN posts ON u.id = posts.user_id WHERE u.id = ?", userID)
 if err != nil {
 	panic(err.Error())
 }
@@ -521,13 +521,13 @@ make test
 
 ### TODO List
 
-- Improve error messages
 - Add tests for tables using composite keys
 - Add support for serializing structs as other formats such as YAML
 - Update `kstructs.FillStructWith` to work with `json` tagged attributes
 - Make testing easier by exposing the connection strings in an .env file
 - Make testing easier by automatically creating the `ksql` database
 - Create a way for users to submit user defined dialects
+- Improve error messages
 
 ### Optimization Oportunities
 

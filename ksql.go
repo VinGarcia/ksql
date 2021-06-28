@@ -22,14 +22,19 @@ func init() {
 
 // DB represents the ksql client responsible for
 // interfacing with the "database/sql" package implementing
-// the KissSQL interface `SQLProvider`.
+// the KissSQL interface `ksql.Provider`.
 type DB struct {
 	driver  string
 	dialect dialect
-	db      sqlProvider
+	db      DBAdapter
 }
 
-type sqlProvider interface {
+// DBAdapter is minimalistic interface to decouple our implementation
+// from database/sql, i.e. if any struct implements the functions below
+// with the exact same semantic as the sql package it will work with ksql.
+//
+// To create a new client using this adapter use ksql.NewWithDB()
+type DBAdapter interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 }
@@ -61,6 +66,16 @@ func New(
 
 	db.SetMaxOpenConns(config.MaxOpenConns)
 
+	return newWithDB(db, dbDriver, connectionString)
+}
+
+// NewWithDB allows the user to insert a custom implementation
+// of the DBAdapter interface
+func newWithDB(
+	db DBAdapter,
+	dbDriver string,
+	connectionString string,
+) (DB, error) {
 	dialect := supportedDialects[dbDriver]
 	if dialect == nil {
 		return DB{}, fmt.Errorf("unsupported driver `%s`", dbDriver)
@@ -731,7 +746,7 @@ func (c DB) Exec(ctx context.Context, query string, params ...interface{}) error
 }
 
 // Transaction just runs an SQL command on the database returning no rows.
-func (c DB) Transaction(ctx context.Context, fn func(SQLProvider) error) error {
+func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 	switch db := c.db.(type) {
 	case *sql.Tx:
 		return fn(c)
