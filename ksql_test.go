@@ -588,7 +588,7 @@ func TestQueryOne(t *testing.T) {
 func TestInsert(t *testing.T) {
 	for driver := range supportedDialects {
 		t.Run(driver, func(t *testing.T) {
-			t.Run("using slice of structs", func(t *testing.T) {
+			t.Run("success cases", func(t *testing.T) {
 				err := createTables(driver)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
@@ -656,6 +656,41 @@ func TestInsert(t *testing.T) {
 					assert.Equal(t, u.Age, result.Age)
 					assert.Equal(t, u.Address, result.Address)
 				})
+
+				t.Run("should work with anonymous structs", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, driver)
+					err = c.Insert(ctx, UsersTable, &struct {
+						ID      int                    `ksql:"id"`
+						Name    string                 `ksql:"name"`
+						Address map[string]interface{} `ksql:"address,json"`
+					}{Name: "fake-name", Address: map[string]interface{}{"city": "bar"}})
+					assert.Equal(t, nil, err)
+				})
+
+				t.Run("should work with preset IDs", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, driver)
+
+					usersByName := NewTable("users", "name")
+
+					err = c.Insert(ctx, usersByName, &struct {
+						Name string `ksql:"name"`
+						Age  int    `ksql:"age"`
+					}{Name: "Preset Name", Age: 5455})
+					assert.Equal(t, nil, err)
+
+					var inserted User
+					err := getUserByName(db, c.dialect, &inserted, "Preset Name")
+					assert.Equal(t, nil, err)
+					assert.Equal(t, 5455, inserted.Age)
+				})
 			})
 
 			t.Run("testing error cases", func(t *testing.T) {
@@ -707,6 +742,60 @@ func TestInsert(t *testing.T) {
 
 					err = c.Insert(ctx, UsersTable, &User{Name: "foo"})
 					assert.NotEqual(t, nil, err)
+				})
+
+				t.Run("should not panic if a column doesn't exist in the database", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, driver)
+
+					err = c.Insert(ctx, UsersTable, &struct {
+						ID                string `ksql:"id"`
+						NonExistingColumn int    `ksql:"non_existing"`
+						Name              string `ksql:"name"`
+					}{NonExistingColumn: 42, Name: "fake-name"})
+					assert.NotEqual(t, nil, err)
+					msg := err.Error()
+					assert.Equal(t, true, strings.Contains(msg, "column"))
+					assert.Equal(t, true, strings.Contains(msg, "non_existing"))
+				})
+
+				t.Run("should not panic if the ID column doesn't exist in the database", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, driver)
+
+					brokenTable := NewTable("users", "non_existing_id")
+
+					_ = c.Insert(ctx, brokenTable, &struct {
+						ID   string `ksql:"non_existing_id"`
+						Age  int    `ksql:"age"`
+						Name string `ksql:"name"`
+					}{Age: 42, Name: "fake-name"})
+				})
+
+				t.Run("should not panic if the ID column is missing in the struct", func(t *testing.T) {
+					db := connectDB(t, driver)
+					defer db.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, driver)
+
+					err = c.Insert(ctx, UsersTable, &struct {
+						Age  int    `ksql:"age"`
+						Name string `ksql:"name"`
+					}{Age: 42, Name: "Inserted With no ID"})
+					assert.Equal(t, nil, err)
+
+					var u User
+					err = getUserByName(db, c.dialect, &u, "Inserted With no ID")
+					assert.Equal(t, nil, err)
+					assert.NotEqual(t, uint(0), u.ID)
+					assert.Equal(t, 42, u.Age)
 				})
 			})
 		})

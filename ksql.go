@@ -598,8 +598,13 @@ func buildInsertQuery(
 	}
 
 	for _, fieldName := range idNames {
+		field, found := recordMap[fieldName]
+		if !found {
+			continue
+		}
+
 		// Remove any ID field that was not set:
-		if reflect.ValueOf(recordMap[fieldName]).IsZero() {
+		if reflect.ValueOf(field).IsZero() {
 			delete(recordMap, fieldName)
 		}
 	}
