@@ -35,8 +35,36 @@ type DB struct {
 //
 // To create a new client using this adapter use ksql.NewWithDB()
 type DBAdapter interface {
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	ExecContext(ctx context.Context, query string, args ...interface{}) (Result, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error)
+}
+
+// TxBeginner needs to be implemented by the DBAdapter in order to make it possible
+// to use the `ksql.Transaction()` function.
+type TxBeginner interface {
+	BeginTx(ctx context.Context) (Tx, error)
+}
+
+// Result stores information about the result of an Exec query
+type Result = sql.Result
+
+// Rows represents the results from a call to Query()
+type Rows interface {
+	Scan(...interface{}) error
+	Close() error
+	Next() bool
+	Err() error
+	Columns() ([]string, error)
+}
+
+var _ Rows = &sql.Rows{}
+
+// Tx represents a transaction and is expected to be returned by the DBAdapter.BeginTx function
+type Tx interface {
+	ExecContext(ctx context.Context, query string, args ...interface{}) (Result, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error)
+	Rollback() error
+	Commit() error
 }
 
 // Config describes the optional arguments accepted
@@ -66,7 +94,7 @@ func New(
 
 	db.SetMaxOpenConns(config.MaxOpenConns)
 
-	return newWithDB(db, dbDriver, connectionString)
+	return newWithDB(SQLAdapter{db}, dbDriver, connectionString)
 }
 
 // NewWithDB allows the user to insert a custom implementation
@@ -752,11 +780,11 @@ func (c DB) Exec(ctx context.Context, query string, params ...interface{}) error
 
 // Transaction just runs an SQL command on the database returning no rows.
 func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
-	switch db := c.db.(type) {
-	case *sql.Tx:
+	switch txBeginner := c.db.(type) {
+	case Tx:
 		return fn(c)
-	case *sql.DB:
-		tx, err := db.BeginTx(ctx, nil)
+	case TxBeginner:
+		tx, err := txBeginner.BeginTx(ctx)
 		if err != nil {
 			return err
 		}
@@ -789,7 +817,7 @@ func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 		return tx.Commit()
 
 	default:
-		return fmt.Errorf("unexpected error on ksql: db attribute has an invalid type")
+		return fmt.Errorf("can't start transaction: The DBAdapter doesn't implement the TxBegginner interface")
 	}
 }
 
@@ -801,7 +829,7 @@ func (nopScanner) Scan(value interface{}) error {
 	return nil
 }
 
-func scanRows(dialect dialect, rows *sql.Rows, record interface{}) error {
+func scanRows(dialect dialect, rows Rows, record interface{}) error {
 	v := reflect.ValueOf(record)
 	t := v.Type()
 	if t.Kind() != reflect.Ptr {
@@ -836,7 +864,7 @@ func scanRows(dialect dialect, rows *sql.Rows, record interface{}) error {
 	return rows.Scan(scanArgs...)
 }
 
-func getScanArgsForNestedStructs(dialect dialect, rows *sql.Rows, t reflect.Type, v reflect.Value, info kstructs.StructInfo) []interface{} {
+func getScanArgsForNestedStructs(dialect dialect, rows Rows, t reflect.Type, v reflect.Value, info kstructs.StructInfo) []interface{} {
 	scanArgs := []interface{}{}
 	for i := 0; i < v.NumField(); i++ {
 		// TODO(vingarcia00): Handle case where type is pointer

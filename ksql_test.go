@@ -687,7 +687,7 @@ func TestInsert(t *testing.T) {
 					assert.Equal(t, nil, err)
 
 					var inserted User
-					err := getUserByName(db, c.dialect, &inserted, "Preset Name")
+					err := getUserByName(SQLAdapter{db}, c.dialect, &inserted, "Preset Name")
 					assert.Equal(t, nil, err)
 					assert.Equal(t, 5455, inserted.Age)
 				})
@@ -792,7 +792,7 @@ func TestInsert(t *testing.T) {
 					assert.Equal(t, nil, err)
 
 					var u User
-					err = getUserByName(db, c.dialect, &u, "Inserted With no ID")
+					err = getUserByName(SQLAdapter{db}, c.dialect, &u, "Inserted With no ID")
 					assert.Equal(t, nil, err)
 					assert.NotEqual(t, uint(0), u.ID)
 					assert.Equal(t, 42, u.Age)
@@ -1944,7 +1944,7 @@ func newTestDB(db *sql.DB, driver string) DB {
 	return DB{
 		driver:  driver,
 		dialect: supportedDialects[driver],
-		db:      db,
+		db:      SQLAdapter{db},
 	}
 }
 
@@ -1968,7 +1968,7 @@ func shiftErrSlice(errs *[]error) error {
 }
 
 func getUsersByID(dbi DBAdapter, dialect dialect, resultsPtr *[]User, ids ...uint) error {
-	db := dbi.(*sql.DB)
+	db := dbi.(SQLAdapter)
 
 	placeholders := make([]string, len(ids))
 	params := make([]interface{}, len(ids))
@@ -1978,7 +1978,7 @@ func getUsersByID(dbi DBAdapter, dialect dialect, resultsPtr *[]User, ids ...uin
 	}
 
 	results := []User{}
-	rows, err := db.Query(
+	rows, err := db.DB.Query(
 		fmt.Sprintf(
 			"SELECT id, name, age FROM users WHERE id IN (%s)",
 			strings.Join(placeholders, ", "),
@@ -2010,9 +2010,9 @@ func getUsersByID(dbi DBAdapter, dialect dialect, resultsPtr *[]User, ids ...uin
 }
 
 func getUserByID(dbi DBAdapter, dialect dialect, result *User, id uint) error {
-	db := dbi.(*sql.DB)
+	db := dbi.(SQLAdapter)
 
-	row := db.QueryRow(`SELECT id, name, age, address FROM users WHERE id=`+dialect.Placeholder(0), id)
+	row := db.DB.QueryRow(`SELECT id, name, age, address FROM users WHERE id=`+dialect.Placeholder(0), id)
 	if row.Err() != nil {
 		return row.Err()
 	}
@@ -2031,9 +2031,9 @@ func getUserByID(dbi DBAdapter, dialect dialect, result *User, id uint) error {
 }
 
 func getUserByName(dbi DBAdapter, dialect dialect, result *User, name string) error {
-	db := dbi.(*sql.DB)
+	db := dbi.(SQLAdapter)
 
-	row := db.QueryRow(`SELECT id, name, age, address FROM users WHERE name=`+dialect.Placeholder(0), name)
+	row := db.DB.QueryRow(`SELECT id, name, age, address FROM users WHERE name=`+dialect.Placeholder(0), name)
 	if row.Err() != nil {
 		return row.Err()
 	}

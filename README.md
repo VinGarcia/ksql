@@ -523,11 +523,15 @@ make test
 
 - Add tests for tables using composite keys
 - Add support for serializing structs as other formats such as YAML
-- Update `kstructs.FillStructWith` to work with `json` tagged attributes
+- Update `kstructs.FillStructWith` to work with `ksql:"..,json"` tagged attributes
 - Make testing easier by exposing the connection strings in an .env file
 - Make testing easier by automatically creating the `ksql` database
 - Create a way for users to submit user defined dialects
 - Improve error messages
+- Add support for the update function to work with maps for partial updates
+- Add support for the insert function to work with maps
+- Add support for a `ksql.Array(params ...interface{})` for allowing queries like this:
+  `db.Query(ctx, &user, "SELECT * FROM user WHERE id in (?)", ksql.Array(1,2,3))`
 
 ### Optimization Oportunities
 
