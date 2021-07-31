@@ -10,6 +10,8 @@ test: setup
 
 bench:
 	go test -bench=. -benchtime=$(TIME)
+	@echo "Benchmark executed at: $$(date --iso)"
+	@echo "Benchmark executed on commit: $$(git rev-parse HEAD)"
 
 lint: setup
 	@$(GOBIN)/golint -set_exit_status -min_confidence 0.9 $(path) $(args)
