@@ -103,7 +103,6 @@ func New(
 // library in the backend
 func NewWithPGX(
 	ctx context.Context,
-	dbDriver string,
 	connectionString string,
 	config Config,
 ) (db DB, err error) {
@@ -122,7 +121,7 @@ func NewWithPGX(
 		return DB{}, err
 	}
 
-	db, err = NewWithAdapter(PGXAdapter{pool}, dbDriver, connectionString)
+	db, err = NewWithAdapter(PGXAdapter{pool}, "postgres", connectionString)
 	return db, err
 }
 

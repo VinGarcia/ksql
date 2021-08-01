@@ -52,7 +52,7 @@ func BenchmarkInsert(b *testing.B) {
 		})
 	})
 
-	pgxDB, err := ksql.NewWithPGX(ctx, driver, connStr, ksql.Config{
+	pgxDB, err := ksql.NewWithPGX(ctx, connStr, ksql.Config{
 		MaxOpenConns: 1,
 	})
 	if err != nil {
@@ -165,7 +165,7 @@ func BenchmarkQuery(b *testing.B) {
 		})
 	})
 
-	pgxDB, err := ksql.NewWithPGX(ctx, driver, connStr, ksql.Config{
+	pgxDB, err := ksql.NewWithPGX(ctx, connStr, ksql.Config{
 		MaxOpenConns: 1,
 	})
 	if err != nil {
