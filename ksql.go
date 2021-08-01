@@ -8,6 +8,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/pkg/errors"
 	"github.com/vingarcia/ksql/kstructs"
 )
@@ -46,7 +47,10 @@ type TxBeginner interface {
 }
 
 // Result stores information about the result of an Exec query
-type Result = sql.Result
+type Result interface {
+	LastInsertId() (int64, error)
+	RowsAffected() (int64, error)
+}
 
 // Rows represents the results from a call to Query()
 type Rows interface {
@@ -57,14 +61,12 @@ type Rows interface {
 	Columns() ([]string, error)
 }
 
-var _ Rows = &sql.Rows{}
-
 // Tx represents a transaction and is expected to be returned by the DBAdapter.BeginTx function
 type Tx interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (Result, error)
 	QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error)
-	Rollback() error
-	Commit() error
+	Rollback(ctx context.Context) error
+	Commit(ctx context.Context) error
 }
 
 // Config describes the optional arguments accepted
@@ -94,12 +96,36 @@ func New(
 
 	db.SetMaxOpenConns(config.MaxOpenConns)
 
-	return newWithDB(SQLAdapter{db}, dbDriver, connectionString)
+	return NewWithAdapter(SQLAdapter{db}, dbDriver, connectionString)
 }
 
-// NewWithDB allows the user to insert a custom implementation
+// NewWithPGX instantiates a new KissSQL client using the pgx
+// library in the backend
+//
+// Configurations such as max open connections can be passed through
+// the URL using the pgxpool `Config.ConnString()` or building the URL manually.
+//
+// More info at: https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool#Config
+func NewWithPGX(
+	ctx context.Context,
+	dbDriver string,
+	connectionString string,
+) (db DB, err error) {
+	pool, err := pgxpool.Connect(ctx, connectionString)
+	if err != nil {
+		return DB{}, err
+	}
+	if err = pool.Ping(ctx); err != nil {
+		return DB{}, err
+	}
+
+	db, err = NewWithAdapter(PGXAdapter{pool}, dbDriver, connectionString)
+	return db, err
+}
+
+// NewWithAdapter allows the user to insert a custom implementation
 // of the DBAdapter interface
-func newWithDB(
+func NewWithAdapter(
 	db DBAdapter,
 	dbDriver string,
 	connectionString string,
@@ -790,7 +816,7 @@ func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 		}
 		defer func() {
 			if r := recover(); r != nil {
-				rollbackErr := tx.Rollback()
+				rollbackErr := tx.Rollback(ctx)
 				if rollbackErr != nil {
 					r = errors.Wrap(rollbackErr,
 						fmt.Sprintf("unable to rollback after panic with value: %v", r),
@@ -805,7 +831,7 @@ func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 
 		err = fn(ormCopy)
 		if err != nil {
-			rollbackErr := tx.Rollback()
+			rollbackErr := tx.Rollback(ctx)
 			if rollbackErr != nil {
 				err = errors.Wrap(rollbackErr,
 					fmt.Sprintf("unable to rollback after error: %s", err.Error()),
@@ -814,7 +840,7 @@ func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 			return err
 		}
 
-		return tx.Commit()
+		return tx.Commit(ctx)
 
 	default:
 		return fmt.Errorf("can't start transaction: The DBAdapter doesn't implement the TxBegginner interface")

@@ -22,6 +22,12 @@ func (s SQLAdapter) QueryContext(ctx context.Context, query string, args ...inte
 	return s.DB.QueryContext(ctx, query, args...)
 }
 
+// BeginTx implements the Tx interface
+func (s SQLAdapter) BeginTx(ctx context.Context) (Tx, error) {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	return SQLTx{Tx: tx}, err
+}
+
 // SQLTx is used to implement the DBAdapter interface and implements
 // the Tx interface
 type SQLTx struct {
@@ -38,10 +44,14 @@ func (s SQLTx) QueryContext(ctx context.Context, query string, args ...interface
 	return s.Tx.QueryContext(ctx, query, args...)
 }
 
-var _ Tx = SQLTx{}
-
-// BeginTx implements the Tx interface
-func (s SQLAdapter) BeginTx(ctx context.Context) (Tx, error) {
-	tx, err := s.DB.BeginTx(ctx, nil)
-	return SQLTx{Tx: tx}, err
+// Rollback implements the Tx interface
+func (s SQLTx) Rollback(ctx context.Context) error {
+	return s.Tx.Rollback()
 }
+
+// Commit implements the Tx interface
+func (s SQLTx) Commit(ctx context.Context) error {
+	return s.Tx.Commit()
+}
+
+var _ Tx = SQLTx{}
