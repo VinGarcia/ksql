@@ -482,25 +482,25 @@ read the example tests available on our [example service](./examples/example_ser
 The benchmark is very good, the code is, in practical terms, as fast as sqlx:
 
 ```bash
-$ make bench TIME=3s
-go test -bench=. -benchtime=3s
+$ make bench TIME=5s
+go test -bench=. -benchtime=5s
 goos: linux
 goarch: amd64
 pkg: github.com/vingarcia/ksql
 cpu: Intel(R) Core(TM) i5-3210M CPU @ 2.50GHz
-BenchmarkInsert/ksql-setup/insert-one-4         	    4170	    880911 ns/op
-BenchmarkInsert/pgx-adapter-setup/insert-one-4  	    5780	    669992 ns/op
-BenchmarkInsert/sqlx-setup/insert-one-4         	    4389	    825303 ns/op
-BenchmarkQuery/ksql-setup/single-row-4          	    1710	    306996 ns/op
-BenchmarkQuery/ksql-setup/multiple-rows-4       	    0000	    345091 ns/op
-BenchmarkQuery/pgx-adapter-setup/single-row-4   	    5237	    140154 ns/op
-BenchmarkQuery/pgx-adapter-setup/multiple-rows-4	   22051	    164306 ns/op
-BenchmarkQuery/sqlx-setup/single-row-4          	   11955	    311654 ns/op
-BenchmarkQuery/sqlx-setup/multiple-rows-4       	   10000	    323079 ns/op
+BenchmarkInsert/ksql-setup/insert-one-4         	    5293	    960859 ns/op
+BenchmarkInsert/pgx-adapter-setup/insert-one-4  	    7982	    736973 ns/op
+BenchmarkInsert/sqlx-setup/insert-one-4         	    6854	    857824 ns/op
+BenchmarkQuery/ksql-setup/single-row-4          	   12596	    407116 ns/op
+BenchmarkQuery/ksql-setup/multiple-rows-4       	   15883	    391135 ns/op
+BenchmarkQuery/pgx-adapter-setup/single-row-4   	   34008	    165604 ns/op
+BenchmarkQuery/pgx-adapter-setup/multiple-rows-4	   22579	    280673 ns/op
+BenchmarkQuery/sqlx-setup/single-row-4          	   10000	    512741 ns/op
+BenchmarkQuery/sqlx-setup/multiple-rows-4       	   10779	    596377 ns/op
 PASS
-ok  	github.com/vingarcia/ksql	55.231s
+ok  	github.com/vingarcia/ksql	94.951s
 Benchmark executed at: 2021-08-01
-Benchmark executed on commit: 87f57f665fc4bb18f3cfb543398bb96f665f68af
+Benchmark executed on commit: 37298e2c243f1ec66e88dd92ed7c4542f7820b4f
 ```
 
 ### Running the ksql tests (for contributors)
