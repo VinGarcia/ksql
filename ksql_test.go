@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/ditointernet/go-assert"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx/v4/pgxpool"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/vingarcia/ksql/nullable"
@@ -44,9 +46,37 @@ type Post struct {
 
 var PostsTable = NewTable("posts")
 
+type testConfig struct {
+	driver      string
+	adapterName string
+}
+
+var supportedConfigs = []testConfig{
+	{
+		driver:      "sqlite3",
+		adapterName: "sql",
+	},
+	{
+		driver:      "postgres",
+		adapterName: "sql",
+	},
+	{
+		driver:      "mysql",
+		adapterName: "sql",
+	},
+	{
+		driver:      "sqlserver",
+		adapterName: "sql",
+	},
+	{
+		driver:      "postgres",
+		adapterName: "pgx",
+	},
+}
+
 func TestQuery(t *testing.T) {
-	for driver := range supportedDialects {
-		t.Run(driver, func(t *testing.T) {
+	for _, config := range supportedConfigs {
+		t.Run(config.driver, func(t *testing.T) {
 			variations := []struct {
 				desc        string
 				queryPrefix string
@@ -63,17 +93,17 @@ func TestQuery(t *testing.T) {
 			for _, variation := range variations {
 				t.Run(variation.desc, func(t *testing.T) {
 					t.Run("using slice of structs", func(t *testing.T) {
-						err := createTables(driver)
+						err := createTables(config.driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
 
 						t.Run("should return 0 results correctly", func(t *testing.T) {
-							db := connectDB(t, driver)
-							defer db.Close()
+							db, closer := connectDB(t, config)
+							defer closer.Close()
 
 							ctx := context.Background()
-							c := newTestDB(db, driver)
+							c := newTestDB(db, config.driver)
 							var users []User
 							err := c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
 							assert.Equal(t, nil, err)
@@ -86,14 +116,14 @@ func TestQuery(t *testing.T) {
 						})
 
 						t.Run("should return a user correctly", func(t *testing.T) {
-							db := connectDB(t, driver)
-							defer db.Close()
+							db, closer := connectDB(t, config)
+							defer closer.Close()
 
-							_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
+							_, err := db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
 							assert.Equal(t, nil, err)
 
 							ctx := context.Background()
-							c := newTestDB(db, driver)
+							c := newTestDB(db, config.driver)
 							var users []User
 							err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
 
@@ -105,17 +135,17 @@ func TestQuery(t *testing.T) {
 						})
 
 						t.Run("should return multiple users correctly", func(t *testing.T) {
-							db := connectDB(t, driver)
-							defer db.Close()
+							db, closer := connectDB(t, config)
+							defer closer.Close()
 
-							_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
+							_, err := db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
 							assert.Equal(t, nil, err)
 
-							_, err = db.Exec(`INSERT INTO users (name, age, address) VALUES ('Bia Garcia', 0, '{"country":"BR"}')`)
+							_, err = db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('Bia Garcia', 0, '{"country":"BR"}')`)
 							assert.Equal(t, nil, err)
 
 							ctx := context.Background()
-							c := newTestDB(db, driver)
+							c := newTestDB(db, config.driver)
 							var users []User
 							err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
 
@@ -132,33 +162,34 @@ func TestQuery(t *testing.T) {
 						})
 
 						t.Run("should query joined tables correctly", func(t *testing.T) {
-							db := connectDB(t, driver)
-							defer db.Close()
+							db, closer := connectDB(t, config)
+							defer closer.Close()
 
 							// This test only makes sense with no query prefix
 							if variation.queryPrefix != "" {
 								return
 							}
 
-							_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
+							_, err := db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
 							assert.Equal(t, nil, err)
-							var joaoID uint
-							db.QueryRow(`SELECT id FROM users WHERE name = 'João Ribeiro'`).Scan(&joaoID)
+							var joao User
+							getUserByName(db, config.driver, &joao, "João Ribeiro")
+							assert.Equal(t, nil, err)
 
-							_, err = db.Exec(`INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
+							_, err = db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
 							assert.Equal(t, nil, err)
-							var biaID uint
-							db.QueryRow(`SELECT id FROM users WHERE name = 'Bia Ribeiro'`).Scan(&biaID)
+							var bia User
+							getUserByName(db, config.driver, &bia, "Bia Ribeiro")
 
-							_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, biaID, `, 'Bia Post1')`))
+							_, err = db.ExecContext(context.TODO(), fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post1')`))
 							assert.Equal(t, nil, err)
-							_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, biaID, `, 'Bia Post2')`))
+							_, err = db.ExecContext(context.TODO(), fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post2')`))
 							assert.Equal(t, nil, err)
-							_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joaoID, `, 'João Post1')`))
+							_, err = db.ExecContext(context.TODO(), fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
 							assert.Equal(t, nil, err)
 
 							ctx := context.Background()
-							c := newTestDB(db, driver)
+							c := newTestDB(db, config.driver)
 							var rows []struct {
 								User User `tablename:"u"`
 								Post Post `tablename:"p"`
@@ -172,32 +203,32 @@ func TestQuery(t *testing.T) {
 							assert.Equal(t, nil, err)
 							assert.Equal(t, 3, len(rows))
 
-							assert.Equal(t, joaoID, rows[0].User.ID)
+							assert.Equal(t, joao.ID, rows[0].User.ID)
 							assert.Equal(t, "João Ribeiro", rows[0].User.Name)
 							assert.Equal(t, "João Post1", rows[0].Post.Title)
 
-							assert.Equal(t, biaID, rows[1].User.ID)
+							assert.Equal(t, bia.ID, rows[1].User.ID)
 							assert.Equal(t, "Bia Ribeiro", rows[1].User.Name)
 							assert.Equal(t, "Bia Post1", rows[1].Post.Title)
 
-							assert.Equal(t, biaID, rows[2].User.ID)
+							assert.Equal(t, bia.ID, rows[2].User.ID)
 							assert.Equal(t, "Bia Ribeiro", rows[2].User.Name)
 							assert.Equal(t, "Bia Post2", rows[2].Post.Title)
 						})
 					})
 
 					t.Run("using slice of pointers to structs", func(t *testing.T) {
-						err := createTables(driver)
+						err := createTables(config.driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
 
 						t.Run("should return 0 results correctly", func(t *testing.T) {
-							db := connectDB(t, driver)
-							defer db.Close()
+							db, closer := connectDB(t, config)
+							defer closer.Close()
 
 							ctx := context.Background()
-							c := newTestDB(db, driver)
+							c := newTestDB(db, config.driver)
 							var users []*User
 							err := c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
 							assert.Equal(t, nil, err)
@@ -210,14 +241,15 @@ func TestQuery(t *testing.T) {
 						})
 
 						t.Run("should return a user correctly", func(t *testing.T) {
-							db := connectDB(t, driver)
-							defer db.Close()
-
-							_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
-							assert.Equal(t, nil, err)
+							db, closer := connectDB(t, config)
+							defer closer.Close()
 
 							ctx := context.Background()
-							c := newTestDB(db, driver)
+
+							_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
+							assert.Equal(t, nil, err)
+
+							c := newTestDB(db, config.driver)
 							var users []*User
 							err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
 
@@ -229,17 +261,18 @@ func TestQuery(t *testing.T) {
 						})
 
 						t.Run("should return multiple users correctly", func(t *testing.T) {
-							db := connectDB(t, driver)
-							defer db.Close()
-
-							_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
-							assert.Equal(t, nil, err)
-
-							_, err = db.Exec(`INSERT INTO users (name, age, address) VALUES ('Bia Garcia', 0, '{"country":"BR"}')`)
-							assert.Equal(t, nil, err)
+							db, closer := connectDB(t, config)
+							defer closer.Close()
 
 							ctx := context.Background()
-							c := newTestDB(db, driver)
+
+							_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
+							assert.Equal(t, nil, err)
+
+							_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia Garcia', 0, '{"country":"BR"}')`)
+							assert.Equal(t, nil, err)
+
+							c := newTestDB(db, config.driver)
 							var users []*User
 							err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
 
@@ -256,33 +289,34 @@ func TestQuery(t *testing.T) {
 						})
 
 						t.Run("should query joined tables correctly", func(t *testing.T) {
-							db := connectDB(t, driver)
-							defer db.Close()
-
 							// This test only makes sense with no query prefix
 							if variation.queryPrefix != "" {
 								return
 							}
 
-							_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
-							assert.Equal(t, nil, err)
-							var joaoID uint
-							db.QueryRow(`SELECT id FROM users WHERE name = 'João Ribeiro'`).Scan(&joaoID)
-
-							_, err = db.Exec(`INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
-							assert.Equal(t, nil, err)
-							var biaID uint
-							db.QueryRow(`SELECT id FROM users WHERE name = 'Bia Ribeiro'`).Scan(&biaID)
-
-							_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, biaID, `, 'Bia Post1')`))
-							assert.Equal(t, nil, err)
-							_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, biaID, `, 'Bia Post2')`))
-							assert.Equal(t, nil, err)
-							_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joaoID, `, 'João Post1')`))
-							assert.Equal(t, nil, err)
+							db, closer := connectDB(t, config)
+							defer closer.Close()
 
 							ctx := context.Background()
-							c := newTestDB(db, driver)
+
+							_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
+							assert.Equal(t, nil, err)
+							var joao User
+							getUserByName(db, config.driver, &joao, "João Ribeiro")
+
+							_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
+							assert.Equal(t, nil, err)
+							var bia User
+							getUserByName(db, config.driver, &bia, "Bia Ribeiro")
+
+							_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post1')`))
+							assert.Equal(t, nil, err)
+							_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post2')`))
+							assert.Equal(t, nil, err)
+							_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
+							assert.Equal(t, nil, err)
+
+							c := newTestDB(db, config.driver)
 							var rows []*struct {
 								User User `tablename:"u"`
 								Post Post `tablename:"p"`
@@ -296,15 +330,15 @@ func TestQuery(t *testing.T) {
 							assert.Equal(t, nil, err)
 							assert.Equal(t, 3, len(rows))
 
-							assert.Equal(t, joaoID, rows[0].User.ID)
+							assert.Equal(t, joao.ID, rows[0].User.ID)
 							assert.Equal(t, "João Ribeiro", rows[0].User.Name)
 							assert.Equal(t, "João Post1", rows[0].Post.Title)
 
-							assert.Equal(t, biaID, rows[1].User.ID)
+							assert.Equal(t, bia.ID, rows[1].User.ID)
 							assert.Equal(t, "Bia Ribeiro", rows[1].User.Name)
 							assert.Equal(t, "Bia Post1", rows[1].Post.Title)
 
-							assert.Equal(t, biaID, rows[2].User.ID)
+							assert.Equal(t, bia.ID, rows[2].User.ID)
 							assert.Equal(t, "Bia Ribeiro", rows[2].User.Name)
 							assert.Equal(t, "Bia Post2", rows[2].Post.Title)
 						})
@@ -313,23 +347,24 @@ func TestQuery(t *testing.T) {
 			}
 
 			t.Run("testing error cases", func(t *testing.T) {
-				err := createTables(driver)
+				err := createTables(config.driver)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
 
 				t.Run("should report error if input is not a pointer to a slice of structs", func(t *testing.T) {
-					db := connectDB(t, driver)
-					defer db.Close()
-
-					_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('Andréa Sá', 0)`)
-					assert.Equal(t, nil, err)
-
-					_, err = db.Exec(`INSERT INTO users (name, age) VALUES ('Caio Sá', 0)`)
-					assert.Equal(t, nil, err)
+					db, closer := connectDB(t, config)
+					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, driver)
+
+					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Andréa Sá', 0)`)
+					assert.Equal(t, nil, err)
+
+					_, err = db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Caio Sá', 0)`)
+					assert.Equal(t, nil, err)
+
+					c := newTestDB(db, config.driver)
 					err = c.Query(ctx, &User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
 					assert.NotEqual(t, nil, err)
 
@@ -345,22 +380,22 @@ func TestQuery(t *testing.T) {
 				})
 
 				t.Run("should report error if the query is not valid", func(t *testing.T) {
-					db := connectDB(t, driver)
-					defer db.Close()
+					db, closer := connectDB(t, config)
+					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, driver)
+					c := newTestDB(db, config.driver)
 					var users []User
 					err := c.Query(ctx, &users, `SELECT * FROM not a valid query`)
 					assert.NotEqual(t, nil, err)
 				})
 
 				t.Run("should report error if using nested struct and the query starts with SELECT", func(t *testing.T) {
-					db := connectDB(t, driver)
-					defer db.Close()
+					db, closer := connectDB(t, config)
+					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, driver)
+					c := newTestDB(db, config.driver)
 					var rows []struct {
 						User User `tablename:"users"`
 						Post Post `tablename:"posts"`
@@ -373,11 +408,11 @@ func TestQuery(t *testing.T) {
 
 				t.Run("should report error for nested structs with invalid types", func(t *testing.T) {
 					t.Run("int", func(t *testing.T) {
-						db := connectDB(t, driver)
-						defer db.Close()
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+						c := newTestDB(db, config.driver)
 						var rows []struct {
 							Foo int `tablename:"foo"`
 						}
@@ -395,11 +430,11 @@ func TestQuery(t *testing.T) {
 					})
 
 					t.Run("*struct", func(t *testing.T) {
-						db := connectDB(t, driver)
-						defer db.Close()
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+						c := newTestDB(db, config.driver)
 						var rows []struct {
 							Foo *User `tablename:"foo"`
 						}
@@ -422,8 +457,8 @@ func TestQuery(t *testing.T) {
 }
 
 func TestQueryOne(t *testing.T) {
-	for driver := range supportedDialects {
-		t.Run(driver, func(t *testing.T) {
+	for _, config := range supportedConfigs {
+		t.Run(config.driver, func(t *testing.T) {
 			variations := []struct {
 				desc        string
 				queryPrefix string
@@ -438,32 +473,33 @@ func TestQueryOne(t *testing.T) {
 				},
 			}
 			for _, variation := range variations {
-				err := createTables(driver)
+				err := createTables(config.driver)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
 
 				t.Run(variation.desc, func(t *testing.T) {
 					t.Run("should return RecordNotFoundErr when there are no results", func(t *testing.T) {
-						db := connectDB(t, driver)
-						defer db.Close()
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+						c := newTestDB(db, config.driver)
 						u := User{}
 						err := c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE id=1;`)
 						assert.Equal(t, ErrRecordNotFound, err)
 					})
 
 					t.Run("should return a user correctly", func(t *testing.T) {
-						db := connectDB(t, driver)
-						defer db.Close()
-
-						_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
-						assert.Equal(t, nil, err)
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+
+						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
+						assert.Equal(t, nil, err)
+
+						c := newTestDB(db, config.driver)
 						u := User{}
 						err = c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
 
@@ -476,17 +512,18 @@ func TestQueryOne(t *testing.T) {
 					})
 
 					t.Run("should return only the first result on multiples matches", func(t *testing.T) {
-						db := connectDB(t, driver)
-						defer db.Close()
-
-						_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('Andréa Sá', 0, '{"country":"US"}')`)
-						assert.Equal(t, nil, err)
-
-						_, err = db.Exec(`INSERT INTO users (name, age, address) VALUES ('Caio Sá', 0, '{"country":"BR"}')`)
-						assert.Equal(t, nil, err)
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+
+						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Andréa Sá', 0, '{"country":"US"}')`)
+						assert.Equal(t, nil, err)
+
+						_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Caio Sá', 0, '{"country":"BR"}')`)
+						assert.Equal(t, nil, err)
+
+						c := newTestDB(db, config.driver)
 
 						var u User
 						err = c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0)+` ORDER BY id ASC`, "% Sá")
@@ -499,24 +536,25 @@ func TestQueryOne(t *testing.T) {
 					})
 
 					t.Run("should query joined tables correctly", func(t *testing.T) {
-						db := connectDB(t, driver)
-						defer db.Close()
-
 						// This test only makes sense with no query prefix
 						if variation.queryPrefix != "" {
 							return
 						}
 
-						_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
-						assert.Equal(t, nil, err)
-						var joaoID uint
-						db.QueryRow(`SELECT id FROM users WHERE name = 'João Ribeiro'`).Scan(&joaoID)
-
-						_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joaoID, `, 'João Post1')`))
-						assert.Equal(t, nil, err)
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+
+						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
+						assert.Equal(t, nil, err)
+						var joao User
+						getUserByName(db, config.driver, &joao, "João Ribeiro")
+
+						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
+						assert.Equal(t, nil, err)
+
+						c := newTestDB(db, config.driver)
 						var row struct {
 							User User `tablename:"u"`
 							Post Post `tablename:"p"`
@@ -528,7 +566,7 @@ func TestQueryOne(t *testing.T) {
 						), "% Ribeiro")
 
 						assert.Equal(t, nil, err)
-						assert.Equal(t, joaoID, row.User.ID)
+						assert.Equal(t, joao.ID, row.User.ID)
 						assert.Equal(t, "João Ribeiro", row.User.Name)
 						assert.Equal(t, "João Post1", row.Post.Title)
 					})
@@ -536,17 +574,18 @@ func TestQueryOne(t *testing.T) {
 			}
 
 			t.Run("should report error if input is not a pointer to struct", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
-
-				_, err := db.Exec(`INSERT INTO users (name, age, address) VALUES ('Andréa Sá', 0, '{"country":"US"}')`)
-				assert.Equal(t, nil, err)
-
-				_, err = db.Exec(`INSERT INTO users (name, age, address) VALUES ('Caio Sá', 0, '{"country":"BR"}')`)
-				assert.Equal(t, nil, err)
+				db, closer := connectDB(t, config)
+				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver)
+
+				_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Andréa Sá', 0, '{"country":"US"}')`)
+				assert.Equal(t, nil, err)
+
+				_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Caio Sá', 0, '{"country":"BR"}')`)
+				assert.Equal(t, nil, err)
+
+				c := newTestDB(db, config.driver)
 
 				err = c.QueryOne(ctx, &[]User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
 				assert.NotEqual(t, nil, err)
@@ -556,22 +595,22 @@ func TestQueryOne(t *testing.T) {
 			})
 
 			t.Run("should report error if the query is not valid", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
+				db, closer := connectDB(t, config)
+				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver)
+				c := newTestDB(db, config.driver)
 				var user User
 				err := c.QueryOne(ctx, &user, `SELECT * FROM not a valid query`)
 				assert.NotEqual(t, nil, err)
 			})
 
 			t.Run("should report error if using nested struct and the query starts with SELECT", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
+				db, closer := connectDB(t, config)
+				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver)
+				c := newTestDB(db, config.driver)
 				var row struct {
 					User User `tablename:"users"`
 					Post Post `tablename:"posts"`
@@ -586,20 +625,20 @@ func TestQueryOne(t *testing.T) {
 }
 
 func TestInsert(t *testing.T) {
-	for driver := range supportedDialects {
-		t.Run(driver, func(t *testing.T) {
+	for _, config := range supportedConfigs {
+		t.Run(config.driver, func(t *testing.T) {
 			t.Run("success cases", func(t *testing.T) {
-				err := createTables(driver)
+				err := createTables(config.driver)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
 
 				t.Run("should insert one user correctly", func(t *testing.T) {
-					db := connectDB(t, driver)
-					defer db.Close()
+					db, closer := connectDB(t, config)
+					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, driver)
+					c := newTestDB(db, config.driver)
 
 					u := User{
 						Name: "Fernanda",
@@ -621,19 +660,16 @@ func TestInsert(t *testing.T) {
 				})
 
 				t.Run("should insert ignoring the ID for sqlite and multiple ids", func(t *testing.T) {
-					if supportedDialects[driver].InsertMethod() != insertWithLastInsertID {
+					if supportedDialects[config.driver].InsertMethod() != insertWithLastInsertID {
 						return
 					}
-
-					db := connectDB(t, driver)
-					defer db.Close()
 
 					ctx := context.Background()
 
 					// Using columns "id" and "name" as IDs:
 					table := NewTable("users", "id", "name")
 
-					c, err := New(driver, connectionString[driver], Config{})
+					c, err := New(config.driver, connectionString[config.driver], Config{})
 					assert.Equal(t, nil, err)
 
 					u := User{
@@ -650,7 +686,7 @@ func TestInsert(t *testing.T) {
 					assert.Equal(t, uint(0), u.ID)
 
 					result := User{}
-					err = getUserByName(c.db, c.dialect, &result, "No ID returned")
+					err = getUserByName(c.db, config.driver, &result, "No ID returned")
 					assert.Equal(t, nil, err)
 
 					assert.Equal(t, u.Age, result.Age)
@@ -658,11 +694,11 @@ func TestInsert(t *testing.T) {
 				})
 
 				t.Run("should work with anonymous structs", func(t *testing.T) {
-					db := connectDB(t, driver)
-					defer db.Close()
+					db, closer := connectDB(t, config)
+					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, driver)
+					c := newTestDB(db, config.driver)
 					err = c.Insert(ctx, UsersTable, &struct {
 						ID      int                    `ksql:"id"`
 						Name    string                 `ksql:"name"`
@@ -672,11 +708,11 @@ func TestInsert(t *testing.T) {
 				})
 
 				t.Run("should work with preset IDs", func(t *testing.T) {
-					db := connectDB(t, driver)
-					defer db.Close()
+					db, closer := connectDB(t, config)
+					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, driver)
+					c := newTestDB(db, config.driver)
 
 					usersByName := NewTable("users", "name")
 
@@ -687,24 +723,24 @@ func TestInsert(t *testing.T) {
 					assert.Equal(t, nil, err)
 
 					var inserted User
-					err := getUserByName(SQLAdapter{db}, c.dialect, &inserted, "Preset Name")
+					err := getUserByName(db, config.driver, &inserted, "Preset Name")
 					assert.Equal(t, nil, err)
 					assert.Equal(t, 5455, inserted.Age)
 				})
 			})
 
 			t.Run("testing error cases", func(t *testing.T) {
-				err := createTables(driver)
+				err := createTables(config.driver)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
 
 				t.Run("should report error for invalid input types", func(t *testing.T) {
-					db := connectDB(t, driver)
-					defer db.Close()
+					db, closer := connectDB(t, config)
+					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, driver)
+					c := newTestDB(db, config.driver)
 
 					err = c.Insert(ctx, UsersTable, "foo")
 					assert.NotEqual(t, nil, err)
@@ -731,11 +767,11 @@ func TestInsert(t *testing.T) {
 				})
 
 				t.Run("should report error if for some reason the insertMethod is invalid", func(t *testing.T) {
-					db := connectDB(t, driver)
-					defer db.Close()
+					db, closer := connectDB(t, config)
+					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, driver)
+					c := newTestDB(db, config.driver)
 
 					// This is an invalid value:
 					c.dialect = brokenDialect{}
@@ -745,11 +781,11 @@ func TestInsert(t *testing.T) {
 				})
 
 				t.Run("should not panic if a column doesn't exist in the database", func(t *testing.T) {
-					db := connectDB(t, driver)
-					defer db.Close()
+					db, closer := connectDB(t, config)
+					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, driver)
+					c := newTestDB(db, config.driver)
 
 					err = c.Insert(ctx, UsersTable, &struct {
 						ID                string `ksql:"id"`
@@ -763,11 +799,11 @@ func TestInsert(t *testing.T) {
 				})
 
 				t.Run("should not panic if the ID column doesn't exist in the database", func(t *testing.T) {
-					db := connectDB(t, driver)
-					defer db.Close()
+					db, closer := connectDB(t, config)
+					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, driver)
+					c := newTestDB(db, config.driver)
 
 					brokenTable := NewTable("users", "non_existing_id")
 
@@ -779,11 +815,11 @@ func TestInsert(t *testing.T) {
 				})
 
 				t.Run("should not panic if the ID column is missing in the struct", func(t *testing.T) {
-					db := connectDB(t, driver)
-					defer db.Close()
+					db, closer := connectDB(t, config)
+					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, driver)
+					c := newTestDB(db, config.driver)
 
 					err = c.Insert(ctx, UsersTable, &struct {
 						Age  int    `ksql:"age"`
@@ -792,7 +828,7 @@ func TestInsert(t *testing.T) {
 					assert.Equal(t, nil, err)
 
 					var u User
-					err = getUserByName(SQLAdapter{db}, c.dialect, &u, "Inserted With no ID")
+					err = getUserByName(db, config.driver, &u, "Inserted With no ID")
 					assert.Equal(t, nil, err)
 					assert.NotEqual(t, uint(0), u.ID)
 					assert.Equal(t, 42, u.Age)
@@ -821,19 +857,19 @@ func (brokenDialect) DriverName() string {
 }
 
 func TestDelete(t *testing.T) {
-	for driver := range supportedDialects {
-		t.Run(driver, func(t *testing.T) {
-			err := createTables(driver)
+	for _, config := range supportedConfigs {
+		t.Run(config.driver, func(t *testing.T) {
+			err := createTables(config.driver)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
 
 			t.Run("should ignore empty lists of ids", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
+				db, closer := connectDB(t, config)
+				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver)
+				c := newTestDB(db, config.driver)
 
 				u := User{
 					Name: "Won't be deleted",
@@ -859,11 +895,11 @@ func TestDelete(t *testing.T) {
 			})
 
 			t.Run("should delete one id correctly", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
+				db, closer := connectDB(t, config)
+				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver)
+				c := newTestDB(db, config.driver)
 
 				u1 := User{
 					Name: "Fernanda",
@@ -907,11 +943,11 @@ func TestDelete(t *testing.T) {
 			})
 
 			t.Run("should delete multiple ids correctly", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
+				db, closer := connectDB(t, config)
+				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver)
+				c := newTestDB(db, config.driver)
 
 				u1 := User{
 					Name: "Fernanda",
@@ -964,29 +1000,27 @@ func TestDelete(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	for driver := range supportedDialects {
-		t.Run(driver, func(t *testing.T) {
-			err := createTables(driver)
+	for _, config := range supportedConfigs {
+		t.Run(config.driver, func(t *testing.T) {
+			err := createTables(config.driver)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
 
 			t.Run("should update one user correctly", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
+				db, closer := connectDB(t, config)
+				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver)
+				c := newTestDB(db, config.driver)
 
 				u := User{
 					Name: "Letícia",
 				}
-				_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('Letícia', 0)`)
+				_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Letícia', 0)`)
 				assert.Equal(t, nil, err)
 
-				row := db.QueryRow(`SELECT id FROM users WHERE name = 'Letícia'`)
-				assert.Equal(t, nil, row.Err())
-				err = row.Scan(&u.ID)
+				err = getUserByName(db, config.driver, &u, "Letícia")
 				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u.ID)
 
@@ -1003,21 +1037,19 @@ func TestUpdate(t *testing.T) {
 			})
 
 			t.Run("should update one user correctly", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
+				db, closer := connectDB(t, config)
+				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver)
+				c := newTestDB(db, config.driver)
 
 				u := User{
 					Name: "Letícia",
 				}
-				_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('Letícia', 0)`)
+				_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Letícia', 0)`)
 				assert.Equal(t, nil, err)
 
-				row := db.QueryRow(`SELECT id FROM users WHERE name = 'Letícia'`)
-				assert.Equal(t, nil, row.Err())
-				err = row.Scan(&u.ID)
+				err = getUserByName(db, config.driver, &u, "Letícia")
 				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u.ID)
 
@@ -1034,27 +1066,23 @@ func TestUpdate(t *testing.T) {
 			})
 
 			t.Run("should ignore null pointers on partial updates", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
+				db, closer := connectDB(t, config)
+				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver)
+				c := newTestDB(db, config.driver)
 
 				type partialUser struct {
 					ID   uint   `ksql:"id"`
 					Name string `ksql:"name"`
 					Age  *int   `ksql:"age"`
 				}
-				u := partialUser{
-					Name: "Letícia",
-					Age:  nullable.Int(22),
-				}
-				_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('Letícia', 22)`)
+
+				_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Letícia', 22)`)
 				assert.Equal(t, nil, err)
 
-				row := db.QueryRow(`SELECT id FROM users WHERE name = 'Letícia'`)
-				assert.Equal(t, nil, row.Err())
-				err = row.Scan(&u.ID)
+				var u User
+				err = getUserByName(db, config.driver, &u, "Letícia")
 				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u.ID)
 
@@ -1075,27 +1103,23 @@ func TestUpdate(t *testing.T) {
 			})
 
 			t.Run("should update valid pointers on partial updates", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
+				db, closer := connectDB(t, config)
+				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver)
+				c := newTestDB(db, config.driver)
 
 				type partialUser struct {
 					ID   uint   `ksql:"id"`
 					Name string `ksql:"name"`
 					Age  *int   `ksql:"age"`
 				}
-				u := partialUser{
-					Name: "Letícia",
-					Age:  nullable.Int(22),
-				}
-				_, err := db.Exec(`INSERT INTO users (name, age) VALUES ('Letícia', 22)`)
+
+				_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Letícia', 22)`)
 				assert.Equal(t, nil, err)
 
-				row := db.QueryRow(`SELECT id FROM users WHERE name = 'Letícia'`)
-				assert.Equal(t, nil, row.Err())
-				err = row.Scan(&u.ID)
+				var u User
+				err = getUserByName(db, config.driver, &u, "Letícia")
 				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u.ID)
 
@@ -1116,11 +1140,11 @@ func TestUpdate(t *testing.T) {
 			})
 
 			t.Run("should return ErrRecordNotFound when asked to update an inexistent user", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
+				db, closer := connectDB(t, config)
+				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver)
+				c := newTestDB(db, config.driver)
 
 				err = c.Update(ctx, UsersTable, User{
 					ID:   4200,
@@ -1130,11 +1154,11 @@ func TestUpdate(t *testing.T) {
 			})
 
 			t.Run("should report database errors correctly", func(t *testing.T) {
-				db := connectDB(t, driver)
-				defer db.Close()
+				db, closer := connectDB(t, config)
+				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver)
+				c := newTestDB(db, config.driver)
 
 				err = c.Update(ctx, NewTable("non_existing_table"), User{
 					ID:   1,
@@ -1147,8 +1171,8 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestQueryChunks(t *testing.T) {
-	for driver := range supportedDialects {
-		t.Run(driver, func(t *testing.T) {
+	for _, config := range supportedConfigs {
+		t.Run(config.driver, func(t *testing.T) {
 			variations := []struct {
 				desc        string
 				queryPrefix string
@@ -1165,16 +1189,16 @@ func TestQueryChunks(t *testing.T) {
 			for _, variation := range variations {
 				t.Run(variation.desc, func(t *testing.T) {
 					t.Run("should query a single row correctly", func(t *testing.T) {
-						err := createTables(driver)
+						err := createTables(config.driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
 
-						db := connectDB(t, driver)
-						defer db.Close()
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+						c := newTestDB(db, config.driver)
 
 						_ = c.Insert(ctx, UsersTable, &User{
 							Name:    "User1",
@@ -1205,16 +1229,16 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should query one chunk correctly", func(t *testing.T) {
-						err := createTables(driver)
+						err := createTables(config.driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
 
-						db := connectDB(t, driver)
-						defer db.Close()
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+						c := newTestDB(db, config.driver)
 
 						_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Address: Address{Country: "US"}})
 						_ = c.Insert(ctx, UsersTable, &User{Name: "User2", Address: Address{Country: "BR"}})
@@ -1247,16 +1271,16 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should query chunks of 1 correctly", func(t *testing.T) {
-						err := createTables(driver)
+						err := createTables(config.driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
 
-						db := connectDB(t, driver)
-						defer db.Close()
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+						c := newTestDB(db, config.driver)
 
 						_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Address: Address{Country: "US"}})
 						_ = c.Insert(ctx, UsersTable, &User{Name: "User2", Address: Address{Country: "BR"}})
@@ -1289,16 +1313,16 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should load partially filled chunks correctly", func(t *testing.T) {
-						err := createTables(driver)
+						err := createTables(config.driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
 
-						db := connectDB(t, driver)
-						defer db.Close()
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+						c := newTestDB(db, config.driver)
 
 						_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
 						_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
@@ -1336,8 +1360,8 @@ func TestQueryChunks(t *testing.T) {
 							return
 						}
 
-						db := connectDB(t, driver)
-						defer db.Close()
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						joao := User{
 							Name: "Thiago Ribeiro",
@@ -1349,15 +1373,15 @@ func TestQueryChunks(t *testing.T) {
 						}
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+						c := newTestDB(db, config.driver)
 						_ = c.Insert(ctx, UsersTable, &joao)
 						_ = c.Insert(ctx, UsersTable, &thatiana)
 
-						_, err := db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, thatiana.ID, `, 'Thatiana Post1')`))
+						_, err := db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, thatiana.ID, `, 'Thatiana Post1')`))
 						assert.Equal(t, nil, err)
-						_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, thatiana.ID, `, 'Thatiana Post2')`))
+						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, thatiana.ID, `, 'Thatiana Post2')`))
 						assert.Equal(t, nil, err)
-						_, err = db.Exec(fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'Thiago Post1')`))
+						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'Thiago Post1')`))
 						assert.Equal(t, nil, err)
 
 						var lengths []int
@@ -1402,16 +1426,16 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should abort the first iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
-						err := createTables(driver)
+						err := createTables(config.driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
 
-						db := connectDB(t, driver)
-						defer db.Close()
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+						c := newTestDB(db, config.driver)
 
 						_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
 						_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
@@ -1441,16 +1465,16 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should abort the last iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
-						err := createTables(driver)
+						err := createTables(config.driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
 
-						db := connectDB(t, driver)
-						defer db.Close()
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+						c := newTestDB(db, config.driver)
 
 						_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
 						_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
@@ -1484,16 +1508,16 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should return error if the callback returns an error in the first iteration", func(t *testing.T) {
-						err := createTables(driver)
+						err := createTables(config.driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
 
-						db := connectDB(t, driver)
-						defer db.Close()
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+						c := newTestDB(db, config.driver)
 
 						_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
 						_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
@@ -1523,16 +1547,16 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should return error if the callback returns an error in the last iteration", func(t *testing.T) {
-						err := createTables(driver)
+						err := createTables(config.driver)
 						if err != nil {
 							t.Fatal("could not create test table!, reason:", err.Error())
 						}
 
-						db := connectDB(t, driver)
-						defer db.Close()
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+						c := newTestDB(db, config.driver)
 
 						_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
 						_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
@@ -1566,11 +1590,11 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should report error if the input function is invalid", func(t *testing.T) {
-						db := connectDB(t, driver)
-						defer db.Close()
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+						c := newTestDB(db, config.driver)
 
 						funcs := []interface{}{
 							nil,
@@ -1611,11 +1635,11 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should report error if the query is not valid", func(t *testing.T) {
-						db := connectDB(t, driver)
-						defer db.Close()
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+						c := newTestDB(db, config.driver)
 						err := c.QueryChunks(ctx, ChunkParser{
 							Query:  `SELECT * FROM not a valid query`,
 							Params: []interface{}{},
@@ -1629,11 +1653,11 @@ func TestQueryChunks(t *testing.T) {
 					})
 
 					t.Run("should report error if using nested struct and the query starts with SELECT", func(t *testing.T) {
-						db := connectDB(t, driver)
-						defer db.Close()
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, driver)
+						c := newTestDB(db, config.driver)
 
 						err := c.QueryChunks(ctx, ChunkParser{
 							Query:  `SELECT * FROM users u JOIN posts p ON u.id = p.user_id`,
@@ -1659,19 +1683,19 @@ func TestQueryChunks(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	for driver := range supportedDialects {
-		t.Run(driver, func(t *testing.T) {
+	for _, config := range supportedConfigs {
+		t.Run(config.driver, func(t *testing.T) {
 			t.Run("should query a single row correctly", func(t *testing.T) {
-				err := createTables(driver)
+				err := createTables(config.driver)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
 
-				db := connectDB(t, driver)
-				defer db.Close()
+				db, closer := connectDB(t, config)
+				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver)
+				c := newTestDB(db, config.driver)
 
 				_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
 				_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
@@ -1689,16 +1713,16 @@ func TestTransaction(t *testing.T) {
 			})
 
 			t.Run("should rollback when there are errors", func(t *testing.T) {
-				err := createTables(driver)
+				err := createTables(config.driver)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
 
-				db := connectDB(t, driver)
-				defer db.Close()
+				db, closer := connectDB(t, config)
+				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, driver)
+				c := newTestDB(db, config.driver)
 
 				u1 := User{Name: "User1", Age: 42}
 				u2 := User{Name: "User2", Age: 42}
@@ -1737,8 +1761,11 @@ func TestScanRows(t *testing.T) {
 
 		dialect := supportedDialects["sqlite3"]
 		ctx := context.TODO()
-		db := connectDB(t, "sqlite3")
-		defer db.Close()
+		db, closer := connectDB(t, testConfig{
+			driver:      "sqlite3",
+			adapterName: "sql",
+		})
+		defer closer.Close()
 		c := newTestDB(db, "sqlite3")
 		_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Age: 22})
 		_ = c.Insert(ctx, UsersTable, &User{Name: "User2", Age: 14})
@@ -1766,8 +1793,11 @@ func TestScanRows(t *testing.T) {
 
 		dialect := supportedDialects["sqlite3"]
 		ctx := context.TODO()
-		db := connectDB(t, "sqlite3")
-		defer db.Close()
+		db, closer := connectDB(t, testConfig{
+			driver:      "sqlite3",
+			adapterName: "sql",
+		})
+		defer closer.Close()
 		c := newTestDB(db, "sqlite3")
 		_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Age: 22})
 
@@ -1798,8 +1828,11 @@ func TestScanRows(t *testing.T) {
 
 		dialect := supportedDialects["sqlite3"]
 		ctx := context.TODO()
-		db := connectDB(t, "sqlite3")
-		defer db.Close()
+		db, closer := connectDB(t, testConfig{
+			driver:      "sqlite3",
+			adapterName: "sql",
+		})
+		defer closer.Close()
 
 		rows, err := db.QueryContext(ctx, "select * from users where name='User2'")
 		assert.Equal(t, nil, err)
@@ -1819,8 +1852,11 @@ func TestScanRows(t *testing.T) {
 
 		dialect := supportedDialects["sqlite3"]
 		ctx := context.TODO()
-		db := connectDB(t, "sqlite3")
-		defer db.Close()
+		db, closer := connectDB(t, testConfig{
+			driver:      "sqlite3",
+			adapterName: "sql",
+		})
+		defer closer.Close()
 
 		rows, err := db.QueryContext(ctx, "select * from users where name='User2'")
 		assert.Equal(t, nil, err)
@@ -1838,8 +1874,11 @@ func TestScanRows(t *testing.T) {
 
 		dialect := supportedDialects["sqlite3"]
 		ctx := context.TODO()
-		db := connectDB(t, "sqlite3")
-		defer db.Close()
+		db, closer := connectDB(t, testConfig{
+			driver:      "sqlite3",
+			adapterName: "sql",
+		})
+		defer closer.Close()
 
 		rows, err := db.QueryContext(ctx, "select * from users where name='User2'")
 		assert.Equal(t, nil, err)
@@ -1940,25 +1979,41 @@ func createTables(driver string) error {
 	return nil
 }
 
-func newTestDB(db *sql.DB, driver string) DB {
+func newTestDB(db DBAdapter, driver string) DB {
 	return DB{
 		driver:  driver,
 		dialect: supportedDialects[driver],
-		db:      SQLAdapter{db},
+		db:      db,
 	}
 }
 
-func connectDB(t *testing.T, driver string) *sql.DB {
-	connStr := connectionString[driver]
+type NopCloser struct{}
+
+func (NopCloser) Close() error { return nil }
+
+func connectDB(t *testing.T, config testConfig) (DBAdapter, io.Closer) {
+	connStr := connectionString[config.driver]
 	if connStr == "" {
-		panic(fmt.Sprintf("unsupported driver: '%s'", driver))
+		panic(fmt.Sprintf("unsupported driver: '%s'", config.driver))
 	}
 
-	db, err := sql.Open(driver, connStr)
-	if err != nil {
-		t.Fatal(err.Error())
+	switch config.adapterName {
+	case "sql":
+		db, err := sql.Open(config.driver, connStr)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		return SQLAdapter{db}, db
+	case "pgx":
+		pool, err := pgxpool.Connect(context.TODO(), connStr)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		return PGXAdapter{pool}, NopCloser{}
 	}
-	return db
+
+	t.Fatalf("unsupported adapter: %s", config.adapterName)
+	return nil, nil
 }
 
 func shiftErrSlice(errs *[]error) error {
@@ -1967,9 +2022,7 @@ func shiftErrSlice(errs *[]error) error {
 	return err
 }
 
-func getUsersByID(dbi DBAdapter, dialect dialect, resultsPtr *[]User, ids ...uint) error {
-	db := dbi.(SQLAdapter)
-
+func getUsersByID(db DBAdapter, dialect dialect, resultsPtr *[]User, ids ...uint) error {
 	placeholders := make([]string, len(ids))
 	params := make([]interface{}, len(ids))
 	for i := range ids {
@@ -1978,7 +2031,8 @@ func getUsersByID(dbi DBAdapter, dialect dialect, resultsPtr *[]User, ids ...uin
 	}
 
 	results := []User{}
-	rows, err := db.DB.Query(
+	rows, err := db.QueryContext(
+		context.TODO(),
 		fmt.Sprintf(
 			"SELECT id, name, age FROM users WHERE id IN (%s)",
 			strings.Join(placeholders, ", "),
@@ -2009,12 +2063,18 @@ func getUsersByID(dbi DBAdapter, dialect dialect, resultsPtr *[]User, ids ...uin
 	return nil
 }
 
-func getUserByID(dbi DBAdapter, dialect dialect, result *User, id uint) error {
-	db := dbi.(SQLAdapter)
+func getUserByID(db DBAdapter, dialect dialect, result *User, id uint) error {
+	rows, err := db.QueryContext(context.TODO(), `SELECT id, name, age, address FROM users WHERE id=`+dialect.Placeholder(0), id)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
 
-	row := db.DB.QueryRow(`SELECT id, name, age, address FROM users WHERE id=`+dialect.Placeholder(0), id)
-	if row.Err() != nil {
-		return row.Err()
+	if rows.Next() == false {
+		if rows.Err() != nil {
+			return rows.Err()
+		}
+		return sql.ErrNoRows
 	}
 
 	value := jsonSerializable{
@@ -2022,7 +2082,7 @@ func getUserByID(dbi DBAdapter, dialect dialect, result *User, id uint) error {
 		Attr:       &result.Address,
 	}
 
-	err := row.Scan(&result.ID, &result.Name, &result.Age, &value)
+	err = rows.Scan(&result.ID, &result.Name, &result.Age, &value)
 	if err != nil {
 		return err
 	}
@@ -2030,16 +2090,24 @@ func getUserByID(dbi DBAdapter, dialect dialect, result *User, id uint) error {
 	return nil
 }
 
-func getUserByName(dbi DBAdapter, dialect dialect, result *User, name string) error {
-	db := dbi.(SQLAdapter)
+func getUserByName(db DBAdapter, driver string, result *User, name string) error {
+	dialect := supportedDialects[driver]
 
-	row := db.DB.QueryRow(`SELECT id, name, age, address FROM users WHERE name=`+dialect.Placeholder(0), name)
-	if row.Err() != nil {
-		return row.Err()
+	rows, err := db.QueryContext(context.TODO(), `SELECT id, name, age, address FROM users WHERE name=`+dialect.Placeholder(0), name)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	if rows.Next() == false {
+		if rows.Err() != nil {
+			return rows.Err()
+		}
+		return sql.ErrNoRows
 	}
 
 	var rawAddr []byte
-	err := row.Scan(&result.ID, &result.Name, &result.Age, &rawAddr)
+	err = rows.Scan(&result.ID, &result.Name, &result.Age, &rawAddr)
 	if err != nil {
 		return err
 	}
