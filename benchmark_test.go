@@ -52,6 +52,32 @@ func BenchmarkInsert(b *testing.B) {
 		})
 	})
 
+	pgxDB, err := ksql.NewWithPGX(ctx, driver, connStr, ksql.Config{
+		MaxOpenConns: 1,
+	})
+	if err != nil {
+		b.Fatalf("error creating pgx client: %s", err)
+	}
+
+	b.Run("pgx-adapter-setup", func(b *testing.B) {
+		err := recreateTable(connStr)
+		if err != nil {
+			b.Fatalf("error creating table: %s", err.Error())
+		}
+
+		b.Run("insert-one", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				err := pgxDB.Insert(ctx, UsersTable, &User{
+					Name: strconv.Itoa(i),
+					Age:  i,
+				})
+				if err != nil {
+					b.Fatalf("insert error: %s", err.Error())
+				}
+			}
+		})
+	})
+
 	sqlxDB, err := sqlx.Open(driver, connStr)
 	sqlxDB.SetMaxOpenConns(1)
 
@@ -129,6 +155,48 @@ func BenchmarkQuery(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var users []User
 				err := ksqlDB.Query(ctx, &users, `SELECT * FROM users OFFSET $1 LIMIT 10`, i%90)
+				if err != nil {
+					b.Fatalf("query error: %s", err.Error())
+				}
+				if len(users) < 10 {
+					b.Fatalf("expected 10 scanned users, but got: %d", len(users))
+				}
+			}
+		})
+	})
+
+	pgxDB, err := ksql.NewWithPGX(ctx, driver, connStr, ksql.Config{
+		MaxOpenConns: 1,
+	})
+	if err != nil {
+		b.Fatalf("error creating pgx client: %s", err)
+	}
+
+	b.Run("pgx-adapter-setup", func(b *testing.B) {
+		err := recreateTable(connStr)
+		if err != nil {
+			b.Fatalf("error creating table: %s", err.Error())
+		}
+
+		err = insertUsers(connStr, 100)
+		if err != nil {
+			b.Fatalf("error inserting users: %s", err.Error())
+		}
+
+		b.Run("single-row", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				var user User
+				err := pgxDB.QueryOne(ctx, &user, `SELECT * FROM users OFFSET $1 LIMIT 1`, i%100)
+				if err != nil {
+					b.Fatalf("query error: %s", err.Error())
+				}
+			}
+		})
+
+		b.Run("multiple-rows", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				var users []User
+				err := pgxDB.Query(ctx, &users, `SELECT * FROM users OFFSET $1 LIMIT 10`, i%90)
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}
