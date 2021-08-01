@@ -101,17 +101,20 @@ func New(
 
 // NewWithPGX instantiates a new KissSQL client using the pgx
 // library in the backend
-//
-// Configurations such as max open connections can be passed through
-// the URL using the pgxpool `Config.ConnString()` or building the URL manually.
-//
-// More info at: https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool#Config
 func NewWithPGX(
 	ctx context.Context,
 	dbDriver string,
 	connectionString string,
+	config Config,
 ) (db DB, err error) {
-	pool, err := pgxpool.Connect(ctx, connectionString)
+	pgxConf, err := pgxpool.ParseConfig(connectionString)
+	if err != nil {
+		return DB{}, err
+	}
+
+	pgxConf.MaxConns = int32(config.MaxOpenConns)
+
+	pool, err := pgxpool.ConnectConfig(ctx, pgxConf)
 	if err != nil {
 		return DB{}, err
 	}
