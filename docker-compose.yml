@@ -15,3 +15,22 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=${DB_NAME:-ksql}
+
+  mysql:
+    image: mysql
+    restart: always
+    ports:
+      - "127.0.0.1:3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: mysql
+
+  sqlserver:
+    image: microsoft/mssql-server-linux:2017-latest
+    restart: always
+    ports:
+      - "127.0.0.1:1433:1433"
+      - "127.0.0.1:1434:1434"
+    environment:
+      SA_PASSWORD: "Sqls3rv3r"
+      ACCEPT_EULA: "Y"

@@ -5,11 +5,10 @@ import (
 	"testing"
 
 	gomock "github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
 	"github.com/tj/assert"
 	"github.com/vingarcia/ksql"
+	"github.com/vingarcia/ksql/kstructs"
 	"github.com/vingarcia/ksql/nullable"
-	"github.com/vingarcia/ksql/structs"
 )
 
 func TestCreateUser(t *testing.T) {
@@ -17,16 +16,16 @@ func TestCreateUser(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		usersTableMock := NewMockSQLProvider(controller)
+		mockDB := NewMockProvider(controller)
 
 		s := Service{
-			usersTable:      usersTableMock,
+			db:              mockDB,
 			streamChunkSize: 100,
 		}
 
 		var users []interface{}
-		usersTableMock.EXPECT().Insert(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, records ...interface{}) error {
+		mockDB.EXPECT().Insert(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, table ksql.Table, records ...interface{}) error {
 				users = append(users, records...)
 				return nil
 			})
@@ -43,23 +42,23 @@ func TestCreateUser(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		usersTableMock := NewMockSQLProvider(controller)
+		mockDB := NewMockProvider(controller)
 
 		s := Service{
-			usersTable:      usersTableMock,
+			db:              mockDB,
 			streamChunkSize: 100,
 		}
 
 		var users []map[string]interface{}
-		usersTableMock.EXPECT().Insert(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, records ...interface{}) error {
+		mockDB.EXPECT().Insert(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, table ksql.Table, records ...interface{}) error {
 				for _, record := range records {
 					// The StructToMap function will convert a struct with `ksql` tags
 					// into a map using the ksql attr names as keys.
 					//
 					// If you are inserting an anonymous struct (not usual) this function
 					// can make your tests shorter:
-					uMap, err := structs.StructToMap(record)
+					uMap, err := kstructs.StructToMap(record)
 					if err != nil {
 						return err
 					}
@@ -83,28 +82,28 @@ func TestUpdateUserScore(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		usersTableMock := NewMockSQLProvider(controller)
+		mockDB := NewMockProvider(controller)
 
 		s := Service{
-			usersTable:      usersTableMock,
+			db:              mockDB,
 			streamChunkSize: 100,
 		}
 
 		var users []interface{}
 		gomock.InOrder(
-			usersTableMock.EXPECT().QueryOne(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			mockDB.EXPECT().QueryOne(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 				DoAndReturn(func(ctx context.Context, result interface{}, query string, params ...interface{}) error {
 					// This function will use reflection to fill the
 					// struct fields with the values from the map
-					return structs.FillStructWith(result, map[string]interface{}{
+					return kstructs.FillStructWith(result, map[string]interface{}{
 						// Use int this map the keys you set on the ksql tags, e.g. `ksql:"score"`
 						// Each of these fields represent the database rows returned
 						// by the query.
 						"score": 42,
 					})
 				}),
-			usersTableMock.EXPECT().Update(gomock.Any(), gomock.Any()).
-				DoAndReturn(func(ctx context.Context, records ...interface{}) error {
+			mockDB.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).
+				DoAndReturn(func(ctx context.Context, table ksql.Table, records ...interface{}) error {
 					users = append(users, records...)
 					return nil
 				}),
@@ -127,28 +126,28 @@ func TestListUsers(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		usersTableMock := NewMockSQLProvider(controller)
+		mockDB := NewMockProvider(controller)
 
 		s := Service{
-			usersTable:      usersTableMock,
+			db:              mockDB,
 			streamChunkSize: 100,
 		}
 
 		gomock.InOrder(
-			usersTableMock.EXPECT().QueryOne(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			mockDB.EXPECT().QueryOne(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 				DoAndReturn(func(ctx context.Context, result interface{}, query string, params ...interface{}) error {
 					// This function will use reflection to fill the
 					// struct fields with the values from the map
-					return structs.FillStructWith(result, map[string]interface{}{
+					return kstructs.FillStructWith(result, map[string]interface{}{
 						// Use int this map the keys you set on the ksql tags, e.g. `ksql:"score"`
 						// Each of these fields represent the database rows returned
 						// by the query.
 						"count": 420,
 					})
 				}),
-			usersTableMock.EXPECT().Query(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			mockDB.EXPECT().Query(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 				DoAndReturn(func(ctx context.Context, results interface{}, query string, params ...interface{}) error {
-					return structs.FillSliceWith(results, []map[string]interface{}{
+					return kstructs.FillSliceWith(results, []map[string]interface{}{
 						{
 							"id":   1,
 							"name": "fake name",
@@ -189,28 +188,26 @@ func TestStreamAllUsers(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		usersTableMock := NewMockSQLProvider(controller)
+		mockDB := NewMockProvider(controller)
 
 		s := Service{
-			usersTable:      usersTableMock,
+			db:              mockDB,
 			streamChunkSize: 2,
 		}
 
-		usersTableMock.EXPECT().QueryChunks(gomock.Any(), gomock.Any()).
+		mockDB.EXPECT().QueryChunks(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(ctx context.Context, parser ksql.ChunkParser) error {
-				fn, ok := parser.ForEachChunk.(func(users []UserEntity) error)
-				require.True(t, ok)
 				// Chunk 1:
-				err := fn([]UserEntity{
+				err := kstructs.CallFunctionWithRows(parser.ForEachChunk, []map[string]interface{}{
 					{
-						ID:   1,
-						Name: nullable.String("fake name"),
-						Age:  nullable.Int(42),
+						"id":   1,
+						"name": "fake name",
+						"age":  42,
 					},
 					{
-						ID:   2,
-						Name: nullable.String("another fake name"),
-						Age:  nullable.Int(43),
+						"id":   2,
+						"name": "another fake name",
+						"age":  43,
 					},
 				})
 				if err != nil {
@@ -218,11 +215,11 @@ func TestStreamAllUsers(t *testing.T) {
 				}
 
 				// Chunk 2:
-				err = fn([]UserEntity{
+				err = kstructs.CallFunctionWithRows(parser.ForEachChunk, []map[string]interface{}{
 					{
-						ID:   3,
-						Name: nullable.String("yet another fake name"),
-						Age:  nullable.Int(44),
+						"id":   3,
+						"name": "yet another fake name",
+						"age":  44,
 					},
 				})
 				return err
@@ -263,16 +260,16 @@ func TestDeleteUser(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
-		usersTableMock := NewMockSQLProvider(controller)
+		mockDB := NewMockProvider(controller)
 
 		s := Service{
-			usersTable:      usersTableMock,
+			db:              mockDB,
 			streamChunkSize: 100,
 		}
 
 		var ids []interface{}
-		usersTableMock.EXPECT().Delete(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, idArgs ...interface{}) error {
+		mockDB.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, table ksql.Table, idArgs ...interface{}) error {
 				ids = append(ids, idArgs...)
 				return nil
 			})

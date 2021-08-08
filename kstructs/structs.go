@@ -1,48 +1,58 @@
-package structs
+package kstructs
 
 import (
 	"fmt"
 	"reflect"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
-type structInfo struct {
-	byIndex map[int]*fieldInfo
-	byName  map[string]*fieldInfo
+// StructInfo stores metainformation of the struct
+// parser in order to help the ksql library to work
+// efectively and efficiently with reflection.
+type StructInfo struct {
+	IsNestedStruct bool
+	byIndex        map[int]*FieldInfo
+	byName         map[string]*FieldInfo
 }
 
-type fieldInfo struct {
+// FieldInfo contains reflection and tags
+// information regarding a specific field
+// of a struct.
+type FieldInfo struct {
 	Name            string
 	Index           int
 	Valid           bool
 	SerializeAsJSON bool
 }
 
-func (s structInfo) ByIndex(idx int) *fieldInfo {
+// ByIndex returns either the *FieldInfo of a valid
+// empty struct with Valid set to false
+func (s StructInfo) ByIndex(idx int) *FieldInfo {
 	field, found := s.byIndex[idx]
 	if !found {
-		return &fieldInfo{}
+		return &FieldInfo{}
 	}
 	return field
 }
 
-func (s structInfo) ByName(name string) *fieldInfo {
+// ByName returns either the *FieldInfo of a valid
+// empty struct with Valid set to false
+func (s StructInfo) ByName(name string) *FieldInfo {
 	field, found := s.byName[name]
 	if !found {
-		return &fieldInfo{}
+		return &FieldInfo{}
 	}
 	return field
 }
 
-func (s structInfo) Add(field fieldInfo) {
+func (s StructInfo) add(field FieldInfo) {
 	field.Valid = true
 	s.byIndex[field.Index] = &field
 	s.byName[field.Name] = &field
 }
 
-func (s structInfo) NumFields() int {
+// NumFields ...
+func (s StructInfo) NumFields() int {
 	return len(s.byIndex)
 }
 
@@ -50,7 +60,7 @@ func (s structInfo) NumFields() int {
 // because the total number of types on a program
 // should be finite. So keeping a single cache here
 // works fine.
-var tagInfoCache = map[reflect.Type]structInfo{}
+var tagInfoCache = map[reflect.Type]StructInfo{}
 
 // GetTagInfo efficiently returns the type information
 // using a global private cache
@@ -58,16 +68,17 @@ var tagInfoCache = map[reflect.Type]structInfo{}
 // In the future we might move this cache inside
 // a struct, but for now this accessor is the one
 // we are using
-func GetTagInfo(key reflect.Type) structInfo {
+func GetTagInfo(key reflect.Type) StructInfo {
 	return getCachedTagInfo(tagInfoCache, key)
 }
 
-func getCachedTagInfo(tagInfoCache map[reflect.Type]structInfo, key reflect.Type) structInfo {
-	info, found := tagInfoCache[key]
-	if !found {
-		info = getTagNames(key)
-		tagInfoCache[key] = info
+func getCachedTagInfo(tagInfoCache map[reflect.Type]StructInfo, key reflect.Type) StructInfo {
+	if info, found := tagInfoCache[key]; found {
+		return info
 	}
+
+	info := getTagNames(key)
+	tagInfoCache[key] = info
 	return info
 }
 
@@ -110,56 +121,6 @@ func StructToMap(obj interface{}) (map[string]interface{}, error) {
 	}
 
 	return m, nil
-}
-
-// FillStructWith is meant to be used on unit tests to mock
-// the response from the database.
-//
-// The first argument is any struct you are passing to a ksql func,
-// and the second is a map representing a database row you want
-// to use to update this struct.
-func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
-	v := reflect.ValueOf(record)
-	t := v.Type()
-
-	if t.Kind() != reflect.Ptr {
-		return fmt.Errorf(
-			"FillStructWith: expected input to be a pointer to struct but got %T",
-			record,
-		)
-	}
-
-	t = t.Elem()
-	v = v.Elem()
-
-	if t.Kind() != reflect.Struct {
-		return fmt.Errorf(
-			"FillStructWith: expected input kind to be a struct but got %T",
-			record,
-		)
-	}
-
-	info := getCachedTagInfo(tagInfoCache, t)
-	for colName, rawSrc := range dbRow {
-		fieldInfo := info.ByName(colName)
-		if !fieldInfo.Valid {
-			// Ignore columns not tagged with `ksql:"..."`
-			continue
-		}
-
-		src := NewPtrConverter(rawSrc)
-		dest := v.Field(fieldInfo.Index)
-		destType := t.Field(fieldInfo.Index).Type
-
-		destValue, err := src.Convert(destType)
-		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("FillStructWith: error on field `%s`", colName))
-		}
-
-		dest.Set(destValue)
-	}
-
-	return nil
 }
 
 // PtrConverter was created to make it easier
@@ -243,58 +204,15 @@ func (p PtrConverter) Convert(destType reflect.Type) (reflect.Value, error) {
 	return destValue, nil
 }
 
-// FillSliceWith is meant to be used on unit tests to mock
-// the response from the database.
-//
-// The first argument is any slice of structs you are passing to a ksql func,
-// and the second is a slice of maps representing the database rows you want
-// to use to update this struct.
-func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error {
-	sliceRef := reflect.ValueOf(entities)
-	sliceType := sliceRef.Type()
-	if sliceType.Kind() != reflect.Ptr {
-		return fmt.Errorf(
-			"FillSliceWith: expected input to be a pointer to struct but got %v",
-			sliceType,
-		)
-	}
-
-	structType, isSliceOfPtrs, err := DecodeAsSliceOfStructs(sliceType.Elem())
-	if err != nil {
-		return errors.Wrap(err, "FillSliceWith")
-	}
-
-	slice := sliceRef.Elem()
-	for idx, row := range dbRows {
-		if slice.Len() <= idx {
-			var elemValue reflect.Value
-			elemValue = reflect.New(structType)
-			if !isSliceOfPtrs {
-				elemValue = elemValue.Elem()
-			}
-			slice = reflect.Append(slice, elemValue)
-		}
-
-		err := FillStructWith(slice.Index(idx).Addr().Interface(), row)
-		if err != nil {
-			return errors.Wrap(err, "FillSliceWith")
-		}
-	}
-
-	sliceRef.Elem().Set(slice)
-
-	return nil
-}
-
 // This function collects only the names
 // that will be used from the input type.
 //
 // This should save several calls to `Field(i).Tag.Get("foo")`
 // which improves performance by a lot.
-func getTagNames(t reflect.Type) structInfo {
-	info := structInfo{
-		byIndex: map[int]*fieldInfo{},
-		byName:  map[string]*fieldInfo{},
+func getTagNames(t reflect.Type) StructInfo {
+	info := StructInfo{
+		byIndex: map[int]*FieldInfo{},
+		byName:  map[string]*FieldInfo{},
 	}
 	for i := 0; i < t.NumField(); i++ {
 		name := t.Field(i).Tag.Get("ksql")
@@ -309,11 +227,34 @@ func getTagNames(t reflect.Type) structInfo {
 			serializeAsJSON = tags[1] == "json"
 		}
 
-		info.Add(fieldInfo{
+		info.add(FieldInfo{
 			Name:            name,
 			Index:           i,
 			SerializeAsJSON: serializeAsJSON,
 		})
+	}
+
+	// If there were `ksql` tags present, then we are finished:
+	if len(info.byIndex) > 0 {
+		return info
+	}
+
+	// If there are no `ksql` tags in the struct, lets assume
+	// it is a struct tagged with `tablename` for allowing JOINs
+	for i := 0; i < t.NumField(); i++ {
+		name := t.Field(i).Tag.Get("tablename")
+		if name == "" {
+			continue
+		}
+
+		info.add(FieldInfo{
+			Name:  name,
+			Index: i,
+		})
+	}
+
+	if len(info.byIndex) > 0 {
+		info.IsNestedStruct = true
 	}
 
 	return info

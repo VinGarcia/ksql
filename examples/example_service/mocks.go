@@ -12,33 +12,33 @@ import (
 	ksql "github.com/vingarcia/ksql"
 )
 
-// MockSQLProvider is a mock of SQLProvider interface.
-type MockSQLProvider struct {
+// MockProvider is a mock of Provider interface.
+type MockProvider struct {
 	ctrl     *gomock.Controller
-	recorder *MockSQLProviderMockRecorder
+	recorder *MockProviderMockRecorder
 }
 
-// MockSQLProviderMockRecorder is the mock recorder for MockSQLProvider.
-type MockSQLProviderMockRecorder struct {
-	mock *MockSQLProvider
+// MockProviderMockRecorder is the mock recorder for MockProvider.
+type MockProviderMockRecorder struct {
+	mock *MockProvider
 }
 
-// NewMockSQLProvider creates a new mock instance.
-func NewMockSQLProvider(ctrl *gomock.Controller) *MockSQLProvider {
-	mock := &MockSQLProvider{ctrl: ctrl}
-	mock.recorder = &MockSQLProviderMockRecorder{mock}
+// NewMockProvider creates a new mock instance.
+func NewMockProvider(ctrl *gomock.Controller) *MockProvider {
+	mock := &MockProvider{ctrl: ctrl}
+	mock.recorder = &MockProviderMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockSQLProvider) EXPECT() *MockSQLProviderMockRecorder {
+func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
 }
 
 // Delete mocks base method.
-func (m *MockSQLProvider) Delete(ctx context.Context, idsOrRecords ...interface{}) error {
+func (m *MockProvider) Delete(ctx context.Context, table ksql.Table, idsOrRecords ...interface{}) error {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{ctx}
+	varargs := []interface{}{ctx, table}
 	for _, a := range idsOrRecords {
 		varargs = append(varargs, a)
 	}
@@ -48,14 +48,14 @@ func (m *MockSQLProvider) Delete(ctx context.Context, idsOrRecords ...interface{
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockSQLProviderMockRecorder) Delete(ctx interface{}, idsOrRecords ...interface{}) *gomock.Call {
+func (mr *MockProviderMockRecorder) Delete(ctx, table interface{}, idsOrRecords ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{ctx}, idsOrRecords...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockSQLProvider)(nil).Delete), varargs...)
+	varargs := append([]interface{}{ctx, table}, idsOrRecords...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockProvider)(nil).Delete), varargs...)
 }
 
 // Exec mocks base method.
-func (m *MockSQLProvider) Exec(ctx context.Context, query string, params ...interface{}) error {
+func (m *MockProvider) Exec(ctx context.Context, query string, params ...interface{}) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, query}
 	for _, a := range params {
@@ -67,28 +67,28 @@ func (m *MockSQLProvider) Exec(ctx context.Context, query string, params ...inte
 }
 
 // Exec indicates an expected call of Exec.
-func (mr *MockSQLProviderMockRecorder) Exec(ctx, query interface{}, params ...interface{}) *gomock.Call {
+func (mr *MockProviderMockRecorder) Exec(ctx, query interface{}, params ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, query}, params...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exec", reflect.TypeOf((*MockSQLProvider)(nil).Exec), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exec", reflect.TypeOf((*MockProvider)(nil).Exec), varargs...)
 }
 
 // Insert mocks base method.
-func (m *MockSQLProvider) Insert(ctx context.Context, record interface{}) error {
+func (m *MockProvider) Insert(ctx context.Context, table ksql.Table, record interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Insert", ctx, record)
+	ret := m.ctrl.Call(m, "Insert", ctx, table, record)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Insert indicates an expected call of Insert.
-func (mr *MockSQLProviderMockRecorder) Insert(ctx, record interface{}) *gomock.Call {
+func (mr *MockProviderMockRecorder) Insert(ctx, table, record interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Insert", reflect.TypeOf((*MockSQLProvider)(nil).Insert), ctx, record)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Insert", reflect.TypeOf((*MockProvider)(nil).Insert), ctx, table, record)
 }
 
 // Query mocks base method.
-func (m *MockSQLProvider) Query(ctx context.Context, records interface{}, query string, params ...interface{}) error {
+func (m *MockProvider) Query(ctx context.Context, records interface{}, query string, params ...interface{}) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, records, query}
 	for _, a := range params {
@@ -100,14 +100,14 @@ func (m *MockSQLProvider) Query(ctx context.Context, records interface{}, query 
 }
 
 // Query indicates an expected call of Query.
-func (mr *MockSQLProviderMockRecorder) Query(ctx, records, query interface{}, params ...interface{}) *gomock.Call {
+func (mr *MockProviderMockRecorder) Query(ctx, records, query interface{}, params ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, records, query}, params...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Query", reflect.TypeOf((*MockSQLProvider)(nil).Query), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Query", reflect.TypeOf((*MockProvider)(nil).Query), varargs...)
 }
 
 // QueryChunks mocks base method.
-func (m *MockSQLProvider) QueryChunks(ctx context.Context, parser ksql.ChunkParser) error {
+func (m *MockProvider) QueryChunks(ctx context.Context, parser ksql.ChunkParser) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "QueryChunks", ctx, parser)
 	ret0, _ := ret[0].(error)
@@ -115,13 +115,13 @@ func (m *MockSQLProvider) QueryChunks(ctx context.Context, parser ksql.ChunkPars
 }
 
 // QueryChunks indicates an expected call of QueryChunks.
-func (mr *MockSQLProviderMockRecorder) QueryChunks(ctx, parser interface{}) *gomock.Call {
+func (mr *MockProviderMockRecorder) QueryChunks(ctx, parser interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryChunks", reflect.TypeOf((*MockSQLProvider)(nil).QueryChunks), ctx, parser)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryChunks", reflect.TypeOf((*MockProvider)(nil).QueryChunks), ctx, parser)
 }
 
 // QueryOne mocks base method.
-func (m *MockSQLProvider) QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error {
+func (m *MockProvider) QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, record, query}
 	for _, a := range params {
@@ -133,14 +133,14 @@ func (m *MockSQLProvider) QueryOne(ctx context.Context, record interface{}, quer
 }
 
 // QueryOne indicates an expected call of QueryOne.
-func (mr *MockSQLProviderMockRecorder) QueryOne(ctx, record, query interface{}, params ...interface{}) *gomock.Call {
+func (mr *MockProviderMockRecorder) QueryOne(ctx, record, query interface{}, params ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, record, query}, params...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryOne", reflect.TypeOf((*MockSQLProvider)(nil).QueryOne), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryOne", reflect.TypeOf((*MockProvider)(nil).QueryOne), varargs...)
 }
 
 // Transaction mocks base method.
-func (m *MockSQLProvider) Transaction(ctx context.Context, fn func(ksql.SQLProvider) error) error {
+func (m *MockProvider) Transaction(ctx context.Context, fn func(ksql.Provider) error) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Transaction", ctx, fn)
 	ret0, _ := ret[0].(error)
@@ -148,21 +148,21 @@ func (m *MockSQLProvider) Transaction(ctx context.Context, fn func(ksql.SQLProvi
 }
 
 // Transaction indicates an expected call of Transaction.
-func (mr *MockSQLProviderMockRecorder) Transaction(ctx, fn interface{}) *gomock.Call {
+func (mr *MockProviderMockRecorder) Transaction(ctx, fn interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Transaction", reflect.TypeOf((*MockSQLProvider)(nil).Transaction), ctx, fn)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Transaction", reflect.TypeOf((*MockProvider)(nil).Transaction), ctx, fn)
 }
 
 // Update mocks base method.
-func (m *MockSQLProvider) Update(ctx context.Context, record interface{}) error {
+func (m *MockProvider) Update(ctx context.Context, table ksql.Table, record interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Update", ctx, record)
+	ret := m.ctrl.Call(m, "Update", ctx, table, record)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Update indicates an expected call of Update.
-func (mr *MockSQLProviderMockRecorder) Update(ctx, record interface{}) *gomock.Call {
+func (mr *MockProviderMockRecorder) Update(ctx, table, record interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockSQLProvider)(nil).Update), ctx, record)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockProvider)(nil).Update), ctx, table, record)
 }

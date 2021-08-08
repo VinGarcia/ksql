@@ -8,13 +8,20 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/vingarcia/ksql"
-	"github.com/vingarcia/ksql/structs"
+	"github.com/vingarcia/ksql/kstructs"
 )
 
+// Builder is the basic container for injecting
+// query builder configurations.
+//
+// All the Query structs can also be called
+// directly without this builder, but we kept it
+// here for convenience.
 type Builder struct {
 	dialect ksql.Dialect
 }
 
+// New creates a new Builder container.
 func New(driver string) (Builder, error) {
 	dialect, err := ksql.GetDriverDialect(driver)
 	return Builder{
@@ -22,6 +29,8 @@ func New(driver string) (Builder, error) {
 	}, err
 }
 
+// Build receives a query builder struct, injects it with the configurations
+// build the query according to its arguments.
 func (builder *Builder) Build(query Query) (sqlQuery string, params []interface{}, _ error) {
 	var b strings.Builder
 
@@ -66,6 +75,7 @@ func (builder *Builder) Build(query Query) (sqlQuery string, params []interface{
 	return b.String(), params, nil
 }
 
+// Query is is the struct template for building SELECT queries.
 type Query struct {
 	// Select expects either a struct using the `ksql` tags
 	// or a string listing the column names using SQL syntax,
@@ -84,6 +94,7 @@ type Query struct {
 	OrderBy OrderByQuery
 }
 
+// WhereQuery represents a single condition in a WHERE expression.
 type WhereQuery struct {
 	// Accepts any SQL boolean expression
 	// This expression may optionally contain
@@ -99,6 +110,8 @@ type WhereQuery struct {
 	params []interface{}
 }
 
+// WhereQueries is the helper for creating complex WHERE queries
+// in a dynamic way.
 type WhereQueries []WhereQuery
 
 func (w WhereQueries) build(dialect ksql.Dialect) (query string, params []interface{}) {
@@ -116,6 +129,8 @@ func (w WhereQueries) build(dialect ksql.Dialect) (query string, params []interf
 	return strings.Join(conds, " AND "), params
 }
 
+// Where adds a new bollean condition to an existing
+// WhereQueries helper.
 func (w WhereQueries) Where(cond string, params ...interface{}) WhereQueries {
 	return append(w, WhereQuery{
 		cond:   cond,
@@ -123,6 +138,7 @@ func (w WhereQueries) Where(cond string, params ...interface{}) WhereQueries {
 	})
 }
 
+// WhereIf condionally adds a new boolean expression to the WhereQueries helper.
 func (w WhereQueries) WhereIf(cond string, param interface{}) WhereQueries {
 	if param == nil || reflect.ValueOf(param).IsNil() {
 		return w
@@ -134,6 +150,8 @@ func (w WhereQueries) WhereIf(cond string, param interface{}) WhereQueries {
 	})
 }
 
+// Where adds a new bollean condition to an existing
+// WhereQueries helper.
 func Where(cond string, params ...interface{}) WhereQueries {
 	return WhereQueries{{
 		cond:   cond,
@@ -141,6 +159,7 @@ func Where(cond string, params ...interface{}) WhereQueries {
 	}}
 }
 
+// WhereIf condionally adds a new boolean expression to the WhereQueries helper
 func WhereIf(cond string, param interface{}) WhereQueries {
 	if param == nil || reflect.ValueOf(param).IsNil() {
 		return WhereQueries{}
@@ -152,11 +171,14 @@ func WhereIf(cond string, param interface{}) WhereQueries {
 	}}
 }
 
+// OrderByQuery represents the ORDER BY part of the query
 type OrderByQuery struct {
 	fields string
 	desc   bool
 }
 
+// Desc is a setter function for configuring the
+// ORDER BY part of the query as DESC
 func (o OrderByQuery) Desc() OrderByQuery {
 	return OrderByQuery{
 		fields: o.fields,
@@ -164,6 +186,8 @@ func (o OrderByQuery) Desc() OrderByQuery {
 	}
 }
 
+// OrderBy is a helper for building the ORDER BY
+// part of the query.
 func OrderBy(fields string) OrderByQuery {
 	return OrderByQuery{
 		fields: fields,
@@ -188,7 +212,7 @@ func buildSelectQuery(obj interface{}, dialect ksql.Dialect) (string, error) {
 		return query, nil
 	}
 
-	info := structs.GetTagInfo(t)
+	info := kstructs.GetTagInfo(t)
 
 	var escapedNames []string
 	for i := 0; i < info.NumFields(); i++ {
