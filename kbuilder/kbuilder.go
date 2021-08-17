@@ -21,6 +21,10 @@ type Builder struct {
 	dialect ksql.Dialect
 }
 
+type queryBuilder interface {
+	BuildQuery(dialect ksql.Dialect) (sqlQuery string, params []interface{}, _ error)
+}
+
 // New creates a new Builder container.
 func New(driver string) (Builder, error) {
 	dialect, err := ksql.GetDriverDialect(driver)
@@ -31,48 +35,8 @@ func New(driver string) (Builder, error) {
 
 // Build receives a query builder struct, injects it with the configurations
 // build the query according to its arguments.
-func (builder *Builder) Build(query Query) (sqlQuery string, params []interface{}, _ error) {
-	var b strings.Builder
-
-	switch v := query.Select.(type) {
-	case string:
-		b.WriteString("SELECT " + v)
-	default:
-		selectQuery, err := buildSelectQuery(v, builder.dialect)
-		if err != nil {
-			return "", nil, errors.Wrap(err, "error reading the Select field")
-		}
-		b.WriteString("SELECT " + selectQuery)
-	}
-
-	b.WriteString(" FROM " + query.From)
-
-	if len(query.Where) > 0 {
-		var whereQuery string
-		whereQuery, params = query.Where.build(builder.dialect)
-		b.WriteString(" WHERE " + whereQuery)
-	}
-
-	if strings.TrimSpace(query.From) == "" {
-		return "", nil, fmt.Errorf("the From field is mandatory for every query")
-	}
-
-	if query.OrderBy.fields != "" {
-		b.WriteString(" ORDER BY " + query.OrderBy.fields)
-		if query.OrderBy.desc {
-			b.WriteString(" DESC")
-		}
-	}
-
-	if query.Limit > 0 {
-		b.WriteString(" LIMIT " + strconv.Itoa(query.Limit))
-	}
-
-	if query.Offset > 0 {
-		b.WriteString(" OFFSET " + strconv.Itoa(query.Offset))
-	}
-
-	return b.String(), params, nil
+func (builder *Builder) Build(query queryBuilder) (sqlQuery string, params []interface{}, _ error) {
+	return query.BuildQuery(builder.dialect)
 }
 
 // Query is is the struct template for building SELECT queries.
@@ -92,6 +56,62 @@ type Query struct {
 	Limit   int
 	Offset  int
 	OrderBy OrderByQuery
+}
+
+// Build is a utility function for finding the dialect based on the driver and
+// then calling BuildQuery(dialect)
+func (q Query) Build(driver string) (sqlQuery string, params []interface{}, _ error) {
+	dialect, err := ksql.GetDriverDialect(driver)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return q.BuildQuery(dialect)
+}
+
+// BuildQuery implements the QueryBuilder interface
+func (q Query) BuildQuery(dialect ksql.Dialect) (sqlQuery string, params []interface{}, _ error) {
+	var b strings.Builder
+
+	switch v := q.Select.(type) {
+	case string:
+		b.WriteString("SELECT " + v)
+	default:
+		selectQuery, err := buildSelectQuery(v, dialect)
+		if err != nil {
+			return "", nil, errors.Wrap(err, "error reading the Select field")
+		}
+		b.WriteString("SELECT " + selectQuery)
+	}
+
+	b.WriteString(" FROM " + q.From)
+
+	if len(q.Where) > 0 {
+		var whereQuery string
+		whereQuery, params = q.Where.build(dialect)
+		b.WriteString(" WHERE " + whereQuery)
+	}
+
+	if strings.TrimSpace(q.From) == "" {
+		return "", nil, fmt.Errorf("the From field is mandatory for every query")
+	}
+
+	if q.OrderBy.fields != "" {
+		b.WriteString(" ORDER BY " + q.OrderBy.fields)
+		if q.OrderBy.desc {
+			b.WriteString(" DESC")
+		}
+	}
+
+	if q.Limit > 0 {
+		b.WriteString(" LIMIT " + strconv.Itoa(q.Limit))
+	}
+
+	if q.Offset > 0 {
+		b.WriteString(" OFFSET " + strconv.Itoa(q.Offset))
+	}
+
+	return b.String(), params, nil
 }
 
 // WhereQuery represents a single condition in a WHERE expression.
