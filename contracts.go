@@ -14,7 +14,7 @@ var ErrRecordNotFound error = errors.Wrap(sql.ErrNoRows, "ksql: the query return
 // ErrAbortIteration ...
 var ErrAbortIteration error = fmt.Errorf("ksql: abort iteration, should only be used inside QueryChunks function")
 
-// Provider describes the public behavior of this ORM
+// Provider describes the ksql public behavior
 type Provider interface {
 	Insert(ctx context.Context, table Table, record interface{}) error
 	Update(ctx context.Context, table Table, record interface{}) error
