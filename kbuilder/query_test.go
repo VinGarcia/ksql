@@ -11,13 +11,12 @@ import (
 
 type User struct {
 	Name string `ksql:"name"`
-	Age  string `ksql:"age"`
+	Age  int    `ksql:"age"`
 }
 
 var nullField *int
 
-func TestBuilder(t *testing.T) {
-
+func TestSelectQuery(t *testing.T) {
 	tests := []struct {
 		desc           string
 		query          kbuilder.Query
