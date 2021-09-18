@@ -423,18 +423,29 @@ func (c DB) Insert(
 	table Table,
 	record interface{},
 ) error {
-	query, params, scanValues, err := buildInsertQuery(c.dialect, table.name, record, table.idColumns...)
+	v := reflect.ValueOf(record)
+	t := v.Type()
+	if err := assertStructPtr(t); err != nil {
+		return fmt.Errorf(
+			"ksql: expected record to be a pointer to struct, but got: %T",
+			record,
+		)
+	}
+
+	info := kstructs.GetTagInfo(t.Elem())
+
+	query, params, scanValues, err := buildInsertQuery(c.dialect, table.name, t, v, info, record, table.idColumns...)
 	if err != nil {
 		return err
 	}
 
 	switch table.insertMethodFor(c.dialect) {
 	case insertWithReturning, insertWithOutput:
-		err = c.insertReturningIDs(ctx, record, query, params, scanValues, table.idColumns)
+		err = c.insertReturningIDs(ctx, query, params, scanValues, table.idColumns)
 	case insertWithLastInsertID:
-		err = c.insertWithLastInsertID(ctx, record, query, params, table.idColumns[0])
+		err = c.insertWithLastInsertID(ctx, t, v, info, record, query, params, table.idColumns[0])
 	case insertWithNoIDRetrieval:
-		err = c.insertWithNoIDRetrieval(ctx, record, query, params)
+		err = c.insertWithNoIDRetrieval(ctx, query, params)
 	default:
 		// Unsupported drivers should be detected on the New() function,
 		// So we don't expect the code to ever get into this default case.
@@ -446,7 +457,6 @@ func (c DB) Insert(
 
 func (c DB) insertReturningIDs(
 	ctx context.Context,
-	record interface{},
 	query string,
 	params []interface{},
 	scanValues []interface{},
@@ -477,6 +487,9 @@ func (c DB) insertReturningIDs(
 
 func (c DB) insertWithLastInsertID(
 	ctx context.Context,
+	t reflect.Type,
+	v reflect.Value,
+	info kstructs.StructInfo,
 	record interface{},
 	query string,
 	params []interface{},
@@ -486,14 +499,6 @@ func (c DB) insertWithLastInsertID(
 	if err != nil {
 		return err
 	}
-
-	v := reflect.ValueOf(record)
-	t := v.Type()
-	if err = assertStructPtr(t); err != nil {
-		return errors.Wrap(err, "can't write to `"+idName+"` field")
-	}
-
-	info := kstructs.GetTagInfo(t.Elem())
 
 	id, err := result.LastInsertId()
 	if err != nil {
@@ -520,7 +525,6 @@ func (c DB) insertWithLastInsertID(
 
 func (c DB) insertWithNoIDRetrieval(
 	ctx context.Context,
-	record interface{},
 	query string,
 	params []interface{},
 ) error {
@@ -640,20 +644,12 @@ func (c DB) Update(
 func buildInsertQuery(
 	dialect Dialect,
 	tableName string,
+	t reflect.Type,
+	v reflect.Value,
+	info kstructs.StructInfo,
 	record interface{},
 	idNames ...string,
 ) (query string, params []interface{}, scanValues []interface{}, err error) {
-	v := reflect.ValueOf(record)
-	t := v.Type()
-	if err = assertStructPtr(t); err != nil {
-		return "", nil, nil, fmt.Errorf(
-			"ksql: expected record to be a pointer to struct, but got: %T",
-			record,
-		)
-	}
-
-	info := kstructs.GetTagInfo(t.Elem())
-
 	recordMap, err := kstructs.StructToMap(record)
 	if err != nil {
 		return "", nil, nil, err
