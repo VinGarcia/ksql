@@ -594,6 +594,17 @@ func TestQueryOne(t *testing.T) {
 				assert.NotEqual(t, nil, err)
 			})
 
+			t.Run("should report error if it receives a nil pointer to a struct", func(t *testing.T) {
+				db, closer := connectDB(t, config)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, config.driver)
+				var user *User
+				err := c.QueryOne(ctx, user, `SELECT * FROM users`)
+				assert.NotEqual(t, nil, err)
+			})
+
 			t.Run("should report error if the query is not valid", func(t *testing.T) {
 				db, closer := connectDB(t, config)
 				defer closer.Close()
