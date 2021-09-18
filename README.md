@@ -68,7 +68,7 @@ The current interface is as follows and we plan on keeping
 it with as little functions as possible, so don't expect many additions:
 
 ```go
-// Provider describes the public behavior of this ORM
+// Provider describes the ksql public behavior
 type Provider interface {
 	Insert(ctx context.Context, table Table, record interface{}) error
 	Update(ctx context.Context, table Table, record interface{}) error
