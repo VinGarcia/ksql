@@ -621,7 +621,18 @@ func (c DB) Update(
 	table Table,
 	record interface{},
 ) error {
-	query, params, err := buildUpdateQuery(c.dialect, table.name, record, table.idColumns...)
+	v := reflect.ValueOf(record)
+	t := v.Type()
+	tStruct := t
+	if t.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return fmt.Errorf("ksql: expected a valid pointer to struct as argument but received a nil pointer: %v", record)
+		}
+		tStruct = t.Elem()
+	}
+	info := kstructs.GetTagInfo(tStruct)
+
+	query, params, err := buildUpdateQuery(c.dialect, table.name, info, record, table.idColumns...)
 	if err != nil {
 		return err
 	}
@@ -744,6 +755,7 @@ func buildInsertQuery(
 func buildUpdateQuery(
 	dialect Dialect,
 	tableName string,
+	info kstructs.StructInfo,
 	record interface{},
 	idFieldNames ...string,
 ) (query string, args []interface{}, err error) {
@@ -772,12 +784,6 @@ func buildUpdateQuery(
 	for key := range recordMap {
 		keys = append(keys, key)
 	}
-
-	t := reflect.TypeOf(record)
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	info := kstructs.GetTagInfo(t)
 
 	var setQuery []string
 	for i, k := range keys {

@@ -1189,6 +1189,18 @@ func TestUpdate(t *testing.T) {
 				})
 				assert.NotEqual(t, nil, err)
 			})
+
+			t.Run("should report error if it receives a nil pointer to a struct", func(t *testing.T) {
+				db, closer := connectDB(t, config)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, config.driver)
+
+				var user *User
+				err := c.Update(ctx, UsersTable, user)
+				assert.NotEqual(t, nil, err)
+			})
 		})
 	}
 }
