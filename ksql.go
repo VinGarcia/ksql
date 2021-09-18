@@ -432,6 +432,10 @@ func (c DB) Insert(
 		)
 	}
 
+	if v.IsNil() {
+		return fmt.Errorf("ksql: expected a valid pointer to struct as argument but received a nil pointer: %v", record)
+	}
+
 	info := kstructs.GetTagInfo(t.Elem())
 
 	query, params, scanValues, err := buildInsertQuery(c.dialect, table.name, t, v, info, record, table.idColumns...)
