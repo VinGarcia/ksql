@@ -67,7 +67,7 @@ func TestInsertQuery(t *testing.T) {
 			expectedErr: true,
 		},
 		{
-			desc: "should report error Data contains an empty list",
+			desc: "should report error if `Data` contains an empty list",
 			query: kbuilder.Insert{
 				Into: "users",
 				Data: []User{},
