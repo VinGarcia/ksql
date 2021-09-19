@@ -1070,7 +1070,7 @@ func TestUpdate(t *testing.T) {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
 
-			t.Run("should update one user correctly", func(t *testing.T) {
+			t.Run("should update one User{} correctly", func(t *testing.T) {
 				db, closer := connectDB(t, config)
 				defer closer.Close()
 
@@ -1099,7 +1099,7 @@ func TestUpdate(t *testing.T) {
 				assert.Equal(t, "Thayane", result.Name)
 			})
 
-			t.Run("should update one user correctly", func(t *testing.T) {
+			t.Run("should update one &User{} correctly", func(t *testing.T) {
 				db, closer := connectDB(t, config)
 				defer closer.Close()
 
@@ -1116,7 +1116,7 @@ func TestUpdate(t *testing.T) {
 				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u.ID)
 
-				err = c.Update(ctx, UsersTable, User{
+				err = c.Update(ctx, UsersTable, &User{
 					ID:   u.ID,
 					Name: "Thayane",
 				})
