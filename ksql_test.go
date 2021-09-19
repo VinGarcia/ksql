@@ -1018,6 +1018,18 @@ func TestDelete(t *testing.T) {
 				assert.Equal(t, 1, len(results))
 				assert.Equal(t, "This won't be deleted", results[0].Name)
 			})
+
+			t.Run("should report error if it receives a nil pointer to a struct", func(t *testing.T) {
+				db, closer := connectDB(t, config)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, config.driver)
+
+				var user *User
+				err := c.Delete(ctx, UsersTable, user)
+				assert.NotEqual(t, nil, err)
+			})
 		})
 	}
 }

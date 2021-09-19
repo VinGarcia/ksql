@@ -583,6 +583,13 @@ func normalizeIDsAsMaps(idNames []string, ids []interface{}) ([]map[string]inter
 	for i := range ids {
 		t := reflect.TypeOf(ids[i])
 		switch t.Kind() {
+		case reflect.Ptr:
+			v := reflect.ValueOf(ids[i])
+			if v.IsNil() {
+				return nil, fmt.Errorf("ksql: expected a valid pointer to struct as argument but received a nil pointer: %v", ids[i])
+			}
+
+			fallthrough
 		case reflect.Struct:
 			m, err := kstructs.StructToMap(ids[i])
 			if err != nil {
