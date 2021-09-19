@@ -918,51 +918,79 @@ func TestDelete(t *testing.T) {
 			})
 
 			t.Run("should delete one id correctly", func(t *testing.T) {
-				db, closer := connectDB(t, config)
-				defer closer.Close()
-
-				ctx := context.Background()
-				c := newTestDB(db, config.driver)
-
-				u1 := User{
-					Name: "Fernanda",
+				tests := []struct {
+					desc               string
+					deletionKeyForUser func(u User) interface{}
+				}{
+					{
+						desc: "passing only the ID as key",
+						deletionKeyForUser: func(u User) interface{} {
+							return u.ID
+						},
+					},
+					{
+						desc: "passing only the entire user",
+						deletionKeyForUser: func(u User) interface{} {
+							return u
+						},
+					},
+					{
+						desc: "passing the address of the user",
+						deletionKeyForUser: func(u User) interface{} {
+							return &u
+						},
+					},
 				}
 
-				err := c.Insert(ctx, UsersTable, &u1)
-				assert.Equal(t, nil, err)
-				assert.NotEqual(t, uint(0), u1.ID)
+				for _, test := range tests {
+					t.Run(test.desc, func(t *testing.T) {
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
-				result := User{}
-				err = getUserByID(c.db, c.dialect, &result, u1.ID)
-				assert.Equal(t, nil, err)
-				assert.Equal(t, u1.ID, result.ID)
+						ctx := context.Background()
+						c := newTestDB(db, config.driver)
 
-				u2 := User{
-					Name: "Won't be deleted",
+						u1 := User{
+							Name: "Fernanda",
+						}
+
+						err := c.Insert(ctx, UsersTable, &u1)
+						assert.Equal(t, nil, err)
+						assert.NotEqual(t, uint(0), u1.ID)
+
+						result := User{}
+						err = getUserByID(c.db, c.dialect, &result, u1.ID)
+						assert.Equal(t, nil, err)
+						assert.Equal(t, u1.ID, result.ID)
+
+						u2 := User{
+							Name: "Won't be deleted",
+						}
+
+						err = c.Insert(ctx, UsersTable, &u2)
+						assert.Equal(t, nil, err)
+						assert.NotEqual(t, uint(0), u2.ID)
+
+						result = User{}
+						err = getUserByID(c.db, c.dialect, &result, u2.ID)
+						assert.Equal(t, nil, err)
+						assert.Equal(t, u2.ID, result.ID)
+
+						err = c.Delete(ctx, UsersTable, test.deletionKeyForUser(u1))
+						assert.Equal(t, nil, err)
+
+						result = User{}
+						err = getUserByID(c.db, c.dialect, &result, u1.ID)
+						assert.Equal(t, sql.ErrNoRows, err)
+
+						result = User{}
+						err = getUserByID(c.db, c.dialect, &result, u2.ID)
+						assert.Equal(t, nil, err)
+
+						assert.NotEqual(t, uint(0), result.ID)
+						assert.Equal(t, "Won't be deleted", result.Name)
+					})
 				}
-
-				err = c.Insert(ctx, UsersTable, &u2)
-				assert.Equal(t, nil, err)
-				assert.NotEqual(t, uint(0), u2.ID)
-
-				result = User{}
-				err = getUserByID(c.db, c.dialect, &result, u2.ID)
-				assert.Equal(t, nil, err)
-				assert.Equal(t, u2.ID, result.ID)
-
-				err = c.Delete(ctx, UsersTable, u1.ID)
-				assert.Equal(t, nil, err)
-
-				result = User{}
-				err = getUserByID(c.db, c.dialect, &result, u1.ID)
-				assert.Equal(t, sql.ErrNoRows, err)
-
-				result = User{}
-				err = getUserByID(c.db, c.dialect, &result, u2.ID)
-				assert.Equal(t, nil, err)
-
-				assert.NotEqual(t, uint(0), result.ID)
-				assert.Equal(t, "Won't be deleted", result.Name)
 			})
 
 			t.Run("should delete multiple ids correctly", func(t *testing.T) {
