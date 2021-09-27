@@ -34,7 +34,7 @@ type DB struct {
 // from database/sql, i.e. if any struct implements the functions below
 // with the exact same semantic as the sql package it will work with ksql.
 //
-// To create a new client using this adapter use ksql.NewWithDB()
+// To create a new client using this adapter use ksql.NewWithAdapter()
 type DBAdapter interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (Result, error)
 	QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error)
@@ -96,7 +96,7 @@ func New(
 
 	db.SetMaxOpenConns(config.MaxOpenConns)
 
-	return NewWithAdapter(SQLAdapter{db}, dbDriver, connectionString)
+	return NewWithAdapter(SQLAdapter{db}, dbDriver)
 }
 
 // NewWithPGX instantiates a new KissSQL client using the pgx
@@ -121,7 +121,7 @@ func NewWithPGX(
 		return DB{}, err
 	}
 
-	db, err = NewWithAdapter(PGXAdapter{pool}, "postgres", connectionString)
+	db, err = NewWithAdapter(PGXAdapter{pool}, "postgres")
 	return db, err
 }
 
@@ -130,7 +130,6 @@ func NewWithPGX(
 func NewWithAdapter(
 	db DBAdapter,
 	dbDriver string,
-	connectionString string,
 ) (DB, error) {
 	dialect := supportedDialects[dbDriver]
 	if dialect == nil {
