@@ -21,6 +21,30 @@ type Mock struct {
 	TransactionFn func(ctx context.Context, fn func(db Provider) error) error
 }
 
+// SetFallbackDatabase will set all the Fn attributes to use
+// the function from the input database.
+//
+// SetFallbackDatabase is useful when you only want to
+// overwrite some of the operations, e.g. for testing errors
+// or if you want to use the same setup for making unit tests
+// and integration tests, this way instead of creating a new server
+// with a real database and another with a mocked one you can start
+// the server once and run both types of tests.
+func (m Mock) SetFallbackDatabase(db Provider) Mock {
+	m.InsertFn = db.Insert
+	m.UpdateFn = db.Update
+	m.DeleteFn = db.Delete
+
+	m.QueryFn = db.Query
+	m.QueryOneFn = db.QueryOne
+	m.QueryChunksFn = db.QueryChunks
+
+	m.ExecFn = db.Exec
+	m.TransactionFn = db.Transaction
+
+	return m
+}
+
 // Insert ...
 func (m Mock) Insert(ctx context.Context, table Table, record interface{}) error {
 	if m.InsertFn == nil {
