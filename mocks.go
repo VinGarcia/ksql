@@ -30,17 +30,50 @@ type Mock struct {
 // and integration tests, this way instead of creating a new server
 // with a real database and another with a mocked one you can start
 // the server once and run both types of tests.
+//
+// Example Usage:
+//
+//	db, err := ksql.New(...)
+//	if err != nil {
+//		t.Fatal(err.Error())
+//	}
+//
+//	mockdb := ksql.Mock{
+//		UpdateFn: func(_ context.Context, _ ksql.Table, record interface{}) error {
+//			return ksql.ErrRecordNotFound
+//		},
+//	}.SetFallbackDatabase(db)
+//
+//	// Passing the address to the service so
+//	// you can change it for each test
+//	myService := myservice.New(..., &mockdb, ...)
 func (m Mock) SetFallbackDatabase(db Provider) Mock {
-	m.InsertFn = db.Insert
-	m.UpdateFn = db.Update
-	m.DeleteFn = db.Delete
+	if m.InsertFn == nil {
+		m.InsertFn = db.Insert
+	}
+	if m.UpdateFn == nil {
+		m.UpdateFn = db.Update
+	}
+	if m.DeleteFn == nil {
+		m.DeleteFn = db.Delete
+	}
 
-	m.QueryFn = db.Query
-	m.QueryOneFn = db.QueryOne
-	m.QueryChunksFn = db.QueryChunks
+	if m.QueryFn == nil {
+		m.QueryFn = db.Query
+	}
+	if m.QueryOneFn == nil {
+		m.QueryOneFn = db.QueryOne
+	}
+	if m.QueryChunksFn == nil {
+		m.QueryChunksFn = db.QueryChunks
+	}
 
-	m.ExecFn = db.Exec
-	m.TransactionFn = db.Transaction
+	if m.ExecFn == nil {
+		m.ExecFn = db.Exec
+	}
+	if m.TransactionFn == nil {
+		m.TransactionFn = db.Transaction
+	}
 
 	return m
 }
