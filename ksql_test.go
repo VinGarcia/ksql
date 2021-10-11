@@ -675,13 +675,14 @@ func TestInsert(t *testing.T) {
 						return
 					}
 
-					ctx := context.Background()
-
 					// Using columns "id" and "name" as IDs:
 					table := NewTable("users", "id", "name")
 
-					c, err := New(config.driver, connectionString[config.driver], Config{})
-					assert.Equal(t, nil, err)
+					db, closer := connectDB(t, config)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
 
 					u := User{
 						Name: "No ID returned",

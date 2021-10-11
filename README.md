@@ -136,6 +136,14 @@ func main() {
 	ctx := context.Background()
 	db, err := ksql.New("sqlite3", "/tmp/hello.sqlite", ksql.Config{
 		MaxOpenConns: 1,
+
+		// UseGolangPlaceholders allows you to use the same placeholder `%s`
+		// for all databases which is useful if you want your code to work in
+		// different platforms.
+		//
+		// Ignore or set this argument to false if you prefer
+		// using the database specific placeholders like `$1`, `?` or `@p1`
+		UseGolangPlaceholders: true,
 	})
 	if err != nil {
 		panic(err.Error())
@@ -186,7 +194,7 @@ func main() {
 
 	// Retrieving Cristina:
 	var cris User
-	err = db.QueryOne(ctx, &cris, "SELECT * FROM users WHERE name = ? ORDER BY id", "Cristina")
+	err = db.QueryOne(ctx, &cris, "SELECT * FROM users WHERE name = %s ORDER BY id", "Cristina")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -234,7 +242,7 @@ func main() {
 	// Making transactions:
 	err = db.Transaction(ctx, func(db ksql.Provider) error {
 		var cris2 User
-		err = db.QueryOne(ctx, &cris2, "SELECT * FROM users WHERE id = ?", cris.ID)
+		err = db.QueryOne(ctx, &cris2, "SELECT * FROM users WHERE id = %s", cris.ID)
 		if err != nil {
 			// This will cause an automatic rollback:
 			return err

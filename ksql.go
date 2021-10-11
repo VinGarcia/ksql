@@ -74,6 +74,11 @@ type Tx interface {
 type Config struct {
 	// MaxOpenCons defaults to 1 if not set
 	MaxOpenConns int
+
+	// If set to true, it will expect the queries to use %s as placeholder for the params
+	// instead of `$1`, `?` or `@p1`, this is not set by default because it is an
+	// extra `fmt.Sprintf()` operation that not all users might want.
+	UseGolangPlaceholders bool
 }
 
 // New instantiates a new KissSQL client
@@ -81,13 +86,13 @@ func New(
 	dbDriver string,
 	connectionString string,
 	config Config,
-) (DB, error) {
+) (Provider, error) {
 	db, err := sql.Open(dbDriver, connectionString)
 	if err != nil {
-		return DB{}, err
+		return nil, err
 	}
 	if err = db.Ping(); err != nil {
-		return DB{}, err
+		return nil, err
 	}
 
 	if config.MaxOpenConns == 0 {
@@ -96,7 +101,17 @@ func New(
 
 	db.SetMaxOpenConns(config.MaxOpenConns)
 
-	return NewWithAdapter(SQLAdapter{db}, dbDriver)
+	kdb, err := NewWithAdapter(SQLAdapter{db}, dbDriver)
+	if err != nil {
+		return nil, err
+	}
+
+	if config.UseGolangPlaceholders {
+		dialect, _ := GetDriverDialect("postgres")
+		kdb = newPlaceholderAdapter(kdb, dialect)
+	}
+
+	return kdb, nil
 }
 
 // NewWithPGX instantiates a new KissSQL client using the pgx
@@ -105,7 +120,7 @@ func NewWithPGX(
 	ctx context.Context,
 	connectionString string,
 	config Config,
-) (db DB, err error) {
+) (db Provider, err error) {
 	pgxConf, err := pgxpool.ParseConfig(connectionString)
 	if err != nil {
 		return DB{}, err
@@ -122,7 +137,16 @@ func NewWithPGX(
 	}
 
 	db, err = NewWithAdapter(PGXAdapter{pool}, "postgres")
-	return db, err
+	if err != nil {
+		return nil, err
+	}
+
+	if config.UseGolangPlaceholders {
+		dialect, _ := GetDriverDialect("postgres")
+		db = newPlaceholderAdapter(db, dialect)
+	}
+
+	return db, nil
 }
 
 // NewWithAdapter allows the user to insert a custom implementation
@@ -130,7 +154,7 @@ func NewWithPGX(
 func NewWithAdapter(
 	db DBAdapter,
 	dbDriver string,
-) (DB, error) {
+) (Provider, error) {
 	dialect := supportedDialects[dbDriver]
 	if dialect == nil {
 		return DB{}, fmt.Errorf("unsupported driver `%s`", dbDriver)
