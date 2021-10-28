@@ -14,6 +14,13 @@ type PGXAdapter struct {
 	db *pgxpool.Pool
 }
 
+// NewPGXAdapter instantiates a new pgx adapter
+func NewPGXAdapter(db *pgxpool.Pool) PGXAdapter {
+	return PGXAdapter{
+		db: db,
+	}
+}
+
 var _ DBAdapter = PGXAdapter{}
 
 // ExecContext implements the DBAdapter interface

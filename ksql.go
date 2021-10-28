@@ -99,8 +99,10 @@ func New(
 	return NewWithAdapter(SQLAdapter{db}, dbDriver)
 }
 
-// NewWithPGX instantiates a new KissSQL client using the pgx
+// NewWithPGX instantiates a new ksql client using the pgx
 // library in the backend
+//
+// deprecated: use kpgx.New() instead
 func NewWithPGX(
 	ctx context.Context,
 	connectionString string,
@@ -121,7 +123,7 @@ func NewWithPGX(
 		return DB{}, err
 	}
 
-	db, err = NewWithAdapter(PGXAdapter{pool}, "postgres")
+	db, err = NewWithAdapter(NewPGXAdapter(pool), "postgres")
 	return db, err
 }
 
