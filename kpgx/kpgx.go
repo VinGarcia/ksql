@@ -13,6 +13,8 @@ func New(
 	connectionString string,
 	config ksql.Config,
 ) (db ksql.DB, err error) {
+	config.SetDefaultValues()
+
 	pgxConf, err := pgxpool.ParseConfig(connectionString)
 	if err != nil {
 		return ksql.DB{}, err

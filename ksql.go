@@ -76,22 +76,26 @@ type Config struct {
 	MaxOpenConns int
 }
 
+func (c *Config) SetDefaultValues() {
+	if c.MaxOpenConns == 0 {
+		c.MaxOpenConns = 1
+	}
+}
+
 // New instantiates a new KissSQL client
 func New(
 	dbDriver string,
 	connectionString string,
 	config Config,
 ) (DB, error) {
+	config.SetDefaultValues()
+
 	db, err := sql.Open(dbDriver, connectionString)
 	if err != nil {
 		return DB{}, err
 	}
 	if err = db.Ping(); err != nil {
 		return DB{}, err
-	}
-
-	if config.MaxOpenConns == 0 {
-		config.MaxOpenConns = 1
 	}
 
 	db.SetMaxOpenConns(config.MaxOpenConns)
@@ -108,6 +112,8 @@ func NewWithPGX(
 	connectionString string,
 	config Config,
 ) (db DB, err error) {
+	config.SetDefaultValues()
+
 	pgxConf, err := pgxpool.ParseConfig(connectionString)
 	if err != nil {
 		return DB{}, err
