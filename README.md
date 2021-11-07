@@ -1,66 +1,84 @@
 
 # KissSQL
 
-If the thing you hate the most when coding is having too much unnecessary
-abstractions and the second thing you hate the most is having verbose
-and repetitive code for routine tasks this library is probably for you.
+KissSQL or the "Keep It Simple" SQL pkg was created because
+of a few insatisfactions with the existing packages for
+interacting with relational databases in Go. To mention a few:
 
-Welcome to the KissSQL project, the "Keep It Stupid Simple" SQL client for Go.
+**Low Level Tools:**
 
-This package was created to be used by any developer efficiently and safely.
-The goals were:
+Tools like `database/sql`, `sqlx` and even `pgx` will usually
+require you to check errors several times for the same query and
+also when iterating over several rows you end up with a `for rows.Next() {}`
+loop which is often more cognitive complex than desirable.
 
-- To be easy to use
-- To be hard to make mistakes
-- To have a small API so it's easy to learn
-- To be easy to mock and test (very easy)
-- And above all to be readable.
+**High Level Tools such as ORMs:**
 
-**Supported Drivers:**
+More high level tools such as `gorm` and `bun` will often force you
+and your team to interact with a complicated DSL which requires
+time to learn it and then ending up still being a little bit harder
+to read than a regular SQL query would be.
 
-Currently we support only the 4 most popular Golang database drivers:
+**Code Generation tools:**
 
-- `"postgres"`
-- `"sqlite3"`
-- `"mysql"`
-- `"sqlserver"`
+Tools like `sqlc` and `sqlboiler` that rely on code generation
+are good options if performance is your main goal, but they also
+have some issues that might bother you:
 
-If you need a new one included please open an issue or make
-your own implementation and submit a Pull Request.
+- There is some learning curve that goes beyond just reading a GoDoc as with most packages.
+- You will often need to copy to and from custom generated structs instead of using your own.
+- Sometimes the generated function will not be as flexible as you'd prefer forcing you to make
+  some tricks with SQL (e.g. that happens with `sqlc` for partial updates for example).
+- And it does add an extra step on your building process.
 
-### Why KissSQL?
+And finally you might just prefer to avoid codegen when possible,
+in which case ksql is also for you.
+
+### Why use ksql?
 
 > Note: If you want numbers see our Benchmark section below
 
-KissSQL was created to fill a hole between the complexity
-we find in the tools I've seen so far, namely:
+ksql is meant to improve on the existing ecosystem by optimizing
+for the most interesting use-cases with as little extra baggage
+possible, offering among other things:
 
-- ORMs such as `GORM` that do a lot and have literally hundreds
-  of functions that require learning, increasing the risk of
-  interpretation errors, learning time, complicating mocking, etc.
-- Tools such as `sqlx` that do little but still have most of
-  the quirks from the standard `sql` lib, requiring several
-  error checks for each query which is very low level.
+- An easier time setting up and learning it
+- Less opportunities for making mistakes, which makes code reviews easier
+- A succinct and idiomatic Go idiom reducing the cognitive
+  complexity of your code
+- Easy ways of mocking your database when you need to.
+- Support for all common databases
+- No DSL: Use SQL for your queries
 
-Besides both these examples were not created having
-easy tests as one of the requisites, which might cause
-your team to loose far more time than necessary writing
-the tests or worst: Opting to not writing tests since
-it would take too much time.
+And for a few important use-cases that cannot follow these rules perfectly,
+we have carefully chosen a few powerful abstractions that might be
+slightly more complicated to learn, such as:
 
-So the goal was to be high level enough that it would
-avoid the complications from the `sql` package and
-at the same time to be simple enough to avoid
-the big learning curve and complexity of the hundreds
-of functions offered by ORMs.
+- The `QueryChunks()` function which is necessary for the few
+  situations when you might load big amounts of the data in a
+  single query.
+- And the possibility of omitting the `SELECT ...` part of the
+  query which causes ksql to write this part for you saving a
+  lot of work when working with big structs/tables.
+- Support for nesting structs when working with JOINs.
 
-That said, KissSQL attempts to apply the Kiss principle,
-in order to save development time for your team, i.e.:
+**Supported Drivers:**
 
-- Less time spent learning (few methods to learn)
-- Less time spent testing (helper tools made to help you)
-- Less time spent debugging (simple apis are easier to debug)
-- and less time reading & understanding the code
+ksql is well decoupled from its backend implementation which makes
+it easy to change the actual technology used, currently we already
+support the following options:
+
+- Using the `database/sql` as the backend we support the following drivers:
+  - `"postgres"`
+  - `"sqlite3"`
+  - `"mysql"`
+  - `"sqlserver"`
+- We also support `pgx` (actually `pgxpool`) as the backend which
+  is a lot faster for Postgres databases.
+
+If you need a new `database/sql` driver or backend adapter included
+please open an issue or make your own implementation
+and submit it as a Pull Request.
 
 ### Kiss Interface
 
@@ -90,7 +108,7 @@ if you want to compile it yourself.
 
 Also we have a small feature for building the "SELECT" part of the query if
 you rather not use `SELECT *` queries, you may skip to the
-[Select Generator Feature](#Select-Generator-Feature) which is very clean too.
+[Select Generator Feature](#Select-Generator-Feature) which is recommended.
 
 ```Go
 package main
