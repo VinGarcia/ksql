@@ -9,7 +9,7 @@ test: setup
 	$(GOBIN)/richgo test $(path) $(args)
 
 bench:
-	go test -bench=. -benchtime=$(TIME)
+	cd benchmarks && go test -bench=. -benchtime=$(TIME)
 	@echo "Benchmark executed at: $$(date --iso)"
 	@echo "Benchmark executed on commit: $$(git rev-parse HEAD)"
 

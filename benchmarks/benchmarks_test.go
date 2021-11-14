@@ -1,4 +1,4 @@
-package ksql_test
+package benchmarks
 
 import (
 	"context"
