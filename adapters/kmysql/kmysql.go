@@ -29,5 +29,5 @@ func New(
 
 	db.SetMaxOpenConns(config.MaxOpenConns)
 
-	return ksql.NewWithAdapter(ksql.SQLAdapter{DB: db}, "mysql")
+	return ksql.NewWithAdapter(ksql.NewSQLAdapter(db), "mysql")
 }

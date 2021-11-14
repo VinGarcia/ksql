@@ -12,6 +12,14 @@ type SQLAdapter struct {
 
 var _ DBAdapter = SQLAdapter{}
 
+// NewSQLAdapter returns a new instance of SQLAdapter with
+// the provided database instance.
+func NewSQLAdapter(db *sql.DB) SQLAdapter {
+	return SQLAdapter{
+		DB: db,
+	}
+}
+
 // ExecContext implements the DBAdapter interface
 func (s SQLAdapter) ExecContext(ctx context.Context, query string, args ...interface{}) (Result, error) {
 	return s.DB.ExecContext(ctx, query, args...)
