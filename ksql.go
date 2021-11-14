@@ -76,6 +76,8 @@ type Config struct {
 	MaxOpenConns int
 }
 
+// SetDefaultValues should be called by all adapters
+// to set the default config values if unset.
 func (c *Config) SetDefaultValues() {
 	if c.MaxOpenConns == 0 {
 		c.MaxOpenConns = 1

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/vingarcia/ksql"
+	"github.com/vingarcia/ksql/adapters/ksqlite3"
 	"github.com/vingarcia/ksql/nullable"
 )
 
@@ -39,7 +39,18 @@ var UsersTable = ksql.NewTable("users")
 
 func main() {
 	ctx := context.Background()
-	db, err := ksql.New("sqlite3", "/tmp/hello.sqlite", ksql.Config{
+
+	// The available adapters are:
+	// - kpgx.New(ctx, connURL, ksql.Config{})
+	// - kmysql.New(ctx, connURL, ksql.Config{})
+	// - ksqlserver.New(ctx, connURL, ksql.Config{})
+	// - ksqlite3.New(ctx, connURL, ksql.Config{})
+	//
+	// For more detailed examples see:
+	// - `./examples/all_adapters/all_adapters.go`
+	//
+	// In this example we'll use sqlite3:
+	db, err := ksqlite3.New(ctx, "/tmp/hello.sqlite", ksql.Config{
 		MaxOpenConns: 1,
 	})
 	if err != nil {

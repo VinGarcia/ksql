@@ -11,7 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/vingarcia/ksql"
-	"github.com/vingarcia/ksql/kpgx"
+	"github.com/vingarcia/ksql/adapters/kpgx"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
