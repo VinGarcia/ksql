@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/vingarcia/ksql"
@@ -109,7 +110,10 @@ func BenchmarkInsert(b *testing.B) {
 				if !rows.Next() {
 					b.Fatalf("missing id from inserted record")
 				}
-				rows.Scan(&user.ID)
+				err = rows.Scan(&user.ID)
+				if err != nil {
+					b.Fatalf("error scanning rows")
+				}
 				err = rows.Close()
 				if err != nil {
 					b.Fatalf("error closing rows")
@@ -146,7 +150,10 @@ func BenchmarkInsert(b *testing.B) {
 				if !rows.Next() {
 					b.Fatalf("missing id from inserted record")
 				}
-				rows.Scan(&user.ID)
+				err = rows.Scan(&user.ID)
+				if err != nil {
+					b.Fatalf("error scanning rows")
+				}
 				err = rows.Close()
 				if err != nil {
 					b.Fatalf("error closing rows")
@@ -155,7 +162,49 @@ func BenchmarkInsert(b *testing.B) {
 		})
 	})
 
-	b.Run("gorm-adapter", func(b *testing.B) {
+	b.Run("pgx", func(b *testing.B) {
+		pgxConf, err := pgxpool.ParseConfig(connStr)
+		if err != nil {
+			b.Fatalf("error parsing pgx client configs: %s", err)
+		}
+
+		pgxConf.MaxConns = 1
+		pgxDB, err := pgxpool.ConnectConfig(ctx, pgxConf)
+		if err != nil {
+			b.Fatalf("error creating pgx client: %s", err)
+		}
+
+		err = recreateTable(connStr)
+		if err != nil {
+			b.Fatalf("error creating table: %s", err.Error())
+		}
+
+		b.Run("insert-one", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				user := User{
+					Name: strconv.Itoa(i),
+					Age:  i,
+				}
+				rows, err := pgxDB.Query(ctx,
+					`INSERT INTO users(name, age) VALUES ($1, $2) RETURNING id`,
+					user.Name, user.Age,
+				)
+				if err != nil {
+					b.Fatalf("insert error: %s", err.Error())
+				}
+				if !rows.Next() {
+					b.Fatalf("missing id from inserted record")
+				}
+				err = rows.Scan(&user.ID)
+				if err != nil {
+					b.Fatalf("error scanning rows")
+				}
+				rows.Close()
+			}
+		})
+	})
+
+	b.Run("gorm", func(b *testing.B) {
 		gormDB, err := gorm.Open(postgres.Open(connStr), &gorm.Config{})
 		if err != nil {
 			b.Fatalf("error creating gorm client: %s", err)
@@ -408,6 +457,73 @@ func BenchmarkQuery(b *testing.B) {
 				if err != nil {
 					b.Fatalf("error closing rows")
 				}
+			}
+		})
+	})
+
+	b.Run("pgx", func(b *testing.B) {
+		pgxConf, err := pgxpool.ParseConfig(connStr)
+		if err != nil {
+			b.Fatalf("error parsing pgx client configs: %s", err)
+		}
+
+		pgxConf.MaxConns = 1
+		pgxDB, err := pgxpool.ConnectConfig(ctx, pgxConf)
+		if err != nil {
+			b.Fatalf("error creating pgx client: %s", err)
+		}
+
+		err = recreateTable(connStr)
+		if err != nil {
+			b.Fatalf("error creating table: %s", err.Error())
+		}
+
+		err = insertUsers(connStr, 100)
+		if err != nil {
+			b.Fatalf("error inserting users: %s", err.Error())
+		}
+
+		b.Run("single-row", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				var user User
+				rows, err := pgxDB.Query(ctx, `SELECT id, name, age FROM users OFFSET $1 LIMIT 1`, i%100)
+				if err != nil {
+					b.Fatalf("query error: %s", err.Error())
+				}
+				if !rows.Next() {
+					b.Fatalf("missing user from inserted record, offset: %d", i%100)
+				}
+				err = rows.Scan(&user.ID, &user.Name, &user.Age)
+				if err != nil {
+					b.Fatalf("error scanning rows")
+				}
+				rows.Close()
+			}
+		})
+
+		b.Run("multiple-rows", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				var users []User
+				rows, err := pgxDB.Query(ctx, `SELECT id, name, age FROM users OFFSET $1 LIMIT 10`, i%90)
+				if err != nil {
+					b.Fatalf("query error: %s", err.Error())
+				}
+				for j := 0; j < 10; j++ {
+					if !rows.Next() {
+						b.Fatalf("missing user from inserted record, offset: %d", i%90)
+					}
+					var user User
+					err = rows.Scan(&user.ID, &user.Name, &user.Age)
+					if err != nil {
+						b.Fatalf("error scanning rows")
+					}
+					users = append(users, user)
+				}
+				if len(users) < 10 {
+					b.Fatalf("expected 10 scanned users, but got: %d", len(users))
+				}
+
+				rows.Close()
 			}
 		})
 	})
