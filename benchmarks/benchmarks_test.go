@@ -29,7 +29,7 @@ func BenchmarkInsert(b *testing.B) {
 		Age  int    `ksql:"age" db:"age"`
 	}
 
-	b.Run("ksql-setup", func(b *testing.B) {
+	b.Run("ksql/sql-adapter", func(b *testing.B) {
 		ksqlDB, err := ksql.New(driver, connStr, ksql.Config{
 			MaxOpenConns: 1,
 		})
@@ -55,7 +55,7 @@ func BenchmarkInsert(b *testing.B) {
 		})
 	})
 
-	b.Run("kpgx-adapter-setup", func(b *testing.B) {
+	b.Run("ksql/pgx-adapter", func(b *testing.B) {
 		kpgxDB, err := kpgx.New(ctx, connStr, ksql.Config{
 			MaxOpenConns: 1,
 		})
@@ -81,26 +81,28 @@ func BenchmarkInsert(b *testing.B) {
 		})
 	})
 
-	b.Run("sqlx-setup", func(b *testing.B) {
-		sqlxDB, err := sqlx.Open(driver, connStr)
+	b.Run("sql", func(b *testing.B) {
+		sqlDB, err := sql.Open(driver, connStr)
 		if err != nil {
-			b.Fatalf("error creating sqlx client: %s", err)
+			b.Fatalf("error creating sql client: %s", err)
 		}
-		sqlxDB.SetMaxOpenConns(1)
+		sqlDB.SetMaxOpenConns(1)
 
 		err = recreateTable(connStr)
 		if err != nil {
 			b.Fatalf("error creating table: %s", err.Error())
 		}
 
-		query := `INSERT INTO users(name, age) VALUES (:name, :age) RETURNING id`
 		b.Run("insert-one", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				user := User{
 					Name: strconv.Itoa(i),
 					Age:  i,
 				}
-				rows, err := sqlxDB.NamedQuery(query, user)
+				rows, err := sqlDB.Query(
+					`INSERT INTO users(name, age) VALUES ($1, $2) RETURNING id`,
+					user.Name, user.Age,
+				)
 				if err != nil {
 					b.Fatalf("insert error: %s", err.Error())
 				}
@@ -116,7 +118,44 @@ func BenchmarkInsert(b *testing.B) {
 		})
 	})
 
-	b.Run("gorm-adapter-setup", func(b *testing.B) {
+	b.Run("sqlx", func(b *testing.B) {
+		sqlxDB, err := sqlx.Open(driver, connStr)
+		if err != nil {
+			b.Fatalf("error creating sqlx client: %s", err)
+		}
+		sqlxDB.SetMaxOpenConns(1)
+
+		err = recreateTable(connStr)
+		if err != nil {
+			b.Fatalf("error creating table: %s", err.Error())
+		}
+
+		b.Run("insert-one", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				user := User{
+					Name: strconv.Itoa(i),
+					Age:  i,
+				}
+				rows, err := sqlxDB.NamedQuery(
+					`INSERT INTO users(name, age) VALUES (:name, :age) RETURNING id`,
+					user,
+				)
+				if err != nil {
+					b.Fatalf("insert error: %s", err.Error())
+				}
+				if !rows.Next() {
+					b.Fatalf("missing id from inserted record")
+				}
+				rows.Scan(&user.ID)
+				err = rows.Close()
+				if err != nil {
+					b.Fatalf("error closing rows")
+				}
+			}
+		})
+	})
+
+	b.Run("gorm-adapter", func(b *testing.B) {
 		gormDB, err := gorm.Open(postgres.Open(connStr), &gorm.Config{})
 		if err != nil {
 			b.Fatalf("error creating gorm client: %s", err)
@@ -153,7 +192,7 @@ func BenchmarkQuery(b *testing.B) {
 		Age  int    `ksql:"age" db:"age"`
 	}
 
-	b.Run("ksql-setup", func(b *testing.B) {
+	b.Run("ksql/sql-adapter", func(b *testing.B) {
 		ksqlDB, err := ksql.New(driver, connStr, ksql.Config{
 			MaxOpenConns: 1,
 		})
@@ -195,7 +234,7 @@ func BenchmarkQuery(b *testing.B) {
 		})
 	})
 
-	b.Run("kpgx-adapter-setup", func(b *testing.B) {
+	b.Run("ksql/pgx-adapter", func(b *testing.B) {
 		kpgxDB, err := kpgx.New(ctx, connStr, ksql.Config{
 			MaxOpenConns: 1,
 		})
@@ -237,7 +276,75 @@ func BenchmarkQuery(b *testing.B) {
 		})
 	})
 
-	b.Run("sqlx-setup", func(b *testing.B) {
+	b.Run("sql", func(b *testing.B) {
+		sqlDB, err := sqlx.Open(driver, connStr)
+		if err != nil {
+			b.Fatalf("error creating sql client: %s", err)
+		}
+		sqlDB.SetMaxOpenConns(1)
+
+		err = recreateTable(connStr)
+		if err != nil {
+			b.Fatalf("error creating table: %s", err.Error())
+		}
+
+		err = insertUsers(connStr, 100)
+		if err != nil {
+			b.Fatalf("error inserting users: %s", err.Error())
+		}
+
+		b.Run("single-row", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				var user User
+				rows, err := sqlDB.QueryContext(ctx, `SELECT id, name, age FROM users OFFSET $1 LIMIT 1`, i%100)
+				if err != nil {
+					b.Fatalf("query error: %s", err.Error())
+				}
+				if !rows.Next() {
+					b.Fatalf("missing user from inserted record, offset: %d", i%100)
+				}
+				err = rows.Scan(&user.ID, &user.Name, &user.Age)
+				if err != nil {
+					b.Fatalf("error scanning rows")
+				}
+				err = rows.Close()
+				if err != nil {
+					b.Fatalf("error closing rows")
+				}
+			}
+		})
+
+		b.Run("multiple-rows", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				var users []User
+				rows, err := sqlDB.Queryx(`SELECT id, name, age FROM users OFFSET $1 LIMIT 10`, i%90)
+				if err != nil {
+					b.Fatalf("query error: %s", err.Error())
+				}
+				for j := 0; j < 10; j++ {
+					if !rows.Next() {
+						b.Fatalf("missing user from inserted record, offset: %d", i%90)
+					}
+					var user User
+					err = rows.Scan(&user.ID, &user.Name, &user.Age)
+					if err != nil {
+						b.Fatalf("error scanning rows")
+					}
+					users = append(users, user)
+				}
+				if len(users) < 10 {
+					b.Fatalf("expected 10 scanned users, but got: %d", len(users))
+				}
+
+				err = rows.Close()
+				if err != nil {
+					b.Fatalf("error closing rows")
+				}
+			}
+		})
+	})
+
+	b.Run("sqlx", func(b *testing.B) {
 		sqlxDB, err := sqlx.Open(driver, connStr)
 		if err != nil {
 			b.Fatalf("error creating sqlx client: %s", err)
@@ -259,12 +366,15 @@ func BenchmarkQuery(b *testing.B) {
 				var user User
 				rows, err := sqlxDB.Queryx(`SELECT * FROM users OFFSET $1 LIMIT 1`, i%100)
 				if err != nil {
-					b.Fatalf("insert error: %s", err.Error())
+					b.Fatalf("query error: %s", err.Error())
 				}
 				if !rows.Next() {
 					b.Fatalf("missing user from inserted record, offset: %d", i%100)
 				}
-				rows.StructScan(&user)
+				err = rows.StructScan(&user)
+				if err != nil {
+					b.Fatalf("error scanning rows")
+				}
 				err = rows.Close()
 				if err != nil {
 					b.Fatalf("error closing rows")
@@ -277,7 +387,7 @@ func BenchmarkQuery(b *testing.B) {
 				var users []User
 				rows, err := sqlxDB.Queryx(`SELECT * FROM users OFFSET $1 LIMIT 10`, i%90)
 				if err != nil {
-					b.Fatalf("insert error: %s", err.Error())
+					b.Fatalf("query error: %s", err.Error())
 				}
 				for j := 0; j < 10; j++ {
 					if !rows.Next() {
@@ -285,6 +395,9 @@ func BenchmarkQuery(b *testing.B) {
 					}
 					var user User
 					rows.StructScan(&user)
+					if err != nil {
+						b.Fatalf("error scanning rows")
+					}
 					users = append(users, user)
 				}
 				if len(users) < 10 {
@@ -299,7 +412,7 @@ func BenchmarkQuery(b *testing.B) {
 		})
 	})
 
-	b.Run("gorm-setup", func(b *testing.B) {
+	b.Run("gorm", func(b *testing.B) {
 		gormDB, err := gorm.Open(postgres.Open(connStr), &gorm.Config{})
 		if err != nil {
 			b.Fatalf("error creating gorm client: %s", err)
