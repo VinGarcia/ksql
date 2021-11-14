@@ -501,24 +501,27 @@ The benchmark is very good, the code is, in practical terms, as fast as sqlx:
 
 ```bash
 $ make bench TIME=5s
-go test -bench=. -benchtime=5s
+cd benchmarks && go test -bench=. -benchtime=5s
 goos: linux
 goarch: amd64
-pkg: github.com/vingarcia/ksql
+pkg: github.com/vingarcia/ksql/benchmarks
 cpu: Intel(R) Core(TM) i5-3210M CPU @ 2.50GHz
-BenchmarkInsert/ksql-setup/insert-one-4         	    5293	    960859 ns/op
-BenchmarkInsert/pgx-adapter-setup/insert-one-4  	    7982	    736973 ns/op
-BenchmarkInsert/sqlx-setup/insert-one-4         	    6854	    857824 ns/op
-BenchmarkQuery/ksql-setup/single-row-4          	   12596	    407116 ns/op
-BenchmarkQuery/ksql-setup/multiple-rows-4       	   15883	    391135 ns/op
-BenchmarkQuery/pgx-adapter-setup/single-row-4   	   34008	    165604 ns/op
-BenchmarkQuery/pgx-adapter-setup/multiple-rows-4	   22579	    280673 ns/op
-BenchmarkQuery/sqlx-setup/single-row-4          	   10000	    512741 ns/op
-BenchmarkQuery/sqlx-setup/multiple-rows-4       	   10779	    596377 ns/op
+BenchmarkInsert/ksql-setup/insert-one-4               	   6896 	    856015 ns/op
+BenchmarkInsert/kpgx-adapter-setup/insert-one-4       	   9051 	    668421 ns/op
+BenchmarkInsert/sqlx-setup/insert-one-4               	   6147 	    828588 ns/op
+BenchmarkInsert/gorm-adapter-setup/insert-one-4       	   5108 	    1100864 ns/op
+BenchmarkQuery/ksql-setup/single-row-4                	   19270	    322759 ns/op
+BenchmarkQuery/ksql-setup/multiple-rows-4             	   15981	    343104 ns/op
+BenchmarkQuery/kpgx-adapter-setup/single-row-4        	   40000	    142200 ns/op
+BenchmarkQuery/kpgx-adapter-setup/multiple-rows-4     	   35602	    179899 ns/op
+BenchmarkQuery/sqlx-setup/single-row-4                	   18778	    314055 ns/op
+BenchmarkQuery/sqlx-setup/multiple-rows-4             	   17634	    332769 ns/op
+BenchmarkQuery/gorm-setup/single-row-4                	   36253	    157988 ns/op
+BenchmarkQuery/gorm-setup/multiple-rows-4             	   25250	    262481 ns/op
 PASS
-ok  	github.com/vingarcia/ksql	94.951s
-Benchmark executed at: 2021-08-01
-Benchmark executed on commit: 37298e2c243f1ec66e88dd92ed7c4542f7820b4f
+ok  	github.com/vingarcia/ksql/benchmarks	103.899s
+Benchmark executed at: 2021-11-14
+Benchmark executed on commit: 23692d13d4402ac12d544282e8a5fe8f5bafe88e
 ```
 
 ### Running the ksql tests (for contributors)
