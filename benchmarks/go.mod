@@ -7,3 +7,5 @@ require (
 	github.com/lib/pq v1.10.4
 	github.com/vingarcia/ksql v1.1.0
 )
+
+replace github.com/vingarcia/ksql => ../

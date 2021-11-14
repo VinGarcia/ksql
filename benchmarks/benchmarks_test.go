@@ -10,6 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/vingarcia/ksql"
+	"github.com/vingarcia/ksql/kpgx"
 )
 
 var UsersTable = ksql.NewTable("users")
@@ -52,7 +53,7 @@ func BenchmarkInsert(b *testing.B) {
 		})
 	})
 
-	pgxDB, err := ksql.NewWithPGX(ctx, connStr, ksql.Config{
+	pgxDB, err := kpgx.New(ctx, connStr, ksql.Config{
 		MaxOpenConns: 1,
 	})
 	if err != nil {
