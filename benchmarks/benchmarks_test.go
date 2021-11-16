@@ -326,7 +326,7 @@ func BenchmarkQuery(b *testing.B) {
 	})
 
 	b.Run("sql", func(b *testing.B) {
-		sqlDB, err := sqlx.Open(driver, connStr)
+		sqlDB, err := sql.Open(driver, connStr)
 		if err != nil {
 			b.Fatalf("error creating sql client: %s", err)
 		}
@@ -366,7 +366,7 @@ func BenchmarkQuery(b *testing.B) {
 		b.Run("multiple-rows", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var users []User
-				rows, err := sqlDB.Queryx(`SELECT id, name, age FROM users OFFSET $1 LIMIT 10`, i%90)
+				rows, err := sqlDB.Query(`SELECT id, name, age FROM users OFFSET $1 LIMIT 10`, i%90)
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}
