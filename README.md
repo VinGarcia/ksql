@@ -508,9 +508,12 @@ read the example tests available on our [example service](./examples/example_ser
 
 ### Benchmark Comparison
 
-The benchmark is very good, the code is, in practical terms, as fast as sqlx.
+The results of the benchmark are good:
+they show that ksql is in practical terms,
+as fast as sqlx which was our goal from the start.
 
 To understand the benchmark below you must know
+that all tests are performed using Postgres 12.1 and
 that we are comparing the following tools:
 
 - ksql using the adapter that wraps database/sql
@@ -519,6 +522,8 @@ that we are comparing the following tools:
 - sqlx
 - pgx (with pgxpool)
 - gorm
+
+For each of these tools we are running 3 different queries:
 
 The `insert-one` query looks like:
 
