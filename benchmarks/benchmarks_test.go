@@ -100,10 +100,52 @@ func BenchmarkInsert(b *testing.B) {
 					Name: strconv.Itoa(i),
 					Age:  i,
 				}
-				rows, err := sqlDB.Query(
+				rows, err := sqlDB.QueryContext(ctx,
 					`INSERT INTO users(name, age) VALUES ($1, $2) RETURNING id`,
 					user.Name, user.Age,
 				)
+				if err != nil {
+					b.Fatalf("insert error: %s", err.Error())
+				}
+				if !rows.Next() {
+					b.Fatalf("missing id from inserted record")
+				}
+				err = rows.Scan(&user.ID)
+				if err != nil {
+					b.Fatalf("error scanning rows")
+				}
+				err = rows.Close()
+				if err != nil {
+					b.Fatalf("error closing rows")
+				}
+			}
+		})
+	})
+
+	b.Run("sql/prep-statements", func(b *testing.B) {
+		sqlDB, err := sql.Open(driver, connStr)
+		if err != nil {
+			b.Fatalf("error creating sql client: %s", err)
+		}
+		sqlDB.SetMaxOpenConns(1)
+
+		err = recreateTable(connStr)
+		if err != nil {
+			b.Fatalf("error creating table: %s", err.Error())
+		}
+
+		insertOne, err := sqlDB.Prepare(`INSERT INTO users(name, age) VALUES ($1, $2) RETURNING id`)
+		if err != nil {
+			b.Fatalf("could not prepare sql insert query: %s", err.Error())
+		}
+
+		b.Run("insert-one", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				user := User{
+					Name: strconv.Itoa(i),
+					Age:  i,
+				}
+				rows, err := insertOne.QueryContext(ctx, user.Name, user.Age)
 				if err != nil {
 					b.Fatalf("insert error: %s", err.Error())
 				}
@@ -140,7 +182,7 @@ func BenchmarkInsert(b *testing.B) {
 					Name: strconv.Itoa(i),
 					Age:  i,
 				}
-				rows, err := sqlxDB.NamedQuery(
+				rows, err := sqlxDB.NamedQueryContext(ctx,
 					`INSERT INTO users(name, age) VALUES (:name, :age) RETURNING id`,
 					user,
 				)
@@ -162,7 +204,7 @@ func BenchmarkInsert(b *testing.B) {
 		})
 	})
 
-	b.Run("pgx", func(b *testing.B) {
+	b.Run("pgxpool", func(b *testing.B) {
 		pgxConf, err := pgxpool.ParseConfig(connStr)
 		if err != nil {
 			b.Fatalf("error parsing pgx client configs: %s", err)
@@ -217,7 +259,7 @@ func BenchmarkInsert(b *testing.B) {
 
 		b.Run("insert-one", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				err := gormDB.Table("users").Create(&User{
+				err := gormDB.Table("users").WithContext(ctx).Create(&User{
 					Name: strconv.Itoa(i),
 					Age:  i,
 				}).Error
@@ -262,7 +304,7 @@ func BenchmarkQuery(b *testing.B) {
 		b.Run("single-row", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var user User
-				err := ksqlDB.QueryOne(ctx, &user, `SELECT * FROM users OFFSET $1 LIMIT 1`, i%100)
+				err := ksqlDB.QueryOne(ctx, &user, `SELECT id, name, age FROM users OFFSET $1 LIMIT 1`, i%100)
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}
@@ -272,7 +314,7 @@ func BenchmarkQuery(b *testing.B) {
 		b.Run("multiple-rows", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var users []User
-				err := ksqlDB.Query(ctx, &users, `SELECT * FROM users OFFSET $1 LIMIT 10`, i%90)
+				err := ksqlDB.Query(ctx, &users, `SELECT id, name, age FROM users OFFSET $1 LIMIT 10`, i%90)
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}
@@ -304,7 +346,7 @@ func BenchmarkQuery(b *testing.B) {
 		b.Run("single-row", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var user User
-				err := kpgxDB.QueryOne(ctx, &user, `SELECT * FROM users OFFSET $1 LIMIT 1`, i%100)
+				err := kpgxDB.QueryOne(ctx, &user, `SELECT id, name, age FROM users OFFSET $1 LIMIT 1`, i%100)
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}
@@ -314,7 +356,7 @@ func BenchmarkQuery(b *testing.B) {
 		b.Run("multiple-rows", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var users []User
-				err := kpgxDB.Query(ctx, &users, `SELECT * FROM users OFFSET $1 LIMIT 10`, i%90)
+				err := kpgxDB.Query(ctx, &users, `SELECT id, name, age FROM users OFFSET $1 LIMIT 10`, i%90)
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}
@@ -366,7 +408,85 @@ func BenchmarkQuery(b *testing.B) {
 		b.Run("multiple-rows", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var users []User
-				rows, err := sqlDB.Query(`SELECT id, name, age FROM users OFFSET $1 LIMIT 10`, i%90)
+				rows, err := sqlDB.QueryContext(ctx, `SELECT id, name, age FROM users OFFSET $1 LIMIT 10`, i%90)
+				if err != nil {
+					b.Fatalf("query error: %s", err.Error())
+				}
+				for j := 0; j < 10; j++ {
+					if !rows.Next() {
+						b.Fatalf("missing user from inserted record, offset: %d", i%90)
+					}
+					var user User
+					err = rows.Scan(&user.ID, &user.Name, &user.Age)
+					if err != nil {
+						b.Fatalf("error scanning rows")
+					}
+					users = append(users, user)
+				}
+				if len(users) < 10 {
+					b.Fatalf("expected 10 scanned users, but got: %d", len(users))
+				}
+
+				err = rows.Close()
+				if err != nil {
+					b.Fatalf("error closing rows")
+				}
+			}
+		})
+	})
+
+	b.Run("sql/prep-statements", func(b *testing.B) {
+		sqlDB, err := sql.Open(driver, connStr)
+		if err != nil {
+			b.Fatalf("error creating sql client: %s", err)
+		}
+		sqlDB.SetMaxOpenConns(1)
+
+		err = recreateTable(connStr)
+		if err != nil {
+			b.Fatalf("error creating table: %s", err.Error())
+		}
+
+		err = insertUsers(connStr, 100)
+		if err != nil {
+			b.Fatalf("error inserting users: %s", err.Error())
+		}
+
+		singleRow, err := sqlDB.Prepare(`SELECT id, name, age FROM users OFFSET $1 LIMIT 1`)
+		if err != nil {
+			b.Fatalf("error preparing sql statement for single row: %s", err.Error())
+		}
+
+		multipleRows, err := sqlDB.Prepare(`SELECT id, name, age FROM users OFFSET $1 LIMIT 10`)
+		if err != nil {
+			b.Fatalf("error preparing sql statement for multiple rows: %s", err.Error())
+		}
+
+		b.Run("single-row", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				var user User
+				rows, err := singleRow.QueryContext(ctx, i%100)
+				if err != nil {
+					b.Fatalf("query error: %s", err.Error())
+				}
+				if !rows.Next() {
+					b.Fatalf("missing user from inserted record, offset: %d", i%100)
+				}
+				err = rows.Scan(&user.ID, &user.Name, &user.Age)
+				if err != nil {
+					b.Fatalf("error scanning rows")
+				}
+				err = rows.Close()
+				if err != nil {
+					b.Fatalf("error closing rows")
+				}
+			}
+		})
+
+		b.Run("multiple-rows", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				var users []User
+				rows, err := multipleRows.QueryContext(ctx, i%90)
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}
@@ -413,7 +533,7 @@ func BenchmarkQuery(b *testing.B) {
 		b.Run("single-row", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var user User
-				rows, err := sqlxDB.Queryx(`SELECT * FROM users OFFSET $1 LIMIT 1`, i%100)
+				rows, err := sqlxDB.QueryxContext(ctx, `SELECT id, name, age FROM users OFFSET $1 LIMIT 1`, i%100)
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}
@@ -434,7 +554,7 @@ func BenchmarkQuery(b *testing.B) {
 		b.Run("multiple-rows", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var users []User
-				rows, err := sqlxDB.Queryx(`SELECT * FROM users OFFSET $1 LIMIT 10`, i%90)
+				rows, err := sqlxDB.QueryxContext(ctx, `SELECT id, name, age FROM users OFFSET $1 LIMIT 10`, i%90)
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}
@@ -461,7 +581,7 @@ func BenchmarkQuery(b *testing.B) {
 		})
 	})
 
-	b.Run("pgx", func(b *testing.B) {
+	b.Run("pgxpool", func(b *testing.B) {
 		pgxConf, err := pgxpool.ParseConfig(connStr)
 		if err != nil {
 			b.Fatalf("error parsing pgx client configs: %s", err)
@@ -547,7 +667,7 @@ func BenchmarkQuery(b *testing.B) {
 		b.Run("single-row", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var user User
-				err := gormDB.Table("users").Offset(i % 100).Take(&user).Error
+				err := gormDB.Table("users").WithContext(ctx).Offset(i % 100).Take(&user).Error
 				if err != nil {
 					b.Fatalf("query error: %s", err)
 				}
@@ -557,7 +677,7 @@ func BenchmarkQuery(b *testing.B) {
 		b.Run("multiple-rows", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var users []User
-				err := gormDB.Table("users").Offset(i % 90).Limit(10).Find(&users).Error
+				err := gormDB.Table("users").WithContext(ctx).Offset(i % 90).Limit(10).Find(&users).Error
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}
