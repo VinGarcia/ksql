@@ -14,11 +14,14 @@ var ErrRecordNotFound error = errors.Wrap(sql.ErrNoRows, "ksql: the query return
 // ErrAbortIteration ...
 var ErrAbortIteration error = fmt.Errorf("ksql: abort iteration, should only be used inside QueryChunks function")
 
-// Provider describes the ksql public behavior
+// Provider describes the ksql public behavior.
+//
+// The Insert, Update, Delete and QueryOne functions return ksql.ErrRecordNotFound
+// if no record was found or no rows were changed during the operation.
 type Provider interface {
 	Insert(ctx context.Context, table Table, record interface{}) error
 	Update(ctx context.Context, table Table, record interface{}) error
-	Delete(ctx context.Context, table Table, idsOrRecords ...interface{}) error
+	Delete(ctx context.Context, table Table, idOrRecord interface{}) error
 
 	Query(ctx context.Context, records interface{}, query string, params ...interface{}) error
 	QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error

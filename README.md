@@ -87,10 +87,13 @@ it with as little functions as possible, so don't expect many additions:
 
 ```go
 // Provider describes the ksql public behavior
+//
+// The Insert, Update, Delete and QueryOne functions return ksql.ErrRecordNotFound
+// if no record was found or no rows were changed during the operation.
 type Provider interface {
 	Insert(ctx context.Context, table Table, record interface{}) error
 	Update(ctx context.Context, table Table, record interface{}) error
-	Delete(ctx context.Context, table Table, idsOrRecords ...interface{}) error
+	Delete(ctx context.Context, table Table, idOrRecord interface{}) error
 
 	Query(ctx context.Context, records interface{}, query string, params ...interface{}) error
 	QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error
@@ -492,7 +495,7 @@ if err != nil {
 
 In the example above, since we are only interested in a couple of columns it
 is far simpler and more efficient for the database to only select the columns
-that we actually care about, so it's better not to use composite kstructs.
+that we actually care about, so it's better not to use composite structs.
 
 ### Testing Examples
 

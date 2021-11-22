@@ -11,7 +11,7 @@ var _ Provider = Mock{}
 type Mock struct {
 	InsertFn func(ctx context.Context, table Table, record interface{}) error
 	UpdateFn func(ctx context.Context, table Table, record interface{}) error
-	DeleteFn func(ctx context.Context, table Table, ids ...interface{}) error
+	DeleteFn func(ctx context.Context, table Table, idOrRecord interface{}) error
 
 	QueryFn       func(ctx context.Context, records interface{}, query string, params ...interface{}) error
 	QueryOneFn    func(ctx context.Context, record interface{}, query string, params ...interface{}) error
@@ -95,11 +95,11 @@ func (m Mock) Update(ctx context.Context, table Table, record interface{}) error
 }
 
 // Delete ...
-func (m Mock) Delete(ctx context.Context, table Table, ids ...interface{}) error {
+func (m Mock) Delete(ctx context.Context, table Table, idOrRecord interface{}) error {
 	if m.DeleteFn == nil {
-		panic(fmt.Errorf("Mock.Delete(ctx, %v, %v) called but the ksql.Mock.DeleteFn() is not set", table, ids))
+		panic(fmt.Errorf("Mock.Delete(ctx, %v, %v) called but the ksql.Mock.DeleteFn() is not set", table, idOrRecord))
 	}
-	return m.DeleteFn(ctx, table, ids...)
+	return m.DeleteFn(ctx, table, idOrRecord)
 }
 
 // Query ...

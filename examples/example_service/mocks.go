@@ -36,22 +36,17 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 }
 
 // Delete mocks base method.
-func (m *MockProvider) Delete(ctx context.Context, table ksql.Table, idsOrRecords ...interface{}) error {
+func (m *MockProvider) Delete(ctx context.Context, table ksql.Table, idOrRecord interface{}) error {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{ctx, table}
-	for _, a := range idsOrRecords {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "Delete", varargs...)
+	ret := m.ctrl.Call(m, "Delete", ctx, table, idOrRecord)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockProviderMockRecorder) Delete(ctx, table interface{}, idsOrRecords ...interface{}) *gomock.Call {
+func (mr *MockProviderMockRecorder) Delete(ctx, table, idOrRecord interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{ctx, table}, idsOrRecords...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockProvider)(nil).Delete), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockProvider)(nil).Delete), ctx, table, idOrRecord)
 }
 
 // Exec mocks base method.

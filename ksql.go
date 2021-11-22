@@ -555,17 +555,35 @@ func assertStructPtr(t reflect.Type) error {
 	return nil
 }
 
-// Delete deletes one or more instances from the database by id
+// Delete deletes one record from the database using the ID or IDs
+// defined on the ksql.Table passed as second argument.
+//
+// For tables with a single ID column you can pass the record
+// to be deleted as a struct, as a map or just pass the ID itself.
+//
+// For tables with composite keys you must pass the record
+// as a struct or a map so that ksql can read all the composite keys
+// from it.
+//
+// The examples below should work for both types of tables:
+//
+//     err := c.Delete(ctx, UsersTable, user)
+//
+//     err := c.Delete(ctx, UserPostsTable, map[string]interface{}{
+//         "user_id": user.ID,
+//         "post_id": post.ID,
+//     })
+//
+// The example below is shorter but will only work for tables with a single primary key:
+//
+//     err := c.Delete(ctx, UsersTable, user.ID)
+//
 func (c DB) Delete(
 	ctx context.Context,
 	table Table,
-	ids ...interface{},
+	idOrRecord interface{},
 ) error {
-	if len(ids) == 0 {
-		return nil
-	}
-
-	idMaps, err := normalizeIDsAsMaps(table.idColumns, ids)
+	idMaps, err := normalizeIDsAsMaps(table.idColumns, []interface{}{idOrRecord})
 	if err != nil {
 		return err
 	}
@@ -578,7 +596,19 @@ func (c DB) Delete(
 		query, params = buildCompositeKeyDeleteQuery(c.dialect, table.name, table.idColumns, idMaps)
 	}
 
-	_, err = c.db.ExecContext(ctx, query, params...)
+	result, err := c.db.ExecContext(ctx, query, params...)
+	if err != nil {
+		return err
+	}
+
+	n, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("unable to check if the record was succesfully deleted: %s", err)
+	}
+
+	if n == 0 {
+		return ErrRecordNotFound
+	}
 
 	return err
 }

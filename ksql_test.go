@@ -887,36 +887,6 @@ func TestDelete(t *testing.T) {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
 
-			t.Run("should ignore empty lists of ids", func(t *testing.T) {
-				db, closer := connectDB(t, config)
-				defer closer.Close()
-
-				ctx := context.Background()
-				c := newTestDB(db, config.driver)
-
-				u := User{
-					Name: "Won't be deleted",
-				}
-
-				err := c.Insert(ctx, UsersTable, &u)
-				assert.Equal(t, nil, err)
-				assert.NotEqual(t, uint(0), u.ID)
-
-				result := User{}
-				err = getUserByID(c.db, c.dialect, &result, u.ID)
-				assert.Equal(t, nil, err)
-
-				assert.Equal(t, u.ID, result.ID)
-
-				err = c.Delete(ctx, UsersTable)
-				assert.Equal(t, nil, err)
-
-				result = User{}
-				err = getUserByID(c.db, c.dialect, &result, u.ID)
-				assert.Equal(t, nil, err)
-				assert.Equal(t, u.ID, result.ID)
-			})
-
 			t.Run("should delete one id correctly", func(t *testing.T) {
 				tests := []struct {
 					desc               string
@@ -993,58 +963,15 @@ func TestDelete(t *testing.T) {
 				}
 			})
 
-			t.Run("should delete multiple ids correctly", func(t *testing.T) {
+			t.Run("should return ErrRecordNotFound if no rows were deleted", func(t *testing.T) {
 				db, closer := connectDB(t, config)
 				defer closer.Close()
 
 				ctx := context.Background()
 				c := newTestDB(db, config.driver)
 
-				u1 := User{
-					Name: "Fernanda",
-				}
-				err := c.Insert(ctx, UsersTable, &u1)
-				assert.Equal(t, nil, err)
-				assert.NotEqual(t, uint(0), u1.ID)
-
-				u2 := User{
-					Name: "Juliano",
-				}
-				err = c.Insert(ctx, UsersTable, &u2)
-				assert.Equal(t, nil, err)
-				assert.NotEqual(t, uint(0), u2.ID)
-
-				u3 := User{
-					Name: "This won't be deleted",
-				}
-				err = c.Insert(ctx, UsersTable, &u3)
-				assert.Equal(t, nil, err)
-				assert.NotEqual(t, uint(0), u3.ID)
-
-				result := User{}
-				err = getUserByID(c.db, c.dialect, &result, u1.ID)
-				assert.Equal(t, nil, err)
-				assert.Equal(t, u1.ID, result.ID)
-
-				result = User{}
-				err = getUserByID(c.db, c.dialect, &result, u2.ID)
-				assert.Equal(t, nil, err)
-				assert.Equal(t, u2.ID, result.ID)
-
-				result = User{}
-				err = getUserByID(c.db, c.dialect, &result, u3.ID)
-				assert.Equal(t, nil, err)
-				assert.Equal(t, u3.ID, result.ID)
-
-				err = c.Delete(ctx, UsersTable, u1.ID, u2.ID)
-				assert.Equal(t, nil, err)
-
-				results := []User{}
-				err = getUsersByID(c.db, c.dialect, &results, u1.ID, u2.ID, u3.ID)
-				assert.Equal(t, nil, err)
-
-				assert.Equal(t, 1, len(results))
-				assert.Equal(t, "This won't be deleted", results[0].Name)
+				err = c.Delete(ctx, UsersTable, 4200)
+				assert.Equal(t, ErrRecordNotFound, err)
 			})
 
 			t.Run("should report error if it receives a nil pointer to a struct", func(t *testing.T) {
