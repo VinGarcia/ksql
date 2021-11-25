@@ -36,7 +36,7 @@ in which case ksql is also for you.
 
 ### Why use ksql?
 
-> Note: If you want numbers see our Benchmark section below
+> Note: If you want numbers see our [Benchmark section](https://github.com/vingarcia/ksql#benchmark-comparison) below
 
 ksql is meant to improve on the existing ecosystem by optimizing
 for the most interesting use-cases with as little extra baggage
