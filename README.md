@@ -99,7 +99,7 @@ type Provider interface {
 	QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error
 	QueryChunks(ctx context.Context, parser ChunkParser) error
 
-	Exec(ctx context.Context, query string, params ...interface{}) error
+	Exec(ctx context.Context, query string, params ...interface{}) (rowsAffected int64, _ error)
 	Transaction(ctx context.Context, fn func(Provider) error) error
 }
 ```
@@ -175,7 +175,7 @@ func main() {
 
 	// In the definition below, please note that BLOB is
 	// the only type we can use in sqlite for storing JSON.
-	err = db.Exec(ctx, `CREATE TABLE IF NOT EXISTS users (
+	_, err = db.Exec(ctx, `CREATE TABLE IF NOT EXISTS users (
 	  id INTEGER PRIMARY KEY,
 		age INTEGER,
 		name TEXT,

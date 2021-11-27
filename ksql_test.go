@@ -1736,7 +1736,7 @@ func TestTransaction(t *testing.T) {
 					assert.Equal(t, nil, err)
 					err = db.Insert(ctx, UsersTable, &User{Name: "User4"})
 					assert.Equal(t, nil, err)
-					err = db.Exec(ctx, "UPDATE users SET age = 22")
+					_, err = db.Exec(ctx, "UPDATE users SET age = 22")
 					assert.Equal(t, nil, err)
 
 					return errors.New("fake-error")

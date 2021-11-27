@@ -859,9 +859,10 @@ func buildUpdateQuery(
 }
 
 // Exec just runs an SQL command on the database returning no rows.
-func (c DB) Exec(ctx context.Context, query string, params ...interface{}) error {
-	_, err := c.db.ExecContext(ctx, query, params...)
-	return err
+func (c DB) Exec(ctx context.Context, query string, params ...interface{}) (rowsAffected int64, _ error) {
+	result, err := c.db.ExecContext(ctx, query, params...)
+	rowsAffected, _ = result.RowsAffected()
+	return rowsAffected, err
 }
 
 // Transaction just runs an SQL command on the database returning no rows.
