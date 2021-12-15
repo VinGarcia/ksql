@@ -10,12 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/ditointernet/go-assert"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v4/pgxpool"
-	_ "github.com/lib/pq"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/vingarcia/ksql/nullable"
 )
 
