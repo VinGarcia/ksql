@@ -582,18 +582,17 @@ Benchmark executed on commit: fc6a9c2950903139ed7a8432bdcfdb3eb89f1e21
 
 ### Running the ksql tests (for contributors)
 
-The tests run in dockerized database instances so the easiest way
-to have them working is to just start them using docker-compose:
+The tests use `docker-test` for setting up all the supported databases,
+which means that:
 
-```bash
-docker-compose up -d
-```
+- You need to have `docker` installed
+- You must be able to run docker without `sudo`, i.e.
+  if you are not root you should add yourself to the docker group, e.g.:
 
-And then for each of them you will need to run the command:
-
-```sql
-CREATE DATABASE ksql;
-```
+  ```bash
+  $ sudo usermod <your_username> -aG docker
+  ```
+  And then restart your login session (or just reboot)
 
 After that you can just run the tests by using:
 
@@ -606,8 +605,6 @@ make test
 - Add tests for tables using composite keys
 - Add support for serializing structs as other formats such as YAML
 - Update `kstructs.FillStructWith` to work with `ksql:"..,json"` tagged attributes
-- Make testing easier by exposing the connection strings in an .env file
-- Make testing easier by automatically creating the `ksql` database
 - Create a way for users to submit user defined dialects
 - Improve error messages
 - Add support for the update function to work with maps for partial updates
