@@ -600,6 +600,19 @@ After that you can just run the tests by using:
 make test
 ```
 
+But it is recommended to first download the required images using:
+
+```bash
+docker pull postgres:14.0
+docker pull mysql:8.0.27
+docker pull mcr.microsoft.com/mssql/server:2017-latest
+```
+
+Otherwise the first attempt to run the tests
+will spend a long time downloading these images
+and then fail because the `TestMain()` function
+is configured to kill the containers after 20 seconds.
+
 ### TODO List
 
 - Add tests for tables using composite keys
