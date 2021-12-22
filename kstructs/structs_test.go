@@ -67,6 +67,24 @@ func TestStructToMap(t *testing.T) {
 		assert.Equal(t, nil, err)
 		assert.Equal(t, map[string]interface{}{}, m)
 	})
+
+	t.Run("should ignore fields not tagged with ksql", func(t *testing.T) {
+		m, err := StructToMap(struct {
+			Name              string `ksql:"name_attr"`
+			Age               int    `ksql:"age_attr"`
+			NotPartOfTheQuery int
+		}{
+			Name:              "fake-name",
+			Age:               42,
+			NotPartOfTheQuery: 42,
+		})
+
+		assert.Equal(t, nil, err)
+		assert.Equal(t, map[string]interface{}{
+			"name_attr": "fake-name",
+			"age_attr":  42,
+		}, m)
+	})
 }
 
 func TestFillStructWith(t *testing.T) {

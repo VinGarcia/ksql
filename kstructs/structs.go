@@ -107,6 +107,10 @@ func StructToMap(obj interface{}) (map[string]interface{}, error) {
 
 	m := map[string]interface{}{}
 	for i := 0; i < v.NumField(); i++ {
+		if !info.ByIndex(i).Valid {
+			continue
+		}
+
 		field := v.Field(i)
 		ft := field.Type()
 		if ft.Kind() == reflect.Ptr {
