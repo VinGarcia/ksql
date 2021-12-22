@@ -204,7 +204,10 @@ func buildSelectQuery(obj interface{}, dialect ksql.Dialect) (string, error) {
 		return query, nil
 	}
 
-	info := kstructs.GetTagInfo(t)
+	info, err := kstructs.GetTagInfo(t)
+	if err != nil {
+		return "", err
+	}
 
 	var escapedNames []string
 	for i := 0; i < info.NumFields(); i++ {

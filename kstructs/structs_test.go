@@ -85,6 +85,20 @@ func TestStructToMap(t *testing.T) {
 			"age_attr":  42,
 		}, m)
 	})
+
+	t.Run("should return error for duplicated ksql tag names", func(t *testing.T) {
+		_, err := StructToMap(struct {
+			Name           string `ksql:"name_attr"`
+			DuplicatedName string `ksql:"name_attr"`
+			Age            int    `ksql:"age_attr"`
+		}{
+			Name:           "fake-name",
+			Age:            42,
+			DuplicatedName: "fake-duplicated-name",
+		})
+
+		assert.NotEqual(t, nil, err)
+	})
 }
 
 func TestFillStructWith(t *testing.T) {

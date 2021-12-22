@@ -34,7 +34,11 @@ func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
 		)
 	}
 
-	info := GetTagInfo(t)
+	info, err := GetTagInfo(t)
+	if err != nil {
+		return err
+	}
+
 	for colName, rawSrc := range dbRow {
 		fieldInfo := info.ByName(colName)
 		if !fieldInfo.Valid {

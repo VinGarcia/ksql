@@ -73,7 +73,10 @@ func (i Insert) BuildQuery(dialect ksql.Dialect) (sqlQuery string, params []inte
 		return "", nil, fmt.Errorf("expected Data attr to be a struct or slice of structs but got: %v", t)
 	}
 
-	info := kstructs.GetTagInfo(t)
+	info, err := kstructs.GetTagInfo(t)
+	if err != nil {
+		return "", nil, err
+	}
 
 	b.WriteString(" (")
 	var escapedNames []string
