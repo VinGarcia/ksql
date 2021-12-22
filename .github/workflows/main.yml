@@ -3,10 +3,14 @@ name: CI
 on: push
 
 jobs:
-  build:
+  tests:
     runs-on: ubuntu-latest
-
+    services:
+      docker-in-docker:
+        image: docker:dind
     steps:
       - uses: actions/checkout@v2
-      - name: Run a one-line script
+      - name: Run linters
+        run: go vet ./...
+      - name: Run tests
         run: go test ./...
