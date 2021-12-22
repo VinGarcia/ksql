@@ -18,20 +18,19 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var connectionString = map[string]string{
-	"postgres":  "host=localhost port=5432 user=postgres password=postgres dbname=ksql sslmode=disable",
-	"sqlite3":   "/tmp/ksql.db",
-	"mysql":     "root:mysql@(127.0.0.1:3306)/ksql?timeout=30s",
-	"sqlserver": "sqlserver://sa:Sqls3rv3r@127.0.0.1:1433?databaseName=ksql",
-}
+var connectionString map[string]string
 
 func TestMain(m *testing.M) {
 	postgresURL, closePostgres := startPostgresDB("ksql")
-	connectionString["postgres"] = postgresURL
 	mysqlURL, closeMySQL := startMySQLDB("ksql")
-	connectionString["mysql"] = mysqlURL
 	sqlServerURL, closeSQLServer := startSQLServerDB("ksql")
-	connectionString["sqlserver"] = sqlServerURL
+
+	connectionString = map[string]string{
+		"postgres":  postgresURL,
+		"sqlite3":   "/tmp/ksql.db",
+		"mysql":     mysqlURL,
+		"sqlserver": sqlServerURL,
+	}
 
 	exitCode := m.Run()
 
