@@ -1,4 +1,6 @@
 
+[![CI](https://github.com/VinGarcia/ksql/actions/workflows/main.yml/badge.svg)](https://github.com/VinGarcia/ksql/actions/workflows/main.yml)
+
 # KissSQL
 
 KissSQL or the "Keep It Simple" SQL pkg was created because
