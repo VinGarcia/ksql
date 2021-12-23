@@ -13,8 +13,12 @@ jobs:
         run: docker pull mysql:8.0.27
       - name: Pull SQLServer
         run: docker pull mcr.microsoft.com/mssql/server:2017-latest
-      - name: Run linters
+      - name: Run go vet
         run: go vet ./...
+      - name: Check go version
+        run: go version
+      - name: Run golint
+        run: go get golang.org/x/lint/golint && bash -c "$(go env GOPATH)/bin/golint -set_exit_status -min_confidence 0.9 ./..."
       - name: Run Tests
         run: go test ./...
 
