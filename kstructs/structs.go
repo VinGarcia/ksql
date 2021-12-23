@@ -272,9 +272,11 @@ func getTagNames(t reflect.Type) (StructInfo, error) {
 		})
 	}
 
-	if len(info.byIndex) > 0 {
-		info.IsNestedStruct = true
+	if len(info.byIndex) == 0 {
+		return StructInfo{}, fmt.Errorf("the struct must contain at least one attribute with the ksql tag")
 	}
+
+	info.IsNestedStruct = true
 
 	return info, nil
 }

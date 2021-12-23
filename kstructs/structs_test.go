@@ -99,6 +99,18 @@ func TestStructToMap(t *testing.T) {
 
 		assert.NotEqual(t, nil, err)
 	})
+
+	t.Run("should return error for structs with no ksql tags", func(t *testing.T) {
+		_, err := StructToMap(struct {
+			Name string
+			Age  int `json:"age"`
+		}{
+			Name: "fake-name",
+			Age:  42,
+		})
+
+		assert.NotEqual(t, nil, err)
+	})
 }
 
 func TestFillStructWith(t *testing.T) {
