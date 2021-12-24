@@ -21,6 +21,9 @@ type User struct {
 	Age  int    `ksql:"age"`
 
 	Address Address `ksql:"address,json"`
+
+	// This attr has no ksql tag, thus, it should be ignored:
+	AttrThatShouldBeIgnored string
 }
 
 var UsersTable = NewTable("users")

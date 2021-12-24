@@ -1130,6 +1130,11 @@ func buildSelectQueryForPlainStructs(
 ) string {
 	var fields []string
 	for i := 0; i < structType.NumField(); i++ {
+		structInfo := info.ByIndex(i)
+		if !structInfo.Valid {
+			continue
+		}
+
 		fields = append(fields, dialect.Escape(info.ByIndex(i).Name))
 	}
 
