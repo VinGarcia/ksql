@@ -10,12 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/ditointernet/go-assert"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v4/pgxpool"
-	_ "github.com/lib/pq"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/vingarcia/ksql/nullable"
 )
 
@@ -25,6 +21,9 @@ type User struct {
 	Age  int    `ksql:"age"`
 
 	Address Address `ksql:"address,json"`
+
+	// This attr has no ksql tag, thus, it should be ignored:
+	AttrThatShouldBeIgnored string
 }
 
 var UsersTable = NewTable("users")
@@ -193,6 +192,11 @@ func TestQuery(t *testing.T) {
 							var rows []struct {
 								User User `tablename:"u"`
 								Post Post `tablename:"p"`
+
+								// This one has no ksql or tablename tag,
+								// so it should just be ignored to avoid strange
+								// unexpected errors:
+								ExtraStructThatShouldBeIgnored User
 							}
 							err = c.Query(ctx, &rows, fmt.Sprint(
 								`FROM users u JOIN posts p ON p.user_id = u.id`,
@@ -1736,7 +1740,7 @@ func TestTransaction(t *testing.T) {
 					assert.Equal(t, nil, err)
 					err = db.Insert(ctx, UsersTable, &User{Name: "User4"})
 					assert.Equal(t, nil, err)
-					err = db.Exec(ctx, "UPDATE users SET age = 22")
+					_, err = db.Exec(ctx, "UPDATE users SET age = 22")
 					assert.Equal(t, nil, err)
 
 					return errors.New("fake-error")
@@ -1889,13 +1893,6 @@ func TestScanRows(t *testing.T) {
 		err = scanRows(dialect, rows, &u)
 		assert.NotEqual(t, nil, err)
 	})
-}
-
-var connectionString = map[string]string{
-	"postgres":  "host=localhost port=5432 user=postgres password=postgres dbname=ksql sslmode=disable",
-	"sqlite3":   "/tmp/ksql.db",
-	"mysql":     "root:mysql@(127.0.0.1:3306)/ksql?timeout=30s",
-	"sqlserver": "sqlserver://sa:Sqls3rv3r@127.0.0.1:1433?databaseName=ksql",
 }
 
 func createTables(driver string) error {

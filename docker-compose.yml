@@ -24,6 +24,7 @@ services:
       - "127.0.0.1:3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: mysql
+      MYSQL_DATABASE: ksql
 
   sqlserver:
     image: microsoft/mssql-server-linux:2017-latest

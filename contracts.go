@@ -27,7 +27,7 @@ type Provider interface {
 	QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error
 	QueryChunks(ctx context.Context, parser ChunkParser) error
 
-	Exec(ctx context.Context, query string, params ...interface{}) error
+	Exec(ctx context.Context, query string, params ...interface{}) (rowsAffected int64, _ error)
 	Transaction(ctx context.Context, fn func(Provider) error) error
 }
 

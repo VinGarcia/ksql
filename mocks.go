@@ -17,7 +17,7 @@ type Mock struct {
 	QueryOneFn    func(ctx context.Context, record interface{}, query string, params ...interface{}) error
 	QueryChunksFn func(ctx context.Context, parser ChunkParser) error
 
-	ExecFn        func(ctx context.Context, query string, params ...interface{}) error
+	ExecFn        func(ctx context.Context, query string, params ...interface{}) (rowsAffected int64, _ error)
 	TransactionFn func(ctx context.Context, fn func(db Provider) error) error
 }
 
@@ -127,7 +127,7 @@ func (m Mock) QueryChunks(ctx context.Context, parser ChunkParser) error {
 }
 
 // Exec ...
-func (m Mock) Exec(ctx context.Context, query string, params ...interface{}) error {
+func (m Mock) Exec(ctx context.Context, query string, params ...interface{}) (rowsAffected int64, _ error) {
 	if m.ExecFn == nil {
 		panic(fmt.Errorf("Mock.Exec(ctx, %s, %v) called but the ksql.Mock.ExecFn() is not set", query, params))
 	}

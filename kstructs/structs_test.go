@@ -67,6 +67,50 @@ func TestStructToMap(t *testing.T) {
 		assert.Equal(t, nil, err)
 		assert.Equal(t, map[string]interface{}{}, m)
 	})
+
+	t.Run("should ignore fields not tagged with ksql", func(t *testing.T) {
+		m, err := StructToMap(struct {
+			Name              string `ksql:"name_attr"`
+			Age               int    `ksql:"age_attr"`
+			NotPartOfTheQuery int
+		}{
+			Name:              "fake-name",
+			Age:               42,
+			NotPartOfTheQuery: 42,
+		})
+
+		assert.Equal(t, nil, err)
+		assert.Equal(t, map[string]interface{}{
+			"name_attr": "fake-name",
+			"age_attr":  42,
+		}, m)
+	})
+
+	t.Run("should return error for duplicated ksql tag names", func(t *testing.T) {
+		_, err := StructToMap(struct {
+			Name           string `ksql:"name_attr"`
+			DuplicatedName string `ksql:"name_attr"`
+			Age            int    `ksql:"age_attr"`
+		}{
+			Name:           "fake-name",
+			Age:            42,
+			DuplicatedName: "fake-duplicated-name",
+		})
+
+		assert.NotEqual(t, nil, err)
+	})
+
+	t.Run("should return error for structs with no ksql tags", func(t *testing.T) {
+		_, err := StructToMap(struct {
+			Name string
+			Age  int `json:"age"`
+		}{
+			Name: "fake-name",
+			Age:  42,
+		})
+
+		assert.NotEqual(t, nil, err)
+	})
 }
 
 func TestFillStructWith(t *testing.T) {

@@ -68,18 +68,22 @@ var tagInfoCache = map[reflect.Type]StructInfo{}
 // In the future we might move this cache inside
 // a struct, but for now this accessor is the one
 // we are using
-func GetTagInfo(key reflect.Type) StructInfo {
+func GetTagInfo(key reflect.Type) (StructInfo, error) {
 	return getCachedTagInfo(tagInfoCache, key)
 }
 
-func getCachedTagInfo(tagInfoCache map[reflect.Type]StructInfo, key reflect.Type) StructInfo {
+func getCachedTagInfo(tagInfoCache map[reflect.Type]StructInfo, key reflect.Type) (StructInfo, error) {
 	if info, found := tagInfoCache[key]; found {
-		return info
+		return info, nil
 	}
 
-	info := getTagNames(key)
+	info, err := getTagNames(key)
+	if err != nil {
+		return StructInfo{}, err
+	}
+
 	tagInfoCache[key] = info
-	return info
+	return info, nil
 }
 
 // StructToMap converts any struct type to a map based on
@@ -103,10 +107,18 @@ func StructToMap(obj interface{}) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("input must be a struct or struct pointer")
 	}
 
-	info := getCachedTagInfo(tagInfoCache, t)
+	info, err := getCachedTagInfo(tagInfoCache, t)
+	if err != nil {
+		return nil, err
+	}
 
 	m := map[string]interface{}{}
 	for i := 0; i < v.NumField(); i++ {
+		fieldInfo := info.ByIndex(i)
+		if !fieldInfo.Valid {
+			continue
+		}
+
 		field := v.Field(i)
 		ft := field.Type()
 		if ft.Kind() == reflect.Ptr {
@@ -117,7 +129,7 @@ func StructToMap(obj interface{}) (map[string]interface{}, error) {
 			field = field.Elem()
 		}
 
-		m[info.ByIndex(i).Name] = field.Interface()
+		m[fieldInfo.Name] = field.Interface()
 	}
 
 	return m, nil
@@ -209,7 +221,7 @@ func (p PtrConverter) Convert(destType reflect.Type) (reflect.Value, error) {
 //
 // This should save several calls to `Field(i).Tag.Get("foo")`
 // which improves performance by a lot.
-func getTagNames(t reflect.Type) StructInfo {
+func getTagNames(t reflect.Type) (StructInfo, error) {
 	info := StructInfo{
 		byIndex: map[int]*FieldInfo{},
 		byName:  map[string]*FieldInfo{},
@@ -227,6 +239,13 @@ func getTagNames(t reflect.Type) StructInfo {
 			serializeAsJSON = tags[1] == "json"
 		}
 
+		if _, found := info.byName[name]; found {
+			return StructInfo{}, fmt.Errorf(
+				"struct contains multiple attributes with the same ksql tag name: '%s'",
+				name,
+			)
+		}
+
 		info.add(FieldInfo{
 			Name:            name,
 			Index:           i,
@@ -236,7 +255,7 @@ func getTagNames(t reflect.Type) StructInfo {
 
 	// If there were `ksql` tags present, then we are finished:
 	if len(info.byIndex) > 0 {
-		return info
+		return info, nil
 	}
 
 	// If there are no `ksql` tags in the struct, lets assume
@@ -253,11 +272,13 @@ func getTagNames(t reflect.Type) StructInfo {
 		})
 	}
 
-	if len(info.byIndex) > 0 {
-		info.IsNestedStruct = true
+	if len(info.byIndex) == 0 {
+		return StructInfo{}, fmt.Errorf("the struct must contain at least one attribute with the ksql tag")
 	}
 
-	return info
+	info.IsNestedStruct = true
+
+	return info, nil
 }
 
 // DecodeAsSliceOfStructs makes several checks

@@ -1,0 +1,24 @@
+name: CI
+
+on: push
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Pull Postgres
+        run: docker pull postgres:14.0
+      - name: Pull MySQL
+        run: docker pull mysql:8.0.27
+      - name: Pull SQLServer
+        run: docker pull mcr.microsoft.com/mssql/server:2017-latest
+      - name: Run go vet
+        run: go vet ./...
+      - name: Check go version
+        run: go version
+      - name: Run golint
+        run: go get golang.org/x/lint/golint && bash -c "$(go env GOPATH)/bin/golint -set_exit_status -min_confidence 0.9 ./..."
+      - name: Run Tests
+        run: go test ./...
+
