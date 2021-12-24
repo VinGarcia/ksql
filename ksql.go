@@ -994,6 +994,9 @@ func getScanArgsForNestedStructs(dialect Dialect, rows Rows, t reflect.Type, v r
 		nestedStructValue := v.Field(i)
 		for j := 0; j < nestedStructValue.NumField(); j++ {
 			fieldInfo := nestedStructInfo.ByIndex(j)
+			if !fieldInfo.Valid {
+				continue
+			}
 
 			valueScanner := nopScannerValue
 			if fieldInfo.Valid {
@@ -1130,12 +1133,12 @@ func buildSelectQueryForPlainStructs(
 ) string {
 	var fields []string
 	for i := 0; i < structType.NumField(); i++ {
-		structInfo := info.ByIndex(i)
-		if !structInfo.Valid {
+		fieldInfo := info.ByIndex(i)
+		if !fieldInfo.Valid {
 			continue
 		}
 
-		fields = append(fields, dialect.Escape(info.ByIndex(i).Name))
+		fields = append(fields, dialect.Escape(fieldInfo.Name))
 	}
 
 	return "SELECT " + strings.Join(fields, ", ") + " "
@@ -1163,9 +1166,14 @@ func buildSelectQueryForNestedStructs(
 		}
 
 		for j := 0; j < structType.Field(i).Type.NumField(); j++ {
+			fieldInfo := nestedStructInfo.ByIndex(j)
+			if !fieldInfo.Valid {
+				continue
+			}
+
 			fields = append(
 				fields,
-				dialect.Escape(nestedStructName)+"."+dialect.Escape(nestedStructInfo.ByIndex(j).Name),
+				dialect.Escape(nestedStructName)+"."+dialect.Escape(fieldInfo.Name),
 			)
 		}
 	}
