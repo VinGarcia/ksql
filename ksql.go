@@ -985,6 +985,10 @@ func scanRowsFromType(
 func getScanArgsForNestedStructs(dialect Dialect, rows Rows, t reflect.Type, v reflect.Value, info kstructs.StructInfo) ([]interface{}, error) {
 	scanArgs := []interface{}{}
 	for i := 0; i < v.NumField(); i++ {
+		if !info.ByIndex(i).Valid {
+			continue
+		}
+
 		// TODO(vingarcia00): Handle case where type is pointer
 		nestedStructInfo, err := kstructs.GetTagInfo(t.Field(i).Type)
 		if err != nil {
@@ -1151,7 +1155,12 @@ func buildSelectQueryForNestedStructs(
 ) (string, error) {
 	var fields []string
 	for i := 0; i < structType.NumField(); i++ {
-		nestedStructName := info.ByIndex(i).Name
+		nestedStructInfo := info.ByIndex(i)
+		if !nestedStructInfo.Valid {
+			continue
+		}
+
+		nestedStructName := nestedStructInfo.Name
 		nestedStructType := structType.Field(i).Type
 		if nestedStructType.Kind() != reflect.Struct {
 			return "", fmt.Errorf(
@@ -1160,13 +1169,13 @@ func buildSelectQueryForNestedStructs(
 			)
 		}
 
-		nestedStructInfo, err := kstructs.GetTagInfo(nestedStructType)
+		nestedStructTagInfo, err := kstructs.GetTagInfo(nestedStructType)
 		if err != nil {
 			return "", err
 		}
 
 		for j := 0; j < structType.Field(i).Type.NumField(); j++ {
-			fieldInfo := nestedStructInfo.ByIndex(j)
+			fieldInfo := nestedStructTagInfo.ByIndex(j)
 			if !fieldInfo.Valid {
 				continue
 			}

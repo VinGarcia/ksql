@@ -192,6 +192,11 @@ func TestQuery(t *testing.T) {
 							var rows []struct {
 								User User `tablename:"u"`
 								Post Post `tablename:"p"`
+
+								// This one has no ksql or tablename tag,
+								// so it should just be ignored to avoid strange
+								// unexpected errors:
+								ExtraStructThatShouldBeIgnored User
 							}
 							err = c.Query(ctx, &rows, fmt.Sprint(
 								`FROM users u JOIN posts p ON p.user_id = u.id`,
