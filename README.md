@@ -13,7 +13,7 @@ the actual comunication with the database is decoupled so we can use
 You can even create you own backend adapter for `ksql` which is
 useful in some situations.
 
-### Why ksql?
+### Why `ksql`?
 
 > Note: If you want numbers see our [Benchmark section](https://github.com/vingarcia/ksql#benchmark-comparison) below
 
@@ -59,12 +59,11 @@ If you need a new `database/sql` driver or backend adapter included
 please open an issue or make your own implementation
 and submit it as a Pull Request.
 
-### Comparing KissSQL with other tools
+### Comparing `ksql` with other tools
 
-`ksql` was created because
-of a few insatisfactions with the existing packages for
-interacting with relational databases in Go. To mention a few:
-
+`ksql` was created because of a few insatisfactions
+with the existing packages for interacting with
+relational databases in Go. To mention a few:
 
 **Low Level Tools:**
 
