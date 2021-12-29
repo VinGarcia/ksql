@@ -1,6 +1,6 @@
 
 [![codecov](https://codecov.io/gh/VinGarcia/ksql/branch/master/graph/badge.svg?token=5CNJ867C66)](https://codecov.io/gh/VinGarcia/ksql)
-[![CI](https://github.com/VinGarcia/ksql/actions/workflows/main.yml/badge.svg)](https://github.com/VinGarcia/ksql/actions/workflows/main.yml)
+[![CI](https://github.com/VinGarcia/ksql/actions/workflows/ci.yml/badge.svg)](https://github.com/VinGarcia/ksql/actions/workflows/ci.yml)
 
 # KissSQL
 
