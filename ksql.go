@@ -2,13 +2,11 @@ package ksql
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"reflect"
 	"strings"
 	"unicode"
 
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/pkg/errors"
 	"github.com/vingarcia/ksql/kstructs"
 )
@@ -82,57 +80,6 @@ func (c *Config) SetDefaultValues() {
 	if c.MaxOpenConns == 0 {
 		c.MaxOpenConns = 1
 	}
-}
-
-// New instantiates a new KissSQL client
-func New(
-	dbDriver string,
-	connectionString string,
-	config Config,
-) (DB, error) {
-	config.SetDefaultValues()
-
-	db, err := sql.Open(dbDriver, connectionString)
-	if err != nil {
-		return DB{}, err
-	}
-	if err = db.Ping(); err != nil {
-		return DB{}, err
-	}
-
-	db.SetMaxOpenConns(config.MaxOpenConns)
-
-	return NewWithAdapter(SQLAdapter{db}, dbDriver)
-}
-
-// NewWithPGX instantiates a new ksql client using the pgx
-// library in the backend
-//
-// deprecated: use kpgx.New() instead
-func NewWithPGX(
-	ctx context.Context,
-	connectionString string,
-	config Config,
-) (db DB, err error) {
-	config.SetDefaultValues()
-
-	pgxConf, err := pgxpool.ParseConfig(connectionString)
-	if err != nil {
-		return DB{}, err
-	}
-
-	pgxConf.MaxConns = int32(config.MaxOpenConns)
-
-	pool, err := pgxpool.ConnectConfig(ctx, pgxConf)
-	if err != nil {
-		return DB{}, err
-	}
-	if err = pool.Ping(ctx); err != nil {
-		return DB{}, err
-	}
-
-	db, err = NewWithAdapter(NewPGXAdapter(pool), "postgres")
-	return db, err
 }
 
 // NewWithAdapter allows the user to insert a custom implementation
