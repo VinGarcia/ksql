@@ -13,7 +13,7 @@ the actual comunication with the database is decoupled so we can use
 You can even create you own backend adapter for `ksql` which is
 useful in some situations.
 
-### Why `ksql`?
+## Why `ksql`?
 
 > Note: If you want numbers see our [Benchmark section](https://github.com/vingarcia/ksql#benchmark-comparison) below
 
@@ -59,7 +59,7 @@ If you need a new `database/sql` driver or backend adapter included
 please open an issue or make your own implementation
 and submit it as a Pull Request.
 
-### Comparing `ksql` with other tools
+## Comparing `ksql` with other tools
 
 `ksql` was created because of a few insatisfactions
 with the existing packages for interacting with
@@ -94,7 +94,7 @@ have some issues that might bother you:
 And finally you might just prefer to avoid codegen when possible,
 in which case ksql is also for you.
 
-### Kiss Interface
+## Kiss Interface
 
 The current interface is as follows and we plan on keeping
 it with as little functions as possible, so don't expect many additions:
@@ -118,7 +118,7 @@ type Provider interface {
 }
 ```
 
-### Usage examples
+## Usage examples
 
 This example is also available [here](./examples/crud/crud.go)
 if you want to compile it yourself.
@@ -307,7 +307,7 @@ func main() {
 }
 ```
 
-### Query Chunks Feature
+## Query Chunks Feature
 
 It's very unsual for us to need to load a number of records from the
 database that might be too big for fitting in memory, e.g. load all the
@@ -342,7 +342,7 @@ thus, it is adivisible to always prefer using the other two when possible
 reserving this one for the rare use-case where you are actually
 loading big sections of the database into memory.
 
-### Select Generator Feature
+## Select Generator Feature
 
 There are good reasons not to use `SELECT *` queries the most important
 of them is that you might end up loading more information than you are actually
@@ -402,7 +402,7 @@ The `SELECT` statement is then cached so we don't have to build it again
 the next time in order to keep the library efficient even when
 using this feature.
 
-### Select Generation with Joins
+## Select Generation with Joins
 
 So there is one use-case that was not covered by `ksql` so far:
 
@@ -511,7 +511,7 @@ In the example above, since we are only interested in a couple of columns it
 is far simpler and more efficient for the database to only select the columns
 that we actually care about, so it's better not to use composite structs.
 
-### Testing Examples
+## Testing Examples
 
 This library has a few helper functions for helping your tests:
 
@@ -523,7 +523,7 @@ This library has a few helper functions for helping your tests:
 If you want to see examples (we have examples for all the public functions) just
 read the example tests available on our [example service](./examples/example_service)
 
-### Benchmark Comparison
+## Benchmark Comparison
 
 The results of the benchmark are good:
 they show that ksql is in practical terms,
@@ -594,7 +594,7 @@ Benchmark executed at: 2021-11-16
 Benchmark executed on commit: fc6a9c2950903139ed7a8432bdcfdb3eb89f1e21
 ```
 
-### Running the ksql tests (for contributors)
+## Running the ksql tests (for contributors)
 
 The tests use `docker-test` for setting up all the supported databases,
 which means that:
@@ -627,7 +627,7 @@ will spend a long time downloading these images
 and then fail because the `TestMain()` function
 is configured to kill the containers after 20 seconds.
 
-### TODO List
+## TODO List
 
 - Add tests for tables using composite keys
 - Add support for serializing structs as other formats such as YAML
@@ -639,7 +639,7 @@ is configured to kill the containers after 20 seconds.
 - Add support for a `ksql.Array(params ...interface{})` for allowing queries like this:
   `db.Query(ctx, &user, "SELECT * FROM user WHERE id in (?)", ksql.Array(1,2,3))`
 
-### Optimization Oportunities
+## Optimization Oportunities
 
 - Test if using a pointer on the field info is faster or not
 - Consider passing the cached structInfo as argument for all the functions that use it,
