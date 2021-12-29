@@ -86,16 +86,16 @@ func (c *Config) SetDefaultValues() {
 // of the DBAdapter interface
 func NewWithAdapter(
 	db DBAdapter,
-	dbDriver string,
+	dialectName string,
 ) (DB, error) {
-	dialect := supportedDialects[dbDriver]
+	dialect := supportedDialects[dialectName]
 	if dialect == nil {
-		return DB{}, fmt.Errorf("unsupported driver `%s`", dbDriver)
+		return DB{}, fmt.Errorf("unsupported driver `%s`", dialectName)
 	}
 
 	return DB{
 		dialect: dialect,
-		driver:  dbDriver,
+		driver:  dialectName,
 		db:      db,
 	}, nil
 }
@@ -441,7 +441,7 @@ func (c DB) insertReturningIDs(
 	defer rows.Close()
 
 	if !rows.Next() {
-		err := fmt.Errorf("unexpected error retrieving the id columns from the database")
+		err := fmt.Errorf("unexpected error when retrieving the id columns from the database")
 		if rows.Err() != nil {
 			err = rows.Err()
 		}
