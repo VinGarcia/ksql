@@ -81,7 +81,7 @@ func (m Mock) SetFallbackDatabase(db Provider) Mock {
 // Insert ...
 func (m Mock) Insert(ctx context.Context, table Table, record interface{}) error {
 	if m.InsertFn == nil {
-		panic(fmt.Errorf("Mock.Insert(ctx, %v, %v) called but the ksql.Mock.InsertFn() is not set", table, record))
+		panic(fmt.Errorf("ksql.Mock.Insert(ctx, %v, %v) called but the ksql.Mock.InsertFn() is not set", table, record))
 	}
 	return m.InsertFn(ctx, table, record)
 }
@@ -89,7 +89,7 @@ func (m Mock) Insert(ctx context.Context, table Table, record interface{}) error
 // Update ...
 func (m Mock) Update(ctx context.Context, table Table, record interface{}) error {
 	if m.UpdateFn == nil {
-		panic(fmt.Errorf("Mock.Update(ctx, %v, %v) called but the ksql.Mock.UpdateFn() is not set", table, record))
+		panic(fmt.Errorf("ksql.Mock.Update(ctx, %v, %v) called but the ksql.Mock.UpdateFn() is not set", table, record))
 	}
 	return m.UpdateFn(ctx, table, record)
 }
@@ -97,7 +97,7 @@ func (m Mock) Update(ctx context.Context, table Table, record interface{}) error
 // Delete ...
 func (m Mock) Delete(ctx context.Context, table Table, idOrRecord interface{}) error {
 	if m.DeleteFn == nil {
-		panic(fmt.Errorf("Mock.Delete(ctx, %v, %v) called but the ksql.Mock.DeleteFn() is not set", table, idOrRecord))
+		panic(fmt.Errorf("ksql.Mock.Delete(ctx, %v, %v) called but the ksql.Mock.DeleteFn() is not set", table, idOrRecord))
 	}
 	return m.DeleteFn(ctx, table, idOrRecord)
 }
@@ -105,7 +105,7 @@ func (m Mock) Delete(ctx context.Context, table Table, idOrRecord interface{}) e
 // Query ...
 func (m Mock) Query(ctx context.Context, records interface{}, query string, params ...interface{}) error {
 	if m.QueryFn == nil {
-		panic(fmt.Errorf("Mock.Query(ctx, %v, %s, %v) called but the ksql.Mock.QueryFn() is not set", records, query, params))
+		panic(fmt.Errorf("ksql.Mock.Query(ctx, %v, %s, %v) called but the ksql.Mock.QueryFn() is not set", records, query, params))
 	}
 	return m.QueryFn(ctx, records, query, params...)
 }
@@ -113,7 +113,7 @@ func (m Mock) Query(ctx context.Context, records interface{}, query string, para
 // QueryOne ...
 func (m Mock) QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error {
 	if m.QueryOneFn == nil {
-		panic(fmt.Errorf("Mock.QueryOne(ctx, %v, %s, %v) called but the ksql.Mock.QueryOneFn() is not set", record, query, params))
+		panic(fmt.Errorf("ksql.Mock.QueryOne(ctx, %v, %s, %v) called but the ksql.Mock.QueryOneFn() is not set", record, query, params))
 	}
 	return m.QueryOneFn(ctx, record, query, params...)
 }
@@ -121,7 +121,7 @@ func (m Mock) QueryOne(ctx context.Context, record interface{}, query string, pa
 // QueryChunks ...
 func (m Mock) QueryChunks(ctx context.Context, parser ChunkParser) error {
 	if m.QueryChunksFn == nil {
-		panic(fmt.Errorf("Mock.QueryChunks(ctx, %v) called but the ksql.Mock.QueryChunksFn() is not set", parser))
+		panic(fmt.Errorf("ksql.Mock.QueryChunks(ctx, %v) called but the ksql.Mock.QueryChunksFn() is not set", parser))
 	}
 	return m.QueryChunksFn(ctx, parser)
 }
@@ -129,7 +129,7 @@ func (m Mock) QueryChunks(ctx context.Context, parser ChunkParser) error {
 // Exec ...
 func (m Mock) Exec(ctx context.Context, query string, params ...interface{}) (rowsAffected int64, _ error) {
 	if m.ExecFn == nil {
-		panic(fmt.Errorf("Mock.Exec(ctx, %s, %v) called but the ksql.Mock.ExecFn() is not set", query, params))
+		panic(fmt.Errorf("ksql.Mock.Exec(ctx, %s, %v) called but the ksql.Mock.ExecFn() is not set", query, params))
 	}
 	return m.ExecFn(ctx, query, params...)
 }
