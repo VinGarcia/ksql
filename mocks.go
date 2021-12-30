@@ -7,7 +7,47 @@ import (
 
 var _ Provider = Mock{}
 
-// Mock ...
+// Mock implements the Provider interface in order to allow users
+// to easily mock the behavior of a ksql.Provider.
+//
+// To mock a particular method, e.g. Insert, you just need to overwrite
+// the corresponding function attribute whose name is InsertFn().
+//
+// NOTE: This mock should be instantiated inside each unit test not globally.
+//
+// For capturing input values use a closure as in the example:
+//
+//	var insertRecord interface{}
+//	dbMock := Mock{
+//		InsertFn: func(ctx context.Context, table Table, record interface{}) error {
+//			insertRecord = record
+//		},
+//	}
+//
+// NOTE: It is recommended not to make assertions inside the mocked methods,
+// you should only check the captured values afterwards as all tests should
+// have 3 stages: (1) setup, (2) run and finally (3) assert.
+//
+// For cases where the function will be called several times you might want to capture
+// the number of calls as well as the values passed each time for that
+// use closures and a slice of values, e.g.:
+//
+//	var insertRecords []interface{}
+//	dbMock := Mock{
+//		InsertFn: func(ctx context.Context, table Table, record interface{}) error {
+//			insertRecords = append(insertRecords, record)
+//		},
+//	}
+//
+//	expectedNumberOfCalls := 2
+//	assert.Equal(t, expectedNumberOfCalls, len(insertRecords))
+//
+//	expectedInsertedRecords := []interface{}{
+//		user1,
+//		user2,
+//	}
+//	assert.Equal(t, expectedInsertedRecords, insertRecords)
+//
 type Mock struct {
 	InsertFn func(ctx context.Context, table Table, record interface{}) error
 	UpdateFn func(ctx context.Context, table Table, record interface{}) error
@@ -78,7 +118,9 @@ func (m Mock) SetFallbackDatabase(db Provider) Mock {
 	return m
 }
 
-// Insert ...
+// Insert mocks the behavior of the Insert method.
+// If InsertFn is set it will just call it returning the same return values.
+// If InsertFn is unset it will panic with an appropriate error message.
 func (m Mock) Insert(ctx context.Context, table Table, record interface{}) error {
 	if m.InsertFn == nil {
 		panic(fmt.Errorf("ksql.Mock.Insert(ctx, %v, %v) called but the ksql.Mock.InsertFn() is not set", table, record))
@@ -86,7 +128,9 @@ func (m Mock) Insert(ctx context.Context, table Table, record interface{}) error
 	return m.InsertFn(ctx, table, record)
 }
 
-// Update ...
+// Update mocks the behavior of the Update method.
+// If UpdateFn is set it will just call it returning the same return values.
+// If UpdateFn is unset it will panic with an appropriate error message.
 func (m Mock) Update(ctx context.Context, table Table, record interface{}) error {
 	if m.UpdateFn == nil {
 		panic(fmt.Errorf("ksql.Mock.Update(ctx, %v, %v) called but the ksql.Mock.UpdateFn() is not set", table, record))
@@ -94,7 +138,9 @@ func (m Mock) Update(ctx context.Context, table Table, record interface{}) error
 	return m.UpdateFn(ctx, table, record)
 }
 
-// Delete ...
+// Delete mocks the behavior of the Delete method.
+// If DeleteFn is set it will just call it returning the same return values.
+// If DeleteFn is unset it will panic with an appropriate error message.
 func (m Mock) Delete(ctx context.Context, table Table, idOrRecord interface{}) error {
 	if m.DeleteFn == nil {
 		panic(fmt.Errorf("ksql.Mock.Delete(ctx, %v, %v) called but the ksql.Mock.DeleteFn() is not set", table, idOrRecord))
@@ -102,7 +148,9 @@ func (m Mock) Delete(ctx context.Context, table Table, idOrRecord interface{}) e
 	return m.DeleteFn(ctx, table, idOrRecord)
 }
 
-// Query ...
+// Query mocks the behavior of the Query method.
+// If QueryFn is set it will just call it returning the same return values.
+// If QueryFn is unset it will panic with an appropriate error message.
 func (m Mock) Query(ctx context.Context, records interface{}, query string, params ...interface{}) error {
 	if m.QueryFn == nil {
 		panic(fmt.Errorf("ksql.Mock.Query(ctx, %v, %s, %v) called but the ksql.Mock.QueryFn() is not set", records, query, params))
@@ -110,7 +158,9 @@ func (m Mock) Query(ctx context.Context, records interface{}, query string, para
 	return m.QueryFn(ctx, records, query, params...)
 }
 
-// QueryOne ...
+// QueryOne mocks the behavior of the QueryOne method.
+// If QueryOneFn is set it will just call it returning the same return values.
+// If QueryOneFn is unset it will panic with an appropriate error message.
 func (m Mock) QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error {
 	if m.QueryOneFn == nil {
 		panic(fmt.Errorf("ksql.Mock.QueryOne(ctx, %v, %s, %v) called but the ksql.Mock.QueryOneFn() is not set", record, query, params))
@@ -118,7 +168,9 @@ func (m Mock) QueryOne(ctx context.Context, record interface{}, query string, pa
 	return m.QueryOneFn(ctx, record, query, params...)
 }
 
-// QueryChunks ...
+// QueryChunks mocks the behavior of the QueryChunks method.
+// If QueryChunksFn is set it will just call it returning the same return values.
+// If QueryChunksFn is unset it will panic with an appropriate error message.
 func (m Mock) QueryChunks(ctx context.Context, parser ChunkParser) error {
 	if m.QueryChunksFn == nil {
 		panic(fmt.Errorf("ksql.Mock.QueryChunks(ctx, %v) called but the ksql.Mock.QueryChunksFn() is not set", parser))
@@ -126,7 +178,9 @@ func (m Mock) QueryChunks(ctx context.Context, parser ChunkParser) error {
 	return m.QueryChunksFn(ctx, parser)
 }
 
-// Exec ...
+// Exec mocks the behavior of the Exec method.
+// If ExecFn is set it will just call it returning the same return values.
+// If ExecFn is unset it will panic with an appropriate error message.
 func (m Mock) Exec(ctx context.Context, query string, params ...interface{}) (rowsAffected int64, _ error) {
 	if m.ExecFn == nil {
 		panic(fmt.Errorf("ksql.Mock.Exec(ctx, %s, %v) called but the ksql.Mock.ExecFn() is not set", query, params))
@@ -134,7 +188,10 @@ func (m Mock) Exec(ctx context.Context, query string, params ...interface{}) (ro
 	return m.ExecFn(ctx, query, params...)
 }
 
-// Transaction ...
+// Transaction mocks the behavior of the Transaction method.
+// If TransactionFn is set it will just call it returning the same return values.
+// If TransactionFn is unset it will just call the input function
+// passing the Mock itself as the database.
 func (m Mock) Transaction(ctx context.Context, fn func(db Provider) error) error {
 	if m.TransactionFn == nil {
 		return fn(m)
