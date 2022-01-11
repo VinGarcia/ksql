@@ -1,5 +1,6 @@
-ignore:
-  "internal/testtools"
-  "internal/structs"
-  "examples/example_service"
-  "examples/**/*"
+coverage:
+  ignore:
+    "internal/testtools"
+    "internal/structs"
+    "examples/example_service"
+    "examples/**/*"
