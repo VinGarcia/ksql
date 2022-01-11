@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/ditointernet/go-assert"
 	gomock "github.com/golang/mock/gomock"
-	"github.com/tj/assert"
 	"github.com/vingarcia/ksql"
 	"github.com/vingarcia/ksql/kstructs"
 	"github.com/vingarcia/ksql/nullable"
@@ -33,7 +33,7 @@ func TestCreateUser(t *testing.T) {
 		user := UserEntity{Name: nullable.String("TestUser")}
 
 		err := s.CreateUser(context.TODO(), user)
-		assert.Nil(t, err)
+		assert.Equal(t, nil, err)
 		assert.Equal(t, 1, len(users))
 		assert.Equal(t, &user, users[0])
 	})
@@ -70,7 +70,7 @@ func TestCreateUser(t *testing.T) {
 		user := UserEntity{Name: nullable.String("TestUser")}
 
 		err := s.CreateUser(context.TODO(), user)
-		assert.Nil(t, err)
+		assert.Equal(t, nil, err)
 		assert.Equal(t, 1, len(users))
 
 		assert.Equal(t, "TestUser", users[0]["name"])
@@ -110,7 +110,7 @@ func TestUpdateUserScore(t *testing.T) {
 		)
 
 		err := s.UpdateUserScore(context.TODO(), 1, -2)
-		assert.Nil(t, err)
+		assert.Equal(t, nil, err)
 		assert.Equal(t, 1, len(users))
 
 		resultUser := UserEntity{
@@ -163,7 +163,7 @@ func TestListUsers(t *testing.T) {
 		)
 
 		total, users, err := s.ListUsers(context.TODO(), 40, 2)
-		assert.Nil(t, err)
+		assert.Equal(t, nil, err)
 		assert.Equal(t, 420, total)
 		assert.Equal(t, 2, len(users))
 
@@ -231,7 +231,7 @@ func TestStreamAllUsers(t *testing.T) {
 			return nil
 		})
 
-		assert.Nil(t, err)
+		assert.Equal(t, nil, err)
 		assert.Equal(t, 3, len(users))
 
 		expectedUsers := []UserEntity{
@@ -275,7 +275,7 @@ func TestDeleteUser(t *testing.T) {
 			})
 
 		err := s.DeleteUser(context.TODO(), 42)
-		assert.Nil(t, err)
+		assert.Equal(t, nil, err)
 		assert.Equal(t, 1, len(ids))
 		assert.Equal(t, 42, ids[0])
 	})

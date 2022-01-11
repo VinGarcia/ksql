@@ -3,7 +3,7 @@ package kbuilder_test
 import (
 	"testing"
 
-	"github.com/tj/assert"
+	"github.com/ditointernet/go-assert"
 	"github.com/vingarcia/ksql/kbuilder"
 )
 

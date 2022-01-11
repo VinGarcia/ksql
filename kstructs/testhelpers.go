@@ -9,6 +9,19 @@ import (
 	"github.com/vingarcia/ksql/internal/structs"
 )
 
+// StructToMap converts any struct type to a map based on
+// the tag named `ksql`, i.e. `ksql:"map_key_name"`
+//
+// Valid pointers are dereferenced and copied to the map,
+// null pointers are ignored.
+//
+// This function is efficient in the fact that it caches
+// the slower steps of the reflection required to perform
+// this task.
+func StructToMap(obj interface{}) (map[string]interface{}, error) {
+	return structs.StructToMap(obj)
+}
+
 // FillStructWith is meant to be used on unit tests to mock
 // the response from the database.
 //
@@ -36,7 +49,7 @@ func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
 		)
 	}
 
-	info, err := GetTagInfo(t)
+	info, err := structs.GetTagInfo(t)
 	if err != nil {
 		return err
 	}
@@ -48,7 +61,7 @@ func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
 			continue
 		}
 
-		src := NewPtrConverter(rawSrc)
+		src := structs.NewPtrConverter(rawSrc)
 		dest := v.Field(fieldInfo.Index)
 		destType := t.Field(fieldInfo.Index).Type
 
@@ -79,7 +92,7 @@ func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error 
 		)
 	}
 
-	structType, isSliceOfPtrs, err := DecodeAsSliceOfStructs(sliceType.Elem())
+	structType, isSliceOfPtrs, err := structs.DecodeAsSliceOfStructs(sliceType.Elem())
 	if err != nil {
 		return errors.Wrap(err, "FillSliceWith")
 	}

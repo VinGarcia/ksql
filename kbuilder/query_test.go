@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/ditointernet/go-assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tj/assert"
 	"github.com/vingarcia/ksql/kbuilder"
 )
 

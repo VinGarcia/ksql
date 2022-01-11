@@ -8,7 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/vingarcia/ksql"
-	"github.com/vingarcia/ksql/kstructs"
+	"github.com/vingarcia/ksql/internal/structs"
 )
 
 // Query is is the struct template for building SELECT queries.
@@ -204,7 +204,7 @@ func buildSelectQuery(obj interface{}, dialect ksql.Dialect) (string, error) {
 		return query, nil
 	}
 
-	info, err := kstructs.GetTagInfo(t)
+	info, err := structs.GetTagInfo(t)
 	if err != nil {
 		return "", err
 	}

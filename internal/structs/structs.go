@@ -1,4 +1,4 @@
-package kstructs
+package structs
 
 import (
 	"fmt"
