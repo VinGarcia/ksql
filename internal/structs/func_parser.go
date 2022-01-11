@@ -7,7 +7,7 @@ import (
 
 var errType = reflect.TypeOf(new(error)).Elem()
 
-// parseInputFunc is used exclusively for parsing
+// ParseInputFunc is used exclusively for parsing
 // the ForEachChunk function used on the QueryChunks method.
 func ParseInputFunc(fn interface{}) (reflect.Type, error) {
 	if fn == nil {
