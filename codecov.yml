@@ -1,4 +1,5 @@
 ignore:
   "internal/testtools"
+  "internal/structs"
   "examples/example_service"
   "examples/**/*"
