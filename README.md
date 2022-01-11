@@ -13,6 +13,70 @@ the actual comunication with the database is decoupled so we can use
 You can even create you own backend adapter for `ksql` which is
 useful in some situations.
 
+## Using `ksql`
+
+This is a TLDR version of the more complete examples below.
+
+```golang
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/vingarcia/ksql"
+	"github.com/vingarcia/ksql/adapters/kpgx"
+)
+
+var UsersTable = ksql.NewTable("users", "user_id")
+
+type User struct {
+	ID   int    `ksql:"user_id"`
+	Name string `ksql:"name"`
+	Type string `ksql:"type"`
+}
+
+func main() {
+	ctx := context.Background()
+	db, err := kpgx.New(ctx, os.Getenv("POSTGRES_URL"), ksql.Config{})
+
+	// For querying only some attributes you can
+	// create a custom struct like this:
+	var count []struct {
+		Count string `ksql:"count"`
+		Type string `ksql:"type"`
+	}
+	err = db.Query(ctx, &count, "SELECT type, count(*) as count FROM users WHERE type = $1 GROUP BY type", "admin")
+	if err != nil {
+		log.Fatalf("unable to query users: %s", err)
+	}
+
+	fmt.Println("number of users by type:", count)
+
+	// For loading entities from the database `ksql` can build
+	// the SELECT part of the query for you if you omit it like this:
+	var users []User
+	err = db.Query(ctx, &users, "FROM users WHERE type = $1", "admin")
+	if err != nil {
+		log.Fatalf("unable to query users: %s", err)
+	}
+
+	fmt.Println("users:", users)
+}
+```
+
+We currently have 4 constructors available,
+one of them is illustrated above (`kpgx.New()`),
+the other ones have the exact same signature
+but work on different databases, they are:
+
+- `kpgx.New(ctx, os.Getenv("POSTGRES_URL"), ksql.Config{})` for Postgres, it works on top of `pgxpool`
+- `kmysql.New(ctx, os.Getenv("POSTGRES_URL"), ksql.Config{})` for MySQL, it works on top of `database/sql`
+- `ksqlserver.New(ctx, os.Getenv("POSTGRES_URL"), ksql.Config{})` for SQLServer, it works on top of `database/sql`
+- `ksqlite3.New(ctx, os.Getenv("POSTGRES_URL"), ksql.Config{})` for SQLite3, it works on top of `database/sql`
+
 ## Why `ksql`?
 
 > Note: If you want numbers see our [Benchmark section](https://github.com/vingarcia/ksql#benchmark-comparison) below
@@ -123,10 +187,6 @@ type Provider interface {
 This example is also available [here](./examples/crud/crud.go)
 if you want to compile it yourself.
 
-Also we have a small feature for building the "SELECT" part of the query if
-you rather not use `SELECT *` queries, you may skip to the
-[Select Generator Feature](#Select-Generator-Feature) which is recommended.
-
 ```Go
 package main
 
@@ -230,9 +290,10 @@ func main() {
 		panic(err.Error())
 	}
 
-	// Retrieving Cristina:
+	// Retrieving Cristina, note that if you omit the SELECT part of the query
+	// ksql will build it for you (efficiently) based on the fields from the struct:
 	var cris User
-	err = db.QueryOne(ctx, &cris, "SELECT * FROM users WHERE name = ? ORDER BY id", "Cristina")
+	err = db.QueryOne(ctx, &cris, "FROM users WHERE name = ? ORDER BY id", "Cristina")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -272,7 +333,7 @@ func main() {
 	// If you need to query very big numbers of users we recommend using
 	// the `QueryChunks` function.
 	var users []User
-	err = db.Query(ctx, &users, "SELECT * FROM users LIMIT 10")
+	err = db.Query(ctx, &users, "FROM users LIMIT 10")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -280,7 +341,7 @@ func main() {
 	// Making transactions:
 	err = db.Transaction(ctx, func(db ksql.Provider) error {
 		var cris2 User
-		err = db.QueryOne(ctx, &cris2, "SELECT * FROM users WHERE id = ?", cris.ID)
+		err = db.QueryOne(ctx, &cris2, "FROM users WHERE id = ?", cris.ID)
 		if err != nil {
 			// This will cause an automatic rollback:
 			return err

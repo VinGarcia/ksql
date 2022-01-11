@@ -100,9 +100,10 @@ func main() {
 		panic(err.Error())
 	}
 
-	// Retrieving Cristina:
+	// Retrieving Cristina, note that if you omit the SELECT part of the query
+	// ksql will build it for you (efficiently) based on the fields from the struct:
 	var cris User
-	err = db.QueryOne(ctx, &cris, "SELECT * FROM users WHERE name = ? ORDER BY id", "Cristina")
+	err = db.QueryOne(ctx, &cris, "FROM users WHERE name = ? ORDER BY id", "Cristina")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -142,7 +143,7 @@ func main() {
 	// If you need to query very big numbers of users we recommend using
 	// the `QueryChunks` function.
 	var users []User
-	err = db.Query(ctx, &users, "SELECT * FROM users LIMIT 10")
+	err = db.Query(ctx, &users, "FROM users LIMIT 10")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -150,7 +151,7 @@ func main() {
 	// Making transactions:
 	err = db.Transaction(ctx, func(db ksql.Provider) error {
 		var cris2 User
-		err = db.QueryOne(ctx, &cris2, "SELECT * FROM users WHERE id = ?", cris.ID)
+		err = db.QueryOne(ctx, &cris2, "FROM users WHERE id = ?", cris.ID)
 		if err != nil {
 			// This will cause an automatic rollback:
 			return err
