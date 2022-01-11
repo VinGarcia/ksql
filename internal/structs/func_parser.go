@@ -1,4 +1,4 @@
-package kstructs
+package structs
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 
 var errType = reflect.TypeOf(new(error)).Elem()
 
-// ParseInputFunc is used exclusively for parsing
+// parseInputFunc is used exclusively for parsing
 // the ForEachChunk function used on the QueryChunks method.
 func ParseInputFunc(fn interface{}) (reflect.Type, error) {
 	if fn == nil {
@@ -33,6 +33,10 @@ func ParseInputFunc(fn interface{}) (reflect.Type, error) {
 
 	argsType := t.In(0)
 	if argsType.Kind() != reflect.Slice {
+		return nil, fmt.Errorf("the argument of the ForEachChunk callback must a slice of structs")
+	}
+
+	if argsType.Elem().Kind() != reflect.Struct {
 		return nil, fmt.Errorf("the argument of the ForEachChunk callback must a slice of structs")
 	}
 

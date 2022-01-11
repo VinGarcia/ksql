@@ -5,6 +5,8 @@ import (
 	"reflect"
 
 	"github.com/pkg/errors"
+
+	"github.com/vingarcia/ksql/internal/structs"
 )
 
 // FillStructWith is meant to be used on unit tests to mock
@@ -107,7 +109,7 @@ func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error 
 // CallFunctionWithRows was created for helping test the QueryChunks method
 func CallFunctionWithRows(fn interface{}, rows []map[string]interface{}) error {
 	fnValue := reflect.ValueOf(fn)
-	chunkType, err := ParseInputFunc(fn)
+	chunkType, err := structs.ParseInputFunc(fn)
 	if err != nil {
 		return err
 	}

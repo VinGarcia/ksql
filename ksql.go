@@ -8,6 +8,7 @@ import (
 	"unicode"
 
 	"github.com/pkg/errors"
+	"github.com/vingarcia/ksql/internal/structs"
 	"github.com/vingarcia/ksql/kstructs"
 )
 
@@ -283,7 +284,7 @@ func (c DB) QueryChunks(
 	parser ChunkParser,
 ) error {
 	fnValue := reflect.ValueOf(parser.ForEachChunk)
-	chunkType, err := kstructs.ParseInputFunc(parser.ForEachChunk)
+	chunkType, err := structs.ParseInputFunc(parser.ForEachChunk)
 	if err != nil {
 		return err
 	}
