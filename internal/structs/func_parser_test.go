@@ -1,6 +1,7 @@
 package structs_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/vingarcia/ksql/internal/structs"
@@ -14,7 +15,11 @@ type user struct {
 
 func TestParseInputFunc(t *testing.T) {
 	t.Run("should parse a function correctly", func(t *testing.T) {
-
+		chunkType, err := structs.ParseInputFunc(func(users []user) error {
+			return nil
+		})
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, reflect.TypeOf([]user{}), chunkType)
 	})
 
 	t.Run("should return errors correctly", func(t *testing.T) {
@@ -56,7 +61,7 @@ func TestParseInputFunc(t *testing.T) {
 			},
 			{
 				desc: "input function argument is not slice",
-				fn: func(users []string) error {
+				fn: func(users user) error {
 					return nil
 				},
 				expectErrToContain: []string{"ForEachChunk", "must a slice"},
