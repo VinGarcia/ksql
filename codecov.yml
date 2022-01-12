@@ -1,6 +1,6 @@
 coverage:
   ignore:
-    "internal/testtools"
-    "internal/structs"
-    "examples/example_service"
-    "examples/**/*"
+    - "internal/testtools"
+    - "internal/structs"
+    - "examples/example_service"
+    - "examples/**/*"
