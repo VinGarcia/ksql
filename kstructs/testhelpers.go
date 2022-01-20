@@ -44,7 +44,7 @@ func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
 
 	if t.Kind() != reflect.Struct {
 		return fmt.Errorf(
-			"FillStructWith: expected input kind to be a struct but got %T",
+			"FillStructWith: expected input to be a pointer to a struct, but got %T",
 			record,
 		)
 	}

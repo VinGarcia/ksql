@@ -228,6 +228,53 @@ func TestFillStructWith(t *testing.T) {
 		tt.AssertEqual(t, 42, user.Age)
 		tt.AssertEqual(t, "should be untouched", user.Missing)
 	})
+
+	t.Run("should report error if input is not a pointer", func(t *testing.T) {
+		type User struct {
+			Name    string `ksql:"name"`
+			Age     int    `ksql:"age"`
+			Missing string `ksql:"missing"`
+		}
+		var user User
+
+		err := FillStructWith(user, map[string]interface{}{
+			"name":        "fake name",
+			"age":         42,
+			"extra_field": "some value",
+		})
+
+		tt.AssertErrContains(t, err, "FillStructWith", "expected input to be a pointer", "User")
+	})
+
+	t.Run("should report error if input is not a pointer to struct", func(t *testing.T) {
+		type User struct {
+			Name    string `ksql:"name"`
+			Age     int    `ksql:"age"`
+			Missing string `ksql:"missing"`
+		}
+		var users []User
+
+		err := FillStructWith(&users, map[string]interface{}{
+			"name":        "fake name",
+			"age":         42,
+			"extra_field": "some value",
+		})
+
+		tt.AssertErrContains(t, err, "FillStructWith", "expected input to be a pointer to a struct", "User")
+	})
+
+	t.Run("should report error if input and target types are incompatible", func(t *testing.T) {
+		type User struct {
+			Age int `ksql:"age"`
+		}
+		var user User
+
+		err := FillStructWith(&user, map[string]interface{}{
+			"age": "not compatible with integer type",
+		})
+
+		tt.AssertErrContains(t, err, "FillStructWith", "age", "string", "int")
+	})
 }
 
 func TestFillSliceWith(t *testing.T) {
