@@ -1,9 +1,11 @@
 package kstructs
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/ditointernet/go-assert"
+	tt "github.com/vingarcia/ksql/internal/testtools"
 	"github.com/vingarcia/ksql/nullable"
 )
 
@@ -251,5 +253,72 @@ func TestFillSliceWith(t *testing.T) {
 		assert.Equal(t, "Jorge", users[0].Name)
 		assert.Equal(t, "Luciana", users[1].Name)
 		assert.Equal(t, "Breno", users[2].Name)
+	})
+}
+
+func TestCallFunctionWithRows(t *testing.T) {
+	t.Run("should call the function correctly", func(t *testing.T) {
+		type User struct {
+			Name string `ksql:"name"`
+			Age  int    `ksql:"age"`
+		}
+
+		var inputUsers []User
+		fn := func(users []User) error {
+			inputUsers = users
+			return nil
+		}
+
+		err := CallFunctionWithRows(fn, []map[string]interface{}{
+			{
+				"name": "fake-name1",
+				"age":  42,
+			},
+			{
+				"name": "fake-name2",
+				"age":  43,
+			},
+		})
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, inputUsers, []User{
+			{
+				Name: "fake-name1",
+				Age:  42,
+			},
+			{
+				Name: "fake-name2",
+				Age:  43,
+			},
+		})
+	})
+
+	t.Run("should forward errors correctly", func(t *testing.T) {
+		type User struct {
+			Name string `ksql:"name"`
+			Age  int    `ksql:"age"`
+		}
+
+		fn := func(users []User) error {
+			return fmt.Errorf("fake-error-msg")
+		}
+
+		err := CallFunctionWithRows(fn, []map[string]interface{}{{
+			"name": "fake-name1",
+			"age":  42,
+		}})
+		tt.AssertErrContains(t, err, "fake-error-msg")
+	})
+
+	t.Run("should report error if the input function is invalid", func(t *testing.T) {
+		type User struct {
+			Name string `ksql:"name"`
+			Age  int    `ksql:"age"`
+		}
+
+		err := CallFunctionWithRows(func() {}, []map[string]interface{}{{
+			"name": "fake-name1",
+			"age":  42,
+		}})
+		tt.AssertErrContains(t, err)
 	})
 }
