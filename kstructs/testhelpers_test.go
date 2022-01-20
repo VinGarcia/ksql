@@ -223,10 +223,10 @@ func TestFillStructWith(t *testing.T) {
 			"extra_field": "some value",
 		})
 
-		assert.Equal(t, nil, err)
-		assert.Equal(t, "fake name", user.Name)
-		assert.Equal(t, 42, user.Age)
-		assert.Equal(t, "should be untouched", user.Missing)
+		tt.AssertEqual(t, nil, err)
+		tt.AssertEqual(t, "fake name", user.Name)
+		tt.AssertEqual(t, 42, user.Age)
+		tt.AssertEqual(t, "should be untouched", user.Missing)
 	})
 }
 
@@ -248,11 +248,35 @@ func TestFillSliceWith(t *testing.T) {
 			},
 		})
 
-		assert.Equal(t, nil, err)
-		assert.Equal(t, 3, len(users))
-		assert.Equal(t, "Jorge", users[0].Name)
-		assert.Equal(t, "Luciana", users[1].Name)
-		assert.Equal(t, "Breno", users[2].Name)
+		tt.AssertEqual(t, err, nil)
+		tt.AssertEqual(t, len(users), 3)
+		tt.AssertEqual(t, users[0].Name, "Jorge")
+		tt.AssertEqual(t, users[1].Name, "Luciana")
+		tt.AssertEqual(t, users[2].Name, "Breno")
+	})
+
+	t.Run("should report error if input is not a pointer", func(t *testing.T) {
+		var users []struct {
+			Name string `ksql:"name"`
+			Age  int    `ksql:"age"`
+		}
+		err := FillSliceWith(users, []map[string]interface{}{{
+			"name": "Jorge",
+		}})
+
+		tt.AssertErrContains(t, err, "FillSliceWith", "expected input to be a pointer")
+	})
+
+	t.Run("should report error if input is not a pointer to a slice", func(t *testing.T) {
+		var user struct {
+			Name string `ksql:"name"`
+			Age  int    `ksql:"age"`
+		}
+		err := FillSliceWith(&user, []map[string]interface{}{{
+			"name": "Jorge",
+		}})
+
+		tt.AssertErrContains(t, err, "FillSliceWith")
 	})
 }
 
