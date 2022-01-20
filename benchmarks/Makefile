@@ -1,0 +1,6 @@
+
+GOBIN=$(shell go env GOPATH)/bin
+
+lint:
+	@$(GOBIN)/golint -set_exit_status -min_confidence 0.9 ./...
+	@go vet ./...

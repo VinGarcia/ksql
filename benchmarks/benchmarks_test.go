@@ -31,9 +31,12 @@ func BenchmarkInsert(b *testing.B) {
 	}
 
 	b.Run("ksql/sql-adapter", func(b *testing.B) {
-		ksqlDB, err := ksql.New(driver, connStr, ksql.Config{
-			MaxOpenConns: 1,
-		})
+		db, err := sql.Open(driver, connStr)
+		if err != nil {
+			b.Fatalf("error connecting to database: %s", err)
+		}
+		db.SetMaxOpenConns(1)
+		ksqlDB, err := ksql.NewWithAdapter(ksql.NewSQLAdapter(db), driver)
 		if err != nil {
 			b.Fatalf("error creating ksql client: %s", err)
 		}
@@ -284,9 +287,12 @@ func BenchmarkQuery(b *testing.B) {
 	}
 
 	b.Run("ksql/sql-adapter", func(b *testing.B) {
-		ksqlDB, err := ksql.New(driver, connStr, ksql.Config{
-			MaxOpenConns: 1,
-		})
+		db, err := sql.Open(driver, connStr)
+		if err != nil {
+			b.Fatalf("error connecting to database: %s", err)
+		}
+		db.SetMaxOpenConns(1)
+		ksqlDB, err := ksql.NewWithAdapter(ksql.NewSQLAdapter(db), driver)
 		if err != nil {
 			b.Fatalf("error creating ksql client: %s", err)
 		}
