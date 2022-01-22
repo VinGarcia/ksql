@@ -70,10 +70,7 @@ func (sqlite3Dialect) Placeholder(idx int) string {
 // provided driver string, if the drive is not supported
 // it returns an error
 func GetDriverDialect(driver string) (Dialect, error) {
-	dialect, found := map[string]Dialect{
-		"postgres": &postgresDialect{},
-		"sqlite3":  &sqlite3Dialect{},
-	}[driver]
+	dialect, found := supportedDialects[driver]
 	if !found {
 		return nil, fmt.Errorf("unsupported driver `%s`", driver)
 	}
