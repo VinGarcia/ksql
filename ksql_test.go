@@ -13,7 +13,11 @@ import (
 	"github.com/ditointernet/go-assert"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/vingarcia/ksql/nullable"
+
+	tt "github.com/vingarcia/ksql/internal/testtools"
 )
+
+var UsersTable = NewTable("users")
 
 type User struct {
 	ID   uint   `ksql:"id"`
@@ -26,8 +30,6 @@ type User struct {
 	AttrThatShouldBeIgnored string
 }
 
-var UsersTable = NewTable("users")
-
 type Address struct {
 	Street string `json:"street"`
 	Number string `json:"number"`
@@ -37,13 +39,20 @@ type Address struct {
 	Country string `json:"country"`
 }
 
+var PostsTable = NewTable("posts")
+
 type Post struct {
 	ID     int    `ksql:"id"`
 	UserID uint   `ksql:"user_id"`
 	Title  string `ksql:"title"`
 }
 
-var PostsTable = NewTable("posts")
+var UserPermissionsTable = NewTable("user_permissions", "user_id", "post_id")
+
+type UserPermissions struct {
+	UserID int `ksql:"user_id"`
+	PostID int `ksql:"post_id"`
+}
 
 type testConfig struct {
 	driver      string
@@ -455,8 +464,26 @@ func TestQuery(t *testing.T) {
 						}
 					})
 				})
+
+				t.Run("should report error if nested struct is invalid", func(t *testing.T) {
+					db, closer := connectDB(t, config)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+					var rows []struct {
+						User User `tablename:"users"`
+						Post struct {
+							Attr1 int `ksql:"invalid_repeated_name"`
+							Attr2 int `ksql:"invalid_repeated_name"`
+						} `tablename:"posts"`
+					}
+					err := c.Query(ctx, &rows, `FROM users u JOIN posts p ON u.id = p.user_id`)
+					tt.AssertErrContains(t, err, "same ksql tag name", "invalid_repeated_name")
+				})
 			})
 		})
+
 	}
 }
 
@@ -643,105 +670,134 @@ func TestInsert(t *testing.T) {
 	for _, config := range supportedConfigs {
 		t.Run(config.driver, func(t *testing.T) {
 			t.Run("success cases", func(t *testing.T) {
-				err := createTables(config.driver)
-				if err != nil {
-					t.Fatal("could not create test table!, reason:", err.Error())
-				}
-
-				t.Run("should insert one user correctly", func(t *testing.T) {
-					db, closer := connectDB(t, config)
-					defer closer.Close()
-
-					ctx := context.Background()
-					c := newTestDB(db, config.driver)
-
-					u := User{
-						Name: "Fernanda",
-						Address: Address{
-							Country: "Brazil",
-						},
+				t.Run("single primary key tables", func(t *testing.T) {
+					err := createTables(config.driver)
+					if err != nil {
+						t.Fatal("could not create test table!, reason:", err.Error())
 					}
 
-					err := c.Insert(ctx, UsersTable, &u)
-					assert.Equal(t, nil, err)
-					assert.NotEqual(t, 0, u.ID)
+					t.Run("should insert one user correctly", func(t *testing.T) {
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
-					result := User{}
-					err = getUserByID(c.db, c.dialect, &result, u.ID)
-					assert.Equal(t, nil, err)
+						ctx := context.Background()
+						c := newTestDB(db, config.driver)
 
-					assert.Equal(t, u.Name, result.Name)
-					assert.Equal(t, u.Address, result.Address)
+						u := User{
+							Name: "Fernanda",
+							Address: Address{
+								Country: "Brazil",
+							},
+						}
+
+						err := c.Insert(ctx, UsersTable, &u)
+						assert.Equal(t, nil, err)
+						assert.NotEqual(t, 0, u.ID)
+
+						result := User{}
+						err = getUserByID(c.db, c.dialect, &result, u.ID)
+						assert.Equal(t, nil, err)
+
+						assert.Equal(t, u.Name, result.Name)
+						assert.Equal(t, u.Address, result.Address)
+					})
+
+					t.Run("should insert ignoring the ID for sqlite and multiple ids", func(t *testing.T) {
+						if supportedDialects[config.driver].InsertMethod() != insertWithLastInsertID {
+							return
+						}
+
+						// Using columns "id" and "name" as IDs:
+						table := NewTable("users", "id", "name")
+
+						db, closer := connectDB(t, config)
+						defer closer.Close()
+
+						ctx := context.Background()
+						c := newTestDB(db, config.driver)
+
+						u := User{
+							Name: "No ID returned",
+							Age:  3434, // Random number to avoid false positives on this test
+
+							Address: Address{
+								Country: "Brazil 3434",
+							},
+						}
+
+						err = c.Insert(ctx, table, &u)
+						assert.Equal(t, nil, err)
+						assert.Equal(t, uint(0), u.ID)
+
+						result := User{}
+						err = getUserByName(c.db, config.driver, &result, "No ID returned")
+						assert.Equal(t, nil, err)
+
+						assert.Equal(t, u.Age, result.Age)
+						assert.Equal(t, u.Address, result.Address)
+					})
+
+					t.Run("should work with anonymous structs", func(t *testing.T) {
+						db, closer := connectDB(t, config)
+						defer closer.Close()
+
+						ctx := context.Background()
+						c := newTestDB(db, config.driver)
+						err = c.Insert(ctx, UsersTable, &struct {
+							ID      int                    `ksql:"id"`
+							Name    string                 `ksql:"name"`
+							Address map[string]interface{} `ksql:"address,json"`
+						}{Name: "fake-name", Address: map[string]interface{}{"city": "bar"}})
+						assert.Equal(t, nil, err)
+					})
+
+					t.Run("should work with preset IDs", func(t *testing.T) {
+						db, closer := connectDB(t, config)
+						defer closer.Close()
+
+						ctx := context.Background()
+						c := newTestDB(db, config.driver)
+
+						usersByName := NewTable("users", "name")
+
+						err = c.Insert(ctx, usersByName, &struct {
+							Name string `ksql:"name"`
+							Age  int    `ksql:"age"`
+						}{Name: "Preset Name", Age: 5455})
+						assert.Equal(t, nil, err)
+
+						var inserted User
+						err := getUserByName(db, config.driver, &inserted, "Preset Name")
+						assert.Equal(t, nil, err)
+						assert.Equal(t, 5455, inserted.Age)
+					})
 				})
 
-				t.Run("should insert ignoring the ID for sqlite and multiple ids", func(t *testing.T) {
-					if supportedDialects[config.driver].InsertMethod() != insertWithLastInsertID {
-						return
+				t.Run("composite key tables", func(t *testing.T) {
+					err := createTables(config.driver)
+					if err != nil {
+						t.Fatal("could not create test table!, reason:", err.Error())
 					}
 
-					// Using columns "id" and "name" as IDs:
-					table := NewTable("users", "id", "name")
+					t.Run("should insert in composite key tables correctly", func(t *testing.T) {
+						db, closer := connectDB(t, config)
+						defer closer.Close()
 
-					db, closer := connectDB(t, config)
-					defer closer.Close()
+						ctx := context.Background()
+						c := newTestDB(db, config.driver)
 
-					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+						err = c.Insert(ctx, UserPermissionsTable, &UserPermissions{
+							UserID: 1,
+							PostID: 42,
+						})
+						tt.AssertNoErr(t, err)
 
-					u := User{
-						Name: "No ID returned",
-						Age:  3434, // Random number to avoid false positives on this test
-
-						Address: Address{
-							Country: "Brazil 3434",
-						},
-					}
-
-					err = c.Insert(ctx, table, &u)
-					assert.Equal(t, nil, err)
-					assert.Equal(t, uint(0), u.ID)
-
-					result := User{}
-					err = getUserByName(c.db, config.driver, &result, "No ID returned")
-					assert.Equal(t, nil, err)
-
-					assert.Equal(t, u.Age, result.Age)
-					assert.Equal(t, u.Address, result.Address)
-				})
-
-				t.Run("should work with anonymous structs", func(t *testing.T) {
-					db, closer := connectDB(t, config)
-					defer closer.Close()
-
-					ctx := context.Background()
-					c := newTestDB(db, config.driver)
-					err = c.Insert(ctx, UsersTable, &struct {
-						ID      int                    `ksql:"id"`
-						Name    string                 `ksql:"name"`
-						Address map[string]interface{} `ksql:"address,json"`
-					}{Name: "fake-name", Address: map[string]interface{}{"city": "bar"}})
-					assert.Equal(t, nil, err)
-				})
-
-				t.Run("should work with preset IDs", func(t *testing.T) {
-					db, closer := connectDB(t, config)
-					defer closer.Close()
-
-					ctx := context.Background()
-					c := newTestDB(db, config.driver)
-
-					usersByName := NewTable("users", "name")
-
-					err = c.Insert(ctx, usersByName, &struct {
-						Name string `ksql:"name"`
-						Age  int    `ksql:"age"`
-					}{Name: "Preset Name", Age: 5455})
-					assert.Equal(t, nil, err)
-
-					var inserted User
-					err := getUserByName(db, config.driver, &inserted, "Preset Name")
-					assert.Equal(t, nil, err)
-					assert.Equal(t, 5455, inserted.Age)
+						userPerms, err := getUserPermissionsByUser(db, config.driver, 1)
+						tt.AssertNoErr(t, err)
+						tt.AssertEqual(t, userPerms, []UserPermissions{
+							{UserID: 1, PostID: 42},
+						})
+					})
 				})
 			})
 
@@ -2007,6 +2063,38 @@ func createTables(driver string) error {
 		return fmt.Errorf("failed to create new users table: %s", err.Error())
 	}
 
+	db.Exec(`DROP TABLE user_permissions`)
+
+	switch driver {
+	case "sqlite3":
+		_, err = db.Exec(`CREATE TABLE user_permissions (
+		  user_id INTEGER,
+		  post_id INTEGER,
+			PRIMARY KEY (user_id, post_id)
+		)`)
+	case "postgres":
+		_, err = db.Exec(`CREATE TABLE user_permissions (
+			user_id INT,
+		  post_id INT,
+			PRIMARY KEY (user_id, post_id)
+		)`)
+	case "mysql":
+		_, err = db.Exec(`CREATE TABLE user_permissions (
+			user_id INT,
+			post_id INT,
+			PRIMARY KEY (user_id, post_id)
+		)`)
+	case "sqlserver":
+		_, err = db.Exec(`CREATE TABLE user_permissions (
+			user_id INT,
+			post_id INT,
+			PRIMARY KEY (user_id, post_id)
+		)`)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to create new users table: %s", err.Error())
+	}
+
 	return nil
 }
 
@@ -2148,4 +2236,31 @@ func getUserByName(db DBAdapter, driver string, result *User, name string) error
 	}
 
 	return json.Unmarshal(rawAddr, &result.Address)
+}
+
+func getUserPermissionsByUser(db DBAdapter, driver string, userID int) (results []UserPermissions, _ error) {
+	dialect := supportedDialects[driver]
+
+	rows, err := db.QueryContext(context.TODO(),
+		`SELECT user_id, post_id FROM user_permissions WHERE user_id=`+dialect.Placeholder(0),
+		userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var userPerm UserPermissions
+		err := rows.Scan(&userPerm.UserID, &userPerm.PostID)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, userPerm)
+	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+
+	return results, nil
 }
