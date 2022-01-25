@@ -2060,7 +2060,7 @@ func createTables(driver string) error {
 		)`)
 	}
 	if err != nil {
-		return fmt.Errorf("failed to create new users table: %s", err.Error())
+		return fmt.Errorf("failed to create new posts table: %s", err.Error())
 	}
 
 	db.Exec(`DROP TABLE user_permissions`)
@@ -2068,31 +2068,35 @@ func createTables(driver string) error {
 	switch driver {
 	case "sqlite3":
 		_, err = db.Exec(`CREATE TABLE user_permissions (
+		  id INTEGER PRIMARY KEY,
 		  user_id INTEGER,
 		  post_id INTEGER,
-			PRIMARY KEY (user_id, post_id)
+			UNIQUE (user_id, post_id)
 		)`)
 	case "postgres":
 		_, err = db.Exec(`CREATE TABLE user_permissions (
+		  id serial PRIMARY KEY,
 			user_id INT,
 		  post_id INT,
-			PRIMARY KEY (user_id, post_id)
+			UNIQUE (user_id, post_id)
 		)`)
 	case "mysql":
 		_, err = db.Exec(`CREATE TABLE user_permissions (
+			id INT AUTO_INCREMENT PRIMARY KEY,
 			user_id INT,
 			post_id INT,
-			PRIMARY KEY (user_id, post_id)
+			UNIQUE KEY (user_id, post_id)
 		)`)
 	case "sqlserver":
 		_, err = db.Exec(`CREATE TABLE user_permissions (
+			id INT IDENTITY(1,1) PRIMARY KEY,
 			user_id INT,
 			post_id INT,
-			PRIMARY KEY (user_id, post_id)
+			CONSTRAINT unique_1 UNIQUE (user_id, post_id)
 		)`)
 	}
 	if err != nil {
-		return fmt.Errorf("failed to create new users table: %s", err.Error())
+		return fmt.Errorf("failed to create new user_permissions table: %s", err.Error())
 	}
 
 	return nil
