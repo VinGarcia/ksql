@@ -72,6 +72,20 @@ func NewTable(tableName string, ids ...string) Table {
 	}
 }
 
+func (t Table) validate() error {
+	if t.name == "" {
+		return fmt.Errorf("table name cannot be an empty string")
+	}
+
+	for _, fieldName := range t.idColumns {
+		if fieldName == "" {
+			return fmt.Errorf("ID columns cannot be empty strings")
+		}
+	}
+
+	return nil
+}
+
 func (t Table) insertMethodFor(dialect Dialect) insertMethod {
 	if len(t.idColumns) == 1 {
 		return dialect.InsertMethod()

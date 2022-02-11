@@ -402,6 +402,10 @@ func (c DB) Insert(
 		return fmt.Errorf("ksql: expected a valid pointer to struct as argument but received a nil pointer: %v", record)
 	}
 
+	if err := table.validate(); err != nil {
+		return fmt.Errorf("can't insert in ksql.Table: %s", err)
+	}
+
 	info, err := structs.GetTagInfo(t.Elem())
 	if err != nil {
 		return err
@@ -543,6 +547,10 @@ func (c DB) Delete(
 	table Table,
 	idOrRecord interface{},
 ) error {
+	if err := table.validate(); err != nil {
+		return fmt.Errorf("can't delete from ksql.Table: %s", err)
+	}
+
 	idMaps, err := normalizeIDsAsMaps(table.idColumns, []interface{}{idOrRecord})
 	if err != nil {
 		return err
@@ -678,15 +686,7 @@ func buildInsertQuery(
 		return "", nil, nil, err
 	}
 
-	if table.name == "" {
-		return "", nil, nil, fmt.Errorf("can't insert in ksql.Table: table name cannot be an empty string")
-	}
-
 	for _, fieldName := range table.idColumns {
-		if fieldName == "" {
-			return "", nil, nil, fmt.Errorf("can't insert in ksql.Table: ID columns cannot be empty strings")
-		}
-
 		field, found := recordMap[fieldName]
 		if !found {
 			continue

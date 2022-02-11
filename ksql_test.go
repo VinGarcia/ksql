@@ -1103,6 +1103,28 @@ func TestDelete(t *testing.T) {
 				err := c.Delete(ctx, UsersTable, user)
 				assert.NotEqual(t, nil, err)
 			})
+
+			t.Run("should report error if table contains an empty ID name", func(t *testing.T) {
+				db, closer := connectDB(t, config)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, config.driver)
+
+				err := c.Delete(ctx, NewTable("users", ""), &User{Name: "fake-name"})
+				tt.AssertErrContains(t, err, "ksql.Table", "ID", "empty string")
+			})
+
+			t.Run("should report error if ksql.Table.name is empty", func(t *testing.T) {
+				db, closer := connectDB(t, config)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, config.driver)
+
+				err := c.Delete(ctx, NewTable("", "id"), &User{Name: "fake-name"})
+				tt.AssertErrContains(t, err, "ksql.Table", "table name", "empty string")
+			})
 		})
 	}
 }
