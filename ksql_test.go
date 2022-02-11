@@ -47,9 +47,10 @@ type Post struct {
 	Title  string `ksql:"title"`
 }
 
-var UserPermissionsTable = NewTable("user_permissions", "user_id", "post_id")
+var UserPermissionsTable = NewTable("user_permissions", "id", "user_id", "post_id")
 
 type UserPermissions struct {
+	ID     int `ksql:"id"`
 	UserID int `ksql:"user_id"`
 	PostID int `ksql:"post_id"`
 }
@@ -794,9 +795,43 @@ func TestInsert(t *testing.T) {
 
 						userPerms, err := getUserPermissionsByUser(db, config.driver, 1)
 						tt.AssertNoErr(t, err)
-						tt.AssertEqual(t, userPerms, []UserPermissions{
-							{UserID: 1, PostID: 42},
-						})
+						tt.AssertEqual(t, len(userPerms), 1)
+						tt.AssertEqual(t, userPerms[0].UserID, 1)
+						tt.AssertEqual(t, userPerms[0].PostID, 42)
+					})
+
+					t.Run("should accept partially provided values for composite key tables", func(t *testing.T) {
+						db, closer := connectDB(t, config)
+						defer closer.Close()
+
+						ctx := context.Background()
+						c := newTestDB(db, config.driver)
+
+						permission := UserPermissions{
+							UserID: 2,
+							PostID: 42,
+						}
+						err = c.Insert(ctx, UserPermissionsTable, &permission)
+						tt.AssertNoErr(t, err)
+
+						userPerms, err := getUserPermissionsByUser(db, config.driver, 2)
+						tt.AssertNoErr(t, err)
+
+						// Should retrieve the generated ID from the database,
+						// only if the database supports returning multiple values:
+						switch c.dialect.InsertMethod() {
+						case insertWithNoIDRetrieval, insertWithLastInsertID:
+							tt.AssertEqual(t, permission.ID, 0)
+							tt.AssertEqual(t, len(userPerms), 1)
+							tt.AssertEqual(t, userPerms[0].UserID, 2)
+							tt.AssertEqual(t, userPerms[0].PostID, 42)
+						case insertWithReturning, insertWithOutput:
+							tt.AssertNotEqual(t, permission.ID, 0)
+							tt.AssertEqual(t, len(userPerms), 1)
+							tt.AssertEqual(t, userPerms[0].ID, permission.ID)
+							tt.AssertEqual(t, userPerms[0].UserID, 2)
+							tt.AssertEqual(t, userPerms[0].PostID, 42)
+						}
 					})
 				})
 			})
@@ -826,11 +861,11 @@ func TestInsert(t *testing.T) {
 					})
 					assert.NotEqual(t, nil, err)
 
-					ifUserForgetToExpandList := []interface{}{
+					cantInsertSlice := []interface{}{
 						&User{Name: "foo", Age: 22},
 						&User{Name: "bar", Age: 32},
 					}
-					err = c.Insert(ctx, UsersTable, ifUserForgetToExpandList)
+					err = c.Insert(ctx, UsersTable, cantInsertSlice)
 					assert.NotEqual(t, nil, err)
 
 					// We might want to support this in the future, but not for now:
@@ -862,6 +897,28 @@ func TestInsert(t *testing.T) {
 					var user *User
 					err := c.Insert(ctx, UsersTable, user)
 					assert.NotEqual(t, nil, err)
+				})
+
+				t.Run("should report error if table contains an empty ID name", func(t *testing.T) {
+					db, closer := connectDB(t, config)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					err := c.Insert(ctx, NewTable("users", ""), &User{Name: "fake-name"})
+					tt.AssertErrContains(t, err, "ksql.Table", "ID", "empty string")
+				})
+
+				t.Run("should report error if ksql.Table.name is empty", func(t *testing.T) {
+					db, closer := connectDB(t, config)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					err := c.Insert(ctx, NewTable("", "id"), &User{Name: "fake-name"})
+					tt.AssertErrContains(t, err, "ksql.Table", "table name", "empty string")
 				})
 
 				t.Run("should not panic if a column doesn't exist in the database", func(t *testing.T) {
@@ -2246,7 +2303,7 @@ func getUserPermissionsByUser(db DBAdapter, driver string, userID int) (results 
 	dialect := supportedDialects[driver]
 
 	rows, err := db.QueryContext(context.TODO(),
-		`SELECT user_id, post_id FROM user_permissions WHERE user_id=`+dialect.Placeholder(0),
+		`SELECT id, user_id, post_id FROM user_permissions WHERE user_id=`+dialect.Placeholder(0),
 		userID,
 	)
 	if err != nil {
@@ -2256,7 +2313,7 @@ func getUserPermissionsByUser(db DBAdapter, driver string, userID int) (results 
 
 	for rows.Next() {
 		var userPerm UserPermissions
-		err := rows.Scan(&userPerm.UserID, &userPerm.PostID)
+		err := rows.Scan(&userPerm.ID, &userPerm.UserID, &userPerm.PostID)
 		if err != nil {
 			return nil, err
 		}

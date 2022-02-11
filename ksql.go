@@ -182,12 +182,12 @@ func (c DB) Query(
 		}
 	}
 
-	if err := rows.Close(); err != nil {
-		return err
-	}
-
 	if rows.Err() != nil {
 		return rows.Err()
+	}
+
+	if err := rows.Close(); err != nil {
+		return err
 	}
 
 	// Update the original slice passed by reference:
@@ -407,7 +407,7 @@ func (c DB) Insert(
 		return err
 	}
 
-	query, params, scanValues, err := buildInsertQuery(c.dialect, table.name, t, v, info, record, table.idColumns...)
+	query, params, scanValues, err := buildInsertQuery(c.dialect, table, t, v, info, record)
 	if err != nil {
 		return err
 	}
@@ -667,19 +667,26 @@ func (c DB) Update(
 
 func buildInsertQuery(
 	dialect Dialect,
-	tableName string,
+	table Table,
 	t reflect.Type,
 	v reflect.Value,
 	info structs.StructInfo,
 	record interface{},
-	idNames ...string,
 ) (query string, params []interface{}, scanValues []interface{}, err error) {
 	recordMap, err := kstructs.StructToMap(record)
 	if err != nil {
 		return "", nil, nil, err
 	}
 
-	for _, fieldName := range idNames {
+	if table.name == "" {
+		return "", nil, nil, fmt.Errorf("can't insert in ksql.Table: table name cannot be an empty string")
+	}
+
+	for _, fieldName := range table.idColumns {
+		if fieldName == "" {
+			return "", nil, nil, fmt.Errorf("can't insert in ksql.Table: ID columns cannot be empty strings")
+		}
+
 		field, found := recordMap[fieldName]
 		if !found {
 			continue
@@ -721,12 +728,12 @@ func buildInsertQuery(
 	switch dialect.InsertMethod() {
 	case insertWithReturning:
 		escapedIDNames := []string{}
-		for _, id := range idNames {
+		for _, id := range table.idColumns {
 			escapedIDNames = append(escapedIDNames, dialect.Escape(id))
 		}
 		returningQuery = " RETURNING " + strings.Join(escapedIDNames, ", ")
 
-		for _, id := range idNames {
+		for _, id := range table.idColumns {
 			scanValues = append(
 				scanValues,
 				v.Elem().Field(info.ByName(id).Index).Addr().Interface(),
@@ -734,12 +741,12 @@ func buildInsertQuery(
 		}
 	case insertWithOutput:
 		escapedIDNames := []string{}
-		for _, id := range idNames {
+		for _, id := range table.idColumns {
 			escapedIDNames = append(escapedIDNames, "INSERTED."+dialect.Escape(id))
 		}
 		outputQuery = " OUTPUT " + strings.Join(escapedIDNames, ", ")
 
-		for _, id := range idNames {
+		for _, id := range table.idColumns {
 			scanValues = append(
 				scanValues,
 				v.Elem().Field(info.ByName(id).Index).Addr().Interface(),
@@ -751,7 +758,7 @@ func buildInsertQuery(
 	// on the selected driver, thus, they might be empty strings.
 	query = fmt.Sprintf(
 		"INSERT INTO %s (%s)%s VALUES (%s)%s",
-		dialect.Escape(tableName),
+		dialect.Escape(table.name),
 		strings.Join(escapedColumnNames, ", "),
 		outputQuery,
 		strings.Join(valuesQuery, ", "),
@@ -850,10 +857,10 @@ func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 			}
 		}()
 
-		ormCopy := c
-		ormCopy.db = tx
+		dbCopy := c
+		dbCopy.db = tx
 
-		err = fn(ormCopy)
+		err = fn(dbCopy)
 		if err != nil {
 			rollbackErr := tx.Rollback(ctx)
 			if rollbackErr != nil {
