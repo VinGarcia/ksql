@@ -609,9 +609,14 @@ func normalizeIDsAsMap(idNames []string, idOrMap interface{}) (idMap map[string]
 		}
 	}
 
-	for _, id := range idNames {
-		if _, found := idMap[id]; !found {
-			return nil, fmt.Errorf("missing required id field `%s` on input record", id)
+	for _, idName := range idNames {
+		id, found := idMap[idName]
+		if !found {
+			return nil, fmt.Errorf("missing required id field `%s` on input record", idName)
+		}
+
+		if id == nil || reflect.ValueOf(id).IsZero() {
+			return nil, fmt.Errorf("invalid value '%v' received for id column: '%s'", id, idName)
 		}
 	}
 
