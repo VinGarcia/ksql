@@ -551,15 +551,14 @@ func (c DB) Delete(
 		return fmt.Errorf("can't delete from ksql.Table: %s", err)
 	}
 
-	idMaps, err := normalizeIDsAsMaps(table.idColumns, []interface{}{idOrRecord})
+	idMap, err := normalizeIDsAsMap(table.idColumns, idOrRecord)
 	if err != nil {
 		return err
 	}
 
 	var query string
 	var params []interface{}
-	query, params = buildDeleteQuery(c.dialect, table, idMaps[0])
-	fmt.Println("query:", query, "params:", params)
+	query, params = buildDeleteQuery(c.dialect, table, idMap)
 
 	result, err := c.db.ExecContext(ctx, query, params...)
 	if err != nil {
@@ -578,50 +577,45 @@ func (c DB) Delete(
 	return err
 }
 
-func normalizeIDsAsMaps(idNames []string, ids []interface{}) ([]map[string]interface{}, error) {
+func normalizeIDsAsMap(idNames []string, idOrMap interface{}) (idMap map[string]interface{}, err error) {
 	if len(idNames) == 0 {
 		return nil, fmt.Errorf("internal ksql error: missing idNames")
 	}
 
-	idMaps := []map[string]interface{}{}
-	for i := range ids {
-		t := reflect.TypeOf(ids[i])
-		switch t.Kind() {
-		case reflect.Ptr:
-			v := reflect.ValueOf(ids[i])
-			if v.IsNil() {
-				return nil, fmt.Errorf("ksql: expected a valid pointer to struct as argument but received a nil pointer: %v", ids[i])
-			}
+	t := reflect.TypeOf(idOrMap)
+	if t.Kind() == reflect.Ptr {
+		v := reflect.ValueOf(idOrMap)
+		if v.IsNil() {
+			return nil, fmt.Errorf("ksql: expected a valid pointer to struct as argument but received a nil pointer: %v", idOrMap)
+		}
+		t = t.Elem()
+	}
 
-			fallthrough
-		case reflect.Struct:
-			m, err := kstructs.StructToMap(ids[i])
-			if err != nil {
-				return nil, errors.Wrapf(err, "could not get ID(s) from record on idx %d", i)
-			}
-			idMaps = append(idMaps, m)
-		case reflect.Map:
-			m, ok := ids[i].(map[string]interface{})
-			if !ok {
-				return nil, fmt.Errorf("expected map[string]interface{} but got %T", ids[i])
-			}
-			idMaps = append(idMaps, m)
-		default:
-			idMaps = append(idMaps, map[string]interface{}{
-				idNames[0]: ids[i],
-			})
+	switch t.Kind() {
+	case reflect.Struct:
+		idMap, err = kstructs.StructToMap(idOrMap)
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not get ID(s) from input record")
+		}
+	case reflect.Map:
+		var ok bool
+		idMap, ok = idOrMap.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("expected map[string]interface{} but got %T", idOrMap)
+		}
+	default:
+		idMap = map[string]interface{}{
+			idNames[0]: idOrMap,
 		}
 	}
 
-	for i, m := range idMaps {
-		for _, id := range idNames {
-			if _, found := m[id]; !found {
-				return nil, fmt.Errorf("missing required id field `%s` on record with idx %d", id, i)
-			}
+	for _, id := range idNames {
+		if _, found := idMap[id]; !found {
+			return nil, fmt.Errorf("missing required id field `%s` on input record", id)
 		}
 	}
 
-	return idMaps, nil
+	return idMap, nil
 }
 
 // Update updates the given instances on the database by id.
