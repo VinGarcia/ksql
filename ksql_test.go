@@ -47,9 +47,9 @@ type Post struct {
 	Title  string `ksql:"title"`
 }
 
-var UserPermissionsTable = NewTable("user_permissions", "id", "user_id", "post_id")
+var UserPermissionsTable = NewTable("user_permissions", "user_id", "post_id")
 
-type UserPermissions struct {
+type UserPermission struct {
 	ID     int `ksql:"id"`
 	UserID int `ksql:"user_id"`
 	PostID int `ksql:"post_id"`
@@ -787,7 +787,8 @@ func TestInsert(t *testing.T) {
 						ctx := context.Background()
 						c := newTestDB(db, config.driver)
 
-						err = c.Insert(ctx, UserPermissionsTable, &UserPermissions{
+						table := NewTable("user_permissions", "id", "user_id", "post_id")
+						err = c.Insert(ctx, table, &UserPermission{
 							UserID: 1,
 							PostID: 42,
 						})
@@ -807,11 +808,14 @@ func TestInsert(t *testing.T) {
 						ctx := context.Background()
 						c := newTestDB(db, config.driver)
 
-						permission := UserPermissions{
+						// Table defined with 3 values, but we'll provide only 2,
+						// the third will be generated for the purposes of this test:
+						table := NewTable("user_permissions", "id", "user_id", "post_id")
+						permission := UserPermission{
 							UserID: 2,
 							PostID: 42,
 						}
-						err = c.Insert(ctx, UserPermissionsTable, &permission)
+						err = c.Insert(ctx, table, &permission)
 						tt.AssertNoErr(t, err)
 
 						userPerms, err := getUserPermissionsByUser(db, config.driver, 2)
@@ -1005,7 +1009,7 @@ func TestDelete(t *testing.T) {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
 
-			t.Run("should delete one id correctly", func(t *testing.T) {
+			t.Run("should delete from tables with a single primary key correctly", func(t *testing.T) {
 				tests := []struct {
 					desc               string
 					deletionKeyForUser func(u User) interface{}
@@ -1079,6 +1083,41 @@ func TestDelete(t *testing.T) {
 						assert.Equal(t, "Won't be deleted", result.Name)
 					})
 				}
+			})
+
+			t.Run("should delete from tables with composite primary keys correctly", func(t *testing.T) {
+				t.Run("using structs", func(t *testing.T) {
+					db, closer := connectDB(t, config)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					// This permission should not be deleted, we'll use the id to check it:
+					p0 := UserPermission{
+						UserID: 1,
+						PostID: 44,
+					}
+					err = c.Insert(ctx, NewTable("user_permissions", "id"), &p0)
+					tt.AssertNoErr(t, err)
+					tt.AssertNotEqual(t, p0.ID, 0)
+
+					p1 := UserPermission{
+						UserID: 1,
+						PostID: 42,
+					}
+					err = c.Insert(ctx, NewTable("user_permissions", "id"), &p1)
+					tt.AssertNoErr(t, err)
+
+					err = c.Delete(ctx, UserPermissionsTable, p1)
+					tt.AssertNoErr(t, err)
+
+					userPerms, err := getUserPermissionsByUser(db, config.driver, 1)
+					tt.AssertNoErr(t, err)
+					tt.AssertEqual(t, len(userPerms), 1)
+					tt.AssertEqual(t, userPerms[0].UserID, 1)
+					tt.AssertEqual(t, userPerms[0].PostID, 44)
+				})
 			})
 
 			t.Run("should return ErrRecordNotFound if no rows were deleted", func(t *testing.T) {
@@ -2321,7 +2360,7 @@ func getUserByName(db DBAdapter, driver string, result *User, name string) error
 	return json.Unmarshal(rawAddr, &result.Address)
 }
 
-func getUserPermissionsByUser(db DBAdapter, driver string, userID int) (results []UserPermissions, _ error) {
+func getUserPermissionsByUser(db DBAdapter, driver string, userID int) (results []UserPermission, _ error) {
 	dialect := supportedDialects[driver]
 
 	rows, err := db.QueryContext(context.TODO(),
@@ -2334,7 +2373,7 @@ func getUserPermissionsByUser(db DBAdapter, driver string, userID int) (results 
 	defer rows.Close()
 
 	for rows.Next() {
-		var userPerm UserPermissions
+		var userPerm UserPermission
 		err := rows.Scan(&userPerm.ID, &userPerm.UserID, &userPerm.PostID)
 		if err != nil {
 			return nil, err

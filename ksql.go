@@ -558,11 +558,8 @@ func (c DB) Delete(
 
 	var query string
 	var params []interface{}
-	if len(table.idColumns) == 1 {
-		query, params = buildSingleKeyDeleteQuery(c.dialect, table.name, table.idColumns[0], idMaps)
-	} else {
-		query, params = buildCompositeKeyDeleteQuery(c.dialect, table.name, table.idColumns, idMaps)
-	}
+	query, params = buildDeleteQuery(c.dialect, table, idMaps[0])
+	fmt.Println("query:", query, "params:", params)
 
 	result, err := c.db.ExecContext(ctx, query, params...)
 	if err != nil {
@@ -997,52 +994,23 @@ func getScanArgsFromNames(dialect Dialect, names []string, v reflect.Value, info
 	return scanArgs
 }
 
-func buildSingleKeyDeleteQuery(
+func buildDeleteQuery(
 	dialect Dialect,
-	table string,
-	idName string,
-	idMaps []map[string]interface{},
+	table Table,
+	idMap map[string]interface{},
 ) (query string, params []interface{}) {
-	values := []string{}
-	for i, m := range idMaps {
-		values = append(values, dialect.Placeholder(i))
-		params = append(params, m[idName])
+	whereQuery := []string{}
+	for i, idName := range table.idColumns {
+		whereQuery = append(whereQuery, fmt.Sprintf(
+			"%s = %s", dialect.Escape(idName), dialect.Placeholder(i),
+		))
+		params = append(params, idMap[idName])
 	}
 
 	return fmt.Sprintf(
-		"DELETE FROM %s WHERE %s IN (%s)",
-		dialect.Escape(table),
-		dialect.Escape(idName),
-		strings.Join(values, ","),
-	), params
-}
-
-func buildCompositeKeyDeleteQuery(
-	dialect Dialect,
-	table string,
-	idNames []string,
-	idMaps []map[string]interface{},
-) (query string, params []interface{}) {
-	escapedNames := []string{}
-	for _, name := range idNames {
-		escapedNames = append(escapedNames, dialect.Escape(name))
-	}
-
-	values := []string{}
-	for _, m := range idMaps {
-		tuple := []string{}
-		for _, name := range idNames {
-			params = append(params, m[name])
-			tuple = append(tuple, dialect.Placeholder(len(values)))
-		}
-		values = append(values, "("+strings.Join(tuple, ",")+")")
-	}
-
-	return fmt.Sprintf(
-		"DELETE FROM %s WHERE (%s) IN (VALUES %s)",
-		dialect.Escape(table),
-		strings.Join(escapedNames, ","),
-		strings.Join(values, ","),
+		"DELETE FROM %s WHERE %s",
+		dialect.Escape(table.name),
+		strings.Join(whereQuery, " AND "),
 	), params
 }
 
