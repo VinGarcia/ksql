@@ -1118,6 +1118,42 @@ func TestDelete(t *testing.T) {
 					tt.AssertEqual(t, userPerms[0].UserID, 1)
 					tt.AssertEqual(t, userPerms[0].PostID, 44)
 				})
+
+				t.Run("using maps", func(t *testing.T) {
+					db, closer := connectDB(t, config)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					// This permission should not be deleted, we'll use the id to check it:
+					p0 := UserPermission{
+						UserID: 2,
+						PostID: 44,
+					}
+					err = c.Insert(ctx, NewTable("user_permissions", "id"), &p0)
+					tt.AssertNoErr(t, err)
+					tt.AssertNotEqual(t, p0.ID, 0)
+
+					p1 := UserPermission{
+						UserID: 2,
+						PostID: 42,
+					}
+					err = c.Insert(ctx, NewTable("user_permissions", "id"), &p1)
+					tt.AssertNoErr(t, err)
+
+					err = c.Delete(ctx, UserPermissionsTable, map[string]interface{}{
+						"user_id": 2,
+						"post_id": 42,
+					})
+					tt.AssertNoErr(t, err)
+
+					userPerms, err := getUserPermissionsByUser(db, config.driver, 2)
+					tt.AssertNoErr(t, err)
+					tt.AssertEqual(t, len(userPerms), 1)
+					tt.AssertEqual(t, userPerms[0].UserID, 2)
+					tt.AssertEqual(t, userPerms[0].PostID, 44)
+				})
 			})
 
 			t.Run("should return ErrRecordNotFound if no rows were deleted", func(t *testing.T) {
