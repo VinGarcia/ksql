@@ -85,407 +85,420 @@ var supportedConfigs = []testConfig{
 
 func TestQuery(t *testing.T) {
 	for _, config := range supportedConfigs {
-		t.Run(config.driver, func(t *testing.T) {
-			variations := []struct {
-				desc        string
-				queryPrefix string
-			}{
-				{
-					desc:        "with select *",
-					queryPrefix: "SELECT * ",
-				},
-				{
-					desc:        "building the SELECT part of the query internally",
-					queryPrefix: "",
-				},
-			}
-			for _, variation := range variations {
-				t.Run(variation.desc, func(t *testing.T) {
-					t.Run("using slice of structs", func(t *testing.T) {
-						err := createTables(config.driver)
-						if err != nil {
-							t.Fatal("could not create test table!, reason:", err.Error())
-						}
-
-						t.Run("should return 0 results correctly", func(t *testing.T) {
-							db, closer := connectDB(t, config)
-							defer closer.Close()
-
-							ctx := context.Background()
-							c := newTestDB(db, config.driver)
-							var users []User
-							err := c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
-							assert.Equal(t, nil, err)
-							assert.Equal(t, 0, len(users))
-
-							users = []User{}
-							err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
-							assert.Equal(t, nil, err)
-							assert.Equal(t, 0, len(users))
-						})
-
-						t.Run("should return a user correctly", func(t *testing.T) {
-							db, closer := connectDB(t, config)
-							defer closer.Close()
-
-							_, err := db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
-							assert.Equal(t, nil, err)
-
-							ctx := context.Background()
-							c := newTestDB(db, config.driver)
-							var users []User
-							err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
-
-							assert.Equal(t, nil, err)
-							assert.Equal(t, 1, len(users))
-							assert.NotEqual(t, uint(0), users[0].ID)
-							assert.Equal(t, "Bia", users[0].Name)
-							assert.Equal(t, "BR", users[0].Address.Country)
-						})
-
-						t.Run("should return multiple users correctly", func(t *testing.T) {
-							db, closer := connectDB(t, config)
-							defer closer.Close()
-
-							_, err := db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
-							assert.Equal(t, nil, err)
-
-							_, err = db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('Bia Garcia', 0, '{"country":"BR"}')`)
-							assert.Equal(t, nil, err)
-
-							ctx := context.Background()
-							c := newTestDB(db, config.driver)
-							var users []User
-							err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
-
-							assert.Equal(t, nil, err)
-							assert.Equal(t, 2, len(users))
-
-							assert.NotEqual(t, uint(0), users[0].ID)
-							assert.Equal(t, "João Garcia", users[0].Name)
-							assert.Equal(t, "US", users[0].Address.Country)
-
-							assert.NotEqual(t, uint(0), users[1].ID)
-							assert.Equal(t, "Bia Garcia", users[1].Name)
-							assert.Equal(t, "BR", users[1].Address.Country)
-						})
-
-						t.Run("should query joined tables correctly", func(t *testing.T) {
-							db, closer := connectDB(t, config)
-							defer closer.Close()
-
-							// This test only makes sense with no query prefix
-							if variation.queryPrefix != "" {
-								return
-							}
-
-							_, err := db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
-							assert.Equal(t, nil, err)
-							var joao User
-							getUserByName(db, config.driver, &joao, "João Ribeiro")
-							assert.Equal(t, nil, err)
-
-							_, err = db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
-							assert.Equal(t, nil, err)
-							var bia User
-							getUserByName(db, config.driver, &bia, "Bia Ribeiro")
-
-							_, err = db.ExecContext(context.TODO(), fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post1')`))
-							assert.Equal(t, nil, err)
-							_, err = db.ExecContext(context.TODO(), fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post2')`))
-							assert.Equal(t, nil, err)
-							_, err = db.ExecContext(context.TODO(), fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
-							assert.Equal(t, nil, err)
-
-							ctx := context.Background()
-							c := newTestDB(db, config.driver)
-							var rows []struct {
-								User User `tablename:"u"`
-								Post Post `tablename:"p"`
-
-								// This one has no ksql or tablename tag,
-								// so it should just be ignored to avoid strange
-								// unexpected errors:
-								ExtraStructThatShouldBeIgnored User
-							}
-							err = c.Query(ctx, &rows, fmt.Sprint(
-								`FROM users u JOIN posts p ON p.user_id = u.id`,
-								` WHERE u.name like `, c.dialect.Placeholder(0),
-								` ORDER BY u.id, p.id`,
-							), "% Ribeiro")
-
-							assert.Equal(t, nil, err)
-							assert.Equal(t, 3, len(rows))
-
-							assert.Equal(t, joao.ID, rows[0].User.ID)
-							assert.Equal(t, "João Ribeiro", rows[0].User.Name)
-							assert.Equal(t, "João Post1", rows[0].Post.Title)
-
-							assert.Equal(t, bia.ID, rows[1].User.ID)
-							assert.Equal(t, "Bia Ribeiro", rows[1].User.Name)
-							assert.Equal(t, "Bia Post1", rows[1].Post.Title)
-
-							assert.Equal(t, bia.ID, rows[2].User.ID)
-							assert.Equal(t, "Bia Ribeiro", rows[2].User.Name)
-							assert.Equal(t, "Bia Post2", rows[2].Post.Title)
-						})
-					})
-
-					t.Run("using slice of pointers to structs", func(t *testing.T) {
-						err := createTables(config.driver)
-						if err != nil {
-							t.Fatal("could not create test table!, reason:", err.Error())
-						}
-
-						t.Run("should return 0 results correctly", func(t *testing.T) {
-							db, closer := connectDB(t, config)
-							defer closer.Close()
-
-							ctx := context.Background()
-							c := newTestDB(db, config.driver)
-							var users []*User
-							err := c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
-							assert.Equal(t, nil, err)
-							assert.Equal(t, 0, len(users))
-
-							users = []*User{}
-							err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
-							assert.Equal(t, nil, err)
-							assert.Equal(t, 0, len(users))
-						})
-
-						t.Run("should return a user correctly", func(t *testing.T) {
-							db, closer := connectDB(t, config)
-							defer closer.Close()
-
-							ctx := context.Background()
-
-							_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
-							assert.Equal(t, nil, err)
-
-							c := newTestDB(db, config.driver)
-							var users []*User
-							err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
-
-							assert.Equal(t, nil, err)
-							assert.Equal(t, 1, len(users))
-							assert.NotEqual(t, uint(0), users[0].ID)
-							assert.Equal(t, "Bia", users[0].Name)
-							assert.Equal(t, "BR", users[0].Address.Country)
-						})
-
-						t.Run("should return multiple users correctly", func(t *testing.T) {
-							db, closer := connectDB(t, config)
-							defer closer.Close()
-
-							ctx := context.Background()
-
-							_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
-							assert.Equal(t, nil, err)
-
-							_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia Garcia', 0, '{"country":"BR"}')`)
-							assert.Equal(t, nil, err)
-
-							c := newTestDB(db, config.driver)
-							var users []*User
-							err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
-
-							assert.Equal(t, nil, err)
-							assert.Equal(t, 2, len(users))
-
-							assert.NotEqual(t, uint(0), users[0].ID)
-							assert.Equal(t, "João Garcia", users[0].Name)
-							assert.Equal(t, "US", users[0].Address.Country)
-
-							assert.NotEqual(t, uint(0), users[1].ID)
-							assert.Equal(t, "Bia Garcia", users[1].Name)
-							assert.Equal(t, "BR", users[1].Address.Country)
-						})
-
-						t.Run("should query joined tables correctly", func(t *testing.T) {
-							// This test only makes sense with no query prefix
-							if variation.queryPrefix != "" {
-								return
-							}
-
-							db, closer := connectDB(t, config)
-							defer closer.Close()
-
-							ctx := context.Background()
-
-							_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
-							assert.Equal(t, nil, err)
-							var joao User
-							getUserByName(db, config.driver, &joao, "João Ribeiro")
-
-							_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
-							assert.Equal(t, nil, err)
-							var bia User
-							getUserByName(db, config.driver, &bia, "Bia Ribeiro")
-
-							_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post1')`))
-							assert.Equal(t, nil, err)
-							_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post2')`))
-							assert.Equal(t, nil, err)
-							_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
-							assert.Equal(t, nil, err)
-
-							c := newTestDB(db, config.driver)
-							var rows []*struct {
-								User User `tablename:"u"`
-								Post Post `tablename:"p"`
-							}
-							err = c.Query(ctx, &rows, fmt.Sprint(
-								`FROM users u JOIN posts p ON p.user_id = u.id`,
-								` WHERE u.name like `, c.dialect.Placeholder(0),
-								` ORDER BY u.id, p.id`,
-							), "% Ribeiro")
-
-							assert.Equal(t, nil, err)
-							assert.Equal(t, 3, len(rows))
-
-							assert.Equal(t, joao.ID, rows[0].User.ID)
-							assert.Equal(t, "João Ribeiro", rows[0].User.Name)
-							assert.Equal(t, "João Post1", rows[0].Post.Title)
-
-							assert.Equal(t, bia.ID, rows[1].User.ID)
-							assert.Equal(t, "Bia Ribeiro", rows[1].User.Name)
-							assert.Equal(t, "Bia Post1", rows[1].Post.Title)
-
-							assert.Equal(t, bia.ID, rows[2].User.ID)
-							assert.Equal(t, "Bia Ribeiro", rows[2].User.Name)
-							assert.Equal(t, "Bia Post2", rows[2].Post.Title)
-						})
-					})
-				})
-			}
-
-			t.Run("testing error cases", func(t *testing.T) {
-				err := createTables(config.driver)
-				if err != nil {
-					t.Fatal("could not create test table!, reason:", err.Error())
-				}
-
-				t.Run("should report error if input is not a pointer to a slice of structs", func(t *testing.T) {
-					db, closer := connectDB(t, config)
-					defer closer.Close()
-
-					ctx := context.Background()
-
-					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Andréa Sá', 0)`)
-					assert.Equal(t, nil, err)
-
-					_, err = db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Caio Sá', 0)`)
-					assert.Equal(t, nil, err)
-
-					c := newTestDB(db, config.driver)
-					err = c.Query(ctx, &User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
-					assert.NotEqual(t, nil, err)
-
-					err = c.Query(ctx, []*User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
-					assert.NotEqual(t, nil, err)
-
-					var i int
-					err = c.Query(ctx, &i, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
-					assert.NotEqual(t, nil, err)
-
-					err = c.Query(ctx, &[]int{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
-					assert.NotEqual(t, nil, err)
-				})
-
-				t.Run("should report error if the query is not valid", func(t *testing.T) {
-					db, closer := connectDB(t, config)
-					defer closer.Close()
-
-					ctx := context.Background()
-					c := newTestDB(db, config.driver)
-					var users []User
-					err := c.Query(ctx, &users, `SELECT * FROM not a valid query`)
-					assert.NotEqual(t, nil, err)
-				})
-
-				t.Run("should report error if using nested struct and the query starts with SELECT", func(t *testing.T) {
-					db, closer := connectDB(t, config)
-					defer closer.Close()
-
-					ctx := context.Background()
-					c := newTestDB(db, config.driver)
-					var rows []struct {
-						User User `tablename:"users"`
-						Post Post `tablename:"posts"`
+		QueryTest(t,
+			config,
+			func(t *testing.T) (DBAdapter, io.Closer) {
+				db, close := connectDB(t, config)
+				return db, close
+			},
+		)
+	}
+}
+
+func QueryTest(
+	t *testing.T,
+	config testConfig,
+	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
+) {
+	t.Run(config.driver, func(t *testing.T) {
+		variations := []struct {
+			desc        string
+			queryPrefix string
+		}{
+			{
+				desc:        "with select *",
+				queryPrefix: "SELECT * ",
+			},
+			{
+				desc:        "building the SELECT part of the query internally",
+				queryPrefix: "",
+			},
+		}
+		for _, variation := range variations {
+			t.Run(variation.desc, func(t *testing.T) {
+				t.Run("using slice of structs", func(t *testing.T) {
+					err := createTables(config.driver)
+					if err != nil {
+						t.Fatal("could not create test table!, reason:", err.Error())
 					}
-					err := c.Query(ctx, &rows, `SELECT * FROM users u JOIN posts p ON u.id = p.user_id`)
-					assert.NotEqual(t, nil, err)
-					assert.Equal(t, true, strings.Contains(err.Error(), "nested struct"), "unexpected error msg: "+err.Error())
-					assert.Equal(t, true, strings.Contains(err.Error(), "feature"), "unexpected error msg: "+err.Error())
-				})
 
-				t.Run("should report error for nested structs with invalid types", func(t *testing.T) {
-					t.Run("int", func(t *testing.T) {
-						db, closer := connectDB(t, config)
+					t.Run("should return 0 results correctly", func(t *testing.T) {
+						db, closer := newDBAdapter(t)
 						defer closer.Close()
 
 						ctx := context.Background()
 						c := newTestDB(db, config.driver)
-						var rows []struct {
-							Foo int `tablename:"foo"`
+						var users []User
+						err := c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
+						assert.Equal(t, nil, err)
+						assert.Equal(t, 0, len(users))
+
+						users = []User{}
+						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
+						assert.Equal(t, nil, err)
+						assert.Equal(t, 0, len(users))
+					})
+
+					t.Run("should return a user correctly", func(t *testing.T) {
+						db, closer := newDBAdapter(t)
+						defer closer.Close()
+
+						_, err := db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
+						assert.Equal(t, nil, err)
+
+						ctx := context.Background()
+						c := newTestDB(db, config.driver)
+						var users []User
+						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
+
+						assert.Equal(t, nil, err)
+						assert.Equal(t, 1, len(users))
+						assert.NotEqual(t, uint(0), users[0].ID)
+						assert.Equal(t, "Bia", users[0].Name)
+						assert.Equal(t, "BR", users[0].Address.Country)
+					})
+
+					t.Run("should return multiple users correctly", func(t *testing.T) {
+						db, closer := newDBAdapter(t)
+						defer closer.Close()
+
+						_, err := db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
+						assert.Equal(t, nil, err)
+
+						_, err = db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('Bia Garcia', 0, '{"country":"BR"}')`)
+						assert.Equal(t, nil, err)
+
+						ctx := context.Background()
+						c := newTestDB(db, config.driver)
+						var users []User
+						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
+
+						assert.Equal(t, nil, err)
+						assert.Equal(t, 2, len(users))
+
+						assert.NotEqual(t, uint(0), users[0].ID)
+						assert.Equal(t, "João Garcia", users[0].Name)
+						assert.Equal(t, "US", users[0].Address.Country)
+
+						assert.NotEqual(t, uint(0), users[1].ID)
+						assert.Equal(t, "Bia Garcia", users[1].Name)
+						assert.Equal(t, "BR", users[1].Address.Country)
+					})
+
+					t.Run("should query joined tables correctly", func(t *testing.T) {
+						db, closer := newDBAdapter(t)
+						defer closer.Close()
+
+						// This test only makes sense with no query prefix
+						if variation.queryPrefix != "" {
+							return
 						}
-						err := c.Query(ctx, &rows, fmt.Sprint(
+
+						_, err := db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
+						assert.Equal(t, nil, err)
+						var joao User
+						getUserByName(db, config.driver, &joao, "João Ribeiro")
+						assert.Equal(t, nil, err)
+
+						_, err = db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
+						assert.Equal(t, nil, err)
+						var bia User
+						getUserByName(db, config.driver, &bia, "Bia Ribeiro")
+
+						_, err = db.ExecContext(context.TODO(), fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post1')`))
+						assert.Equal(t, nil, err)
+						_, err = db.ExecContext(context.TODO(), fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post2')`))
+						assert.Equal(t, nil, err)
+						_, err = db.ExecContext(context.TODO(), fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
+						assert.Equal(t, nil, err)
+
+						ctx := context.Background()
+						c := newTestDB(db, config.driver)
+						var rows []struct {
+							User User `tablename:"u"`
+							Post Post `tablename:"p"`
+
+							// This one has no ksql or tablename tag,
+							// so it should just be ignored to avoid strange
+							// unexpected errors:
+							ExtraStructThatShouldBeIgnored User
+						}
+						err = c.Query(ctx, &rows, fmt.Sprint(
 							`FROM users u JOIN posts p ON p.user_id = u.id`,
 							` WHERE u.name like `, c.dialect.Placeholder(0),
 							` ORDER BY u.id, p.id`,
 						), "% Ribeiro")
 
-						assert.NotEqual(t, nil, err)
-						msg := err.Error()
-						for _, str := range []string{"foo", "int"} {
-							assert.Equal(t, true, strings.Contains(msg, str), fmt.Sprintf("missing expected substr '%s' in error message: '%s'", str, msg))
-						}
-					})
+						assert.Equal(t, nil, err)
+						assert.Equal(t, 3, len(rows))
 
-					t.Run("*struct", func(t *testing.T) {
-						db, closer := connectDB(t, config)
+						assert.Equal(t, joao.ID, rows[0].User.ID)
+						assert.Equal(t, "João Ribeiro", rows[0].User.Name)
+						assert.Equal(t, "João Post1", rows[0].Post.Title)
+
+						assert.Equal(t, bia.ID, rows[1].User.ID)
+						assert.Equal(t, "Bia Ribeiro", rows[1].User.Name)
+						assert.Equal(t, "Bia Post1", rows[1].Post.Title)
+
+						assert.Equal(t, bia.ID, rows[2].User.ID)
+						assert.Equal(t, "Bia Ribeiro", rows[2].User.Name)
+						assert.Equal(t, "Bia Post2", rows[2].Post.Title)
+					})
+				})
+
+				t.Run("using slice of pointers to structs", func(t *testing.T) {
+					err := createTables(config.driver)
+					if err != nil {
+						t.Fatal("could not create test table!, reason:", err.Error())
+					}
+
+					t.Run("should return 0 results correctly", func(t *testing.T) {
+						db, closer := newDBAdapter(t)
 						defer closer.Close()
 
 						ctx := context.Background()
 						c := newTestDB(db, config.driver)
-						var rows []struct {
-							Foo *User `tablename:"foo"`
+						var users []*User
+						err := c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
+						assert.Equal(t, nil, err)
+						assert.Equal(t, 0, len(users))
+
+						users = []*User{}
+						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
+						assert.Equal(t, nil, err)
+						assert.Equal(t, 0, len(users))
+					})
+
+					t.Run("should return a user correctly", func(t *testing.T) {
+						db, closer := newDBAdapter(t)
+						defer closer.Close()
+
+						ctx := context.Background()
+
+						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
+						assert.Equal(t, nil, err)
+
+						c := newTestDB(db, config.driver)
+						var users []*User
+						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
+
+						assert.Equal(t, nil, err)
+						assert.Equal(t, 1, len(users))
+						assert.NotEqual(t, uint(0), users[0].ID)
+						assert.Equal(t, "Bia", users[0].Name)
+						assert.Equal(t, "BR", users[0].Address.Country)
+					})
+
+					t.Run("should return multiple users correctly", func(t *testing.T) {
+						db, closer := newDBAdapter(t)
+						defer closer.Close()
+
+						ctx := context.Background()
+
+						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
+						assert.Equal(t, nil, err)
+
+						_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia Garcia', 0, '{"country":"BR"}')`)
+						assert.Equal(t, nil, err)
+
+						c := newTestDB(db, config.driver)
+						var users []*User
+						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
+
+						assert.Equal(t, nil, err)
+						assert.Equal(t, 2, len(users))
+
+						assert.NotEqual(t, uint(0), users[0].ID)
+						assert.Equal(t, "João Garcia", users[0].Name)
+						assert.Equal(t, "US", users[0].Address.Country)
+
+						assert.NotEqual(t, uint(0), users[1].ID)
+						assert.Equal(t, "Bia Garcia", users[1].Name)
+						assert.Equal(t, "BR", users[1].Address.Country)
+					})
+
+					t.Run("should query joined tables correctly", func(t *testing.T) {
+						// This test only makes sense with no query prefix
+						if variation.queryPrefix != "" {
+							return
 						}
-						err := c.Query(ctx, &rows, fmt.Sprint(
+
+						db, closer := newDBAdapter(t)
+						defer closer.Close()
+
+						ctx := context.Background()
+
+						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
+						assert.Equal(t, nil, err)
+						var joao User
+						getUserByName(db, config.driver, &joao, "João Ribeiro")
+
+						_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
+						assert.Equal(t, nil, err)
+						var bia User
+						getUserByName(db, config.driver, &bia, "Bia Ribeiro")
+
+						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post1')`))
+						assert.Equal(t, nil, err)
+						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post2')`))
+						assert.Equal(t, nil, err)
+						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
+						assert.Equal(t, nil, err)
+
+						c := newTestDB(db, config.driver)
+						var rows []*struct {
+							User User `tablename:"u"`
+							Post Post `tablename:"p"`
+						}
+						err = c.Query(ctx, &rows, fmt.Sprint(
 							`FROM users u JOIN posts p ON p.user_id = u.id`,
 							` WHERE u.name like `, c.dialect.Placeholder(0),
 							` ORDER BY u.id, p.id`,
 						), "% Ribeiro")
 
-						assert.NotEqual(t, nil, err)
-						msg := err.Error()
-						for _, str := range []string{"foo", "*ksql.User"} {
-							assert.Equal(t, true, strings.Contains(msg, str), fmt.Sprintf("missing expected substr '%s' in error message: '%s'", str, msg))
-						}
+						assert.Equal(t, nil, err)
+						assert.Equal(t, 3, len(rows))
+
+						assert.Equal(t, joao.ID, rows[0].User.ID)
+						assert.Equal(t, "João Ribeiro", rows[0].User.Name)
+						assert.Equal(t, "João Post1", rows[0].Post.Title)
+
+						assert.Equal(t, bia.ID, rows[1].User.ID)
+						assert.Equal(t, "Bia Ribeiro", rows[1].User.Name)
+						assert.Equal(t, "Bia Post1", rows[1].Post.Title)
+
+						assert.Equal(t, bia.ID, rows[2].User.ID)
+						assert.Equal(t, "Bia Ribeiro", rows[2].User.Name)
+						assert.Equal(t, "Bia Post2", rows[2].Post.Title)
 					})
-				})
-
-				t.Run("should report error if nested struct is invalid", func(t *testing.T) {
-					db, closer := connectDB(t, config)
-					defer closer.Close()
-
-					ctx := context.Background()
-					c := newTestDB(db, config.driver)
-					var rows []struct {
-						User User `tablename:"users"`
-						Post struct {
-							Attr1 int `ksql:"invalid_repeated_name"`
-							Attr2 int `ksql:"invalid_repeated_name"`
-						} `tablename:"posts"`
-					}
-					err := c.Query(ctx, &rows, `FROM users u JOIN posts p ON u.id = p.user_id`)
-					tt.AssertErrContains(t, err, "same ksql tag name", "invalid_repeated_name")
 				})
 			})
-		})
+		}
 
-	}
+		t.Run("testing error cases", func(t *testing.T) {
+			err := createTables(config.driver)
+			if err != nil {
+				t.Fatal("could not create test table!, reason:", err.Error())
+			}
+
+			t.Run("should report error if input is not a pointer to a slice of structs", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx := context.Background()
+
+				_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Andréa Sá', 0)`)
+				assert.Equal(t, nil, err)
+
+				_, err = db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Caio Sá', 0)`)
+				assert.Equal(t, nil, err)
+
+				c := newTestDB(db, config.driver)
+				err = c.Query(ctx, &User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
+				assert.NotEqual(t, nil, err)
+
+				err = c.Query(ctx, []*User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
+				assert.NotEqual(t, nil, err)
+
+				var i int
+				err = c.Query(ctx, &i, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
+				assert.NotEqual(t, nil, err)
+
+				err = c.Query(ctx, &[]int{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
+				assert.NotEqual(t, nil, err)
+			})
+
+			t.Run("should report error if the query is not valid", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, config.driver)
+				var users []User
+				err := c.Query(ctx, &users, `SELECT * FROM not a valid query`)
+				assert.NotEqual(t, nil, err)
+			})
+
+			t.Run("should report error if using nested struct and the query starts with SELECT", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, config.driver)
+				var rows []struct {
+					User User `tablename:"users"`
+					Post Post `tablename:"posts"`
+				}
+				err := c.Query(ctx, &rows, `SELECT * FROM users u JOIN posts p ON u.id = p.user_id`)
+				assert.NotEqual(t, nil, err)
+				assert.Equal(t, true, strings.Contains(err.Error(), "nested struct"), "unexpected error msg: "+err.Error())
+				assert.Equal(t, true, strings.Contains(err.Error(), "feature"), "unexpected error msg: "+err.Error())
+			})
+
+			t.Run("should report error for nested structs with invalid types", func(t *testing.T) {
+				t.Run("int", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+					var rows []struct {
+						Foo int `tablename:"foo"`
+					}
+					err := c.Query(ctx, &rows, fmt.Sprint(
+						`FROM users u JOIN posts p ON p.user_id = u.id`,
+						` WHERE u.name like `, c.dialect.Placeholder(0),
+						` ORDER BY u.id, p.id`,
+					), "% Ribeiro")
+
+					assert.NotEqual(t, nil, err)
+					msg := err.Error()
+					for _, str := range []string{"foo", "int"} {
+						assert.Equal(t, true, strings.Contains(msg, str), fmt.Sprintf("missing expected substr '%s' in error message: '%s'", str, msg))
+					}
+				})
+
+				t.Run("*struct", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+					var rows []struct {
+						Foo *User `tablename:"foo"`
+					}
+					err := c.Query(ctx, &rows, fmt.Sprint(
+						`FROM users u JOIN posts p ON p.user_id = u.id`,
+						` WHERE u.name like `, c.dialect.Placeholder(0),
+						` ORDER BY u.id, p.id`,
+					), "% Ribeiro")
+
+					assert.NotEqual(t, nil, err)
+					msg := err.Error()
+					for _, str := range []string{"foo", "*ksql.User"} {
+						assert.Equal(t, true, strings.Contains(msg, str), fmt.Sprintf("missing expected substr '%s' in error message: '%s'", str, msg))
+					}
+				})
+			})
+
+			t.Run("should report error if nested struct is invalid", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, config.driver)
+				var rows []struct {
+					User User `tablename:"users"`
+					Post struct {
+						Attr1 int `ksql:"invalid_repeated_name"`
+						Attr2 int `ksql:"invalid_repeated_name"`
+					} `tablename:"posts"`
+				}
+				err := c.Query(ctx, &rows, `FROM users u JOIN posts p ON u.id = p.user_id`)
+				tt.AssertErrContains(t, err, "same ksql tag name", "invalid_repeated_name")
+			})
+		})
+	})
 }
 
 func TestQueryOne(t *testing.T) {
