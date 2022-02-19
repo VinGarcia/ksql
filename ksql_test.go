@@ -130,13 +130,13 @@ func QueryTest(
 						c := newTestDB(db, config.driver)
 						var users []User
 						err := c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 0, len(users))
+						tt.AssertNoErr(t, err)
+						tt.AssertEqual(t, 0, len(users))
 
 						users = []User{}
 						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 0, len(users))
+						tt.AssertEqual(t, nil, err)
+						tt.AssertEqual(t, 0, len(users))
 					})
 
 					t.Run("should return a user correctly", func(t *testing.T) {
@@ -144,18 +144,18 @@ func QueryTest(
 						defer closer.Close()
 
 						_, err := db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
-						assert.Equal(t, nil, err)
+						tt.AssertNoErr(t, err)
 
 						ctx := context.Background()
 						c := newTestDB(db, config.driver)
 						var users []User
 						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
 
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 1, len(users))
-						assert.NotEqual(t, uint(0), users[0].ID)
-						assert.Equal(t, "Bia", users[0].Name)
-						assert.Equal(t, "BR", users[0].Address.Country)
+						tt.AssertNoErr(t, err)
+						tt.AssertEqual(t, 1, len(users))
+						tt.AssertNotEqual(t, uint(0), users[0].ID)
+						tt.AssertEqual(t, "Bia", users[0].Name)
+						tt.AssertEqual(t, "BR", users[0].Address.Country)
 					})
 
 					t.Run("should return multiple users correctly", func(t *testing.T) {
@@ -163,26 +163,26 @@ func QueryTest(
 						defer closer.Close()
 
 						_, err := db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
-						assert.Equal(t, nil, err)
+						tt.AssertNoErr(t, err)
 
 						_, err = db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('Bia Garcia', 0, '{"country":"BR"}')`)
-						assert.Equal(t, nil, err)
+						tt.AssertNoErr(t, err)
 
 						ctx := context.Background()
 						c := newTestDB(db, config.driver)
 						var users []User
 						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
 
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 2, len(users))
+						tt.AssertNoErr(t, err)
+						tt.AssertEqual(t, 2, len(users))
 
-						assert.NotEqual(t, uint(0), users[0].ID)
-						assert.Equal(t, "João Garcia", users[0].Name)
-						assert.Equal(t, "US", users[0].Address.Country)
+						tt.AssertNotEqual(t, uint(0), users[0].ID)
+						tt.AssertEqual(t, "João Garcia", users[0].Name)
+						tt.AssertEqual(t, "US", users[0].Address.Country)
 
-						assert.NotEqual(t, uint(0), users[1].ID)
-						assert.Equal(t, "Bia Garcia", users[1].Name)
-						assert.Equal(t, "BR", users[1].Address.Country)
+						tt.AssertNotEqual(t, uint(0), users[1].ID)
+						tt.AssertEqual(t, "Bia Garcia", users[1].Name)
+						tt.AssertEqual(t, "BR", users[1].Address.Country)
 					})
 
 					t.Run("should query joined tables correctly", func(t *testing.T) {
@@ -195,22 +195,22 @@ func QueryTest(
 						}
 
 						_, err := db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
-						assert.Equal(t, nil, err)
+						tt.AssertNoErr(t, err)
 						var joao User
 						getUserByName(db, config.driver, &joao, "João Ribeiro")
-						assert.Equal(t, nil, err)
+						tt.AssertNoErr(t, err)
 
 						_, err = db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
-						assert.Equal(t, nil, err)
+						tt.AssertNoErr(t, err)
 						var bia User
 						getUserByName(db, config.driver, &bia, "Bia Ribeiro")
 
 						_, err = db.ExecContext(context.TODO(), fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post1')`))
-						assert.Equal(t, nil, err)
+						tt.AssertNoErr(t, err)
 						_, err = db.ExecContext(context.TODO(), fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post2')`))
-						assert.Equal(t, nil, err)
+						tt.AssertNoErr(t, err)
 						_, err = db.ExecContext(context.TODO(), fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
-						assert.Equal(t, nil, err)
+						tt.AssertNoErr(t, err)
 
 						ctx := context.Background()
 						c := newTestDB(db, config.driver)
@@ -229,20 +229,20 @@ func QueryTest(
 							` ORDER BY u.id, p.id`,
 						), "% Ribeiro")
 
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 3, len(rows))
+						tt.AssertNoErr(t, err)
+						tt.AssertEqual(t, 3, len(rows))
 
-						assert.Equal(t, joao.ID, rows[0].User.ID)
-						assert.Equal(t, "João Ribeiro", rows[0].User.Name)
-						assert.Equal(t, "João Post1", rows[0].Post.Title)
+						tt.AssertEqual(t, joao.ID, rows[0].User.ID)
+						tt.AssertEqual(t, "João Ribeiro", rows[0].User.Name)
+						tt.AssertEqual(t, "João Post1", rows[0].Post.Title)
 
-						assert.Equal(t, bia.ID, rows[1].User.ID)
-						assert.Equal(t, "Bia Ribeiro", rows[1].User.Name)
-						assert.Equal(t, "Bia Post1", rows[1].Post.Title)
+						tt.AssertEqual(t, bia.ID, rows[1].User.ID)
+						tt.AssertEqual(t, "Bia Ribeiro", rows[1].User.Name)
+						tt.AssertEqual(t, "Bia Post1", rows[1].Post.Title)
 
-						assert.Equal(t, bia.ID, rows[2].User.ID)
-						assert.Equal(t, "Bia Ribeiro", rows[2].User.Name)
-						assert.Equal(t, "Bia Post2", rows[2].Post.Title)
+						tt.AssertEqual(t, bia.ID, rows[2].User.ID)
+						tt.AssertEqual(t, "Bia Ribeiro", rows[2].User.Name)
+						tt.AssertEqual(t, "Bia Post2", rows[2].Post.Title)
 					})
 				})
 
@@ -260,13 +260,13 @@ func QueryTest(
 						c := newTestDB(db, config.driver)
 						var users []*User
 						err := c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 0, len(users))
+						tt.AssertNoErr(t, err)
+						tt.AssertEqual(t, 0, len(users))
 
 						users = []*User{}
 						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 0, len(users))
+						tt.AssertNoErr(t, err)
+						tt.AssertEqual(t, 0, len(users))
 					})
 
 					t.Run("should return a user correctly", func(t *testing.T) {
@@ -276,17 +276,17 @@ func QueryTest(
 						ctx := context.Background()
 
 						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
-						assert.Equal(t, nil, err)
+						tt.AssertNoErr(t, err)
 
 						c := newTestDB(db, config.driver)
 						var users []*User
 						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
 
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 1, len(users))
-						assert.NotEqual(t, uint(0), users[0].ID)
-						assert.Equal(t, "Bia", users[0].Name)
-						assert.Equal(t, "BR", users[0].Address.Country)
+						tt.AssertEqual(t, nil, err)
+						tt.AssertEqual(t, 1, len(users))
+						tt.AssertNotEqual(t, uint(0), users[0].ID)
+						tt.AssertEqual(t, "Bia", users[0].Name)
+						tt.AssertEqual(t, "BR", users[0].Address.Country)
 					})
 
 					t.Run("should return multiple users correctly", func(t *testing.T) {
@@ -296,25 +296,25 @@ func QueryTest(
 						ctx := context.Background()
 
 						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
-						assert.Equal(t, nil, err)
+						tt.AssertNoErr(t, err)
 
 						_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia Garcia', 0, '{"country":"BR"}')`)
-						assert.Equal(t, nil, err)
+						tt.AssertNoErr(t, err)
 
 						c := newTestDB(db, config.driver)
 						var users []*User
 						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
 
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 2, len(users))
+						tt.AssertNoErr(t, err)
+						tt.AssertEqual(t, 2, len(users))
 
-						assert.NotEqual(t, uint(0), users[0].ID)
-						assert.Equal(t, "João Garcia", users[0].Name)
-						assert.Equal(t, "US", users[0].Address.Country)
+						tt.AssertNotEqual(t, uint(0), users[0].ID)
+						tt.AssertEqual(t, "João Garcia", users[0].Name)
+						tt.AssertEqual(t, "US", users[0].Address.Country)
 
-						assert.NotEqual(t, uint(0), users[1].ID)
-						assert.Equal(t, "Bia Garcia", users[1].Name)
-						assert.Equal(t, "BR", users[1].Address.Country)
+						tt.AssertNotEqual(t, uint(0), users[1].ID)
+						tt.AssertEqual(t, "Bia Garcia", users[1].Name)
+						tt.AssertEqual(t, "BR", users[1].Address.Country)
 					})
 
 					t.Run("should query joined tables correctly", func(t *testing.T) {
@@ -329,7 +329,7 @@ func QueryTest(
 						ctx := context.Background()
 
 						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
-						assert.Equal(t, nil, err)
+						tt.AssertNoErr(t, err)
 						var joao User
 						getUserByName(db, config.driver, &joao, "João Ribeiro")
 
@@ -339,11 +339,11 @@ func QueryTest(
 						getUserByName(db, config.driver, &bia, "Bia Ribeiro")
 
 						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post1')`))
-						assert.Equal(t, nil, err)
+						tt.AssertNoErr(t, err)
 						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post2')`))
-						assert.Equal(t, nil, err)
+						tt.AssertNoErr(t, err)
 						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
-						assert.Equal(t, nil, err)
+						tt.AssertNoErr(t, err)
 
 						c := newTestDB(db, config.driver)
 						var rows []*struct {
@@ -356,20 +356,20 @@ func QueryTest(
 							` ORDER BY u.id, p.id`,
 						), "% Ribeiro")
 
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 3, len(rows))
+						tt.AssertNoErr(t, err)
+						tt.AssertEqual(t, 3, len(rows))
 
-						assert.Equal(t, joao.ID, rows[0].User.ID)
-						assert.Equal(t, "João Ribeiro", rows[0].User.Name)
-						assert.Equal(t, "João Post1", rows[0].Post.Title)
+						tt.AssertEqual(t, joao.ID, rows[0].User.ID)
+						tt.AssertEqual(t, "João Ribeiro", rows[0].User.Name)
+						tt.AssertEqual(t, "João Post1", rows[0].Post.Title)
 
-						assert.Equal(t, bia.ID, rows[1].User.ID)
-						assert.Equal(t, "Bia Ribeiro", rows[1].User.Name)
-						assert.Equal(t, "Bia Post1", rows[1].Post.Title)
+						tt.AssertEqual(t, bia.ID, rows[1].User.ID)
+						tt.AssertEqual(t, "Bia Ribeiro", rows[1].User.Name)
+						tt.AssertEqual(t, "Bia Post1", rows[1].Post.Title)
 
-						assert.Equal(t, bia.ID, rows[2].User.ID)
-						assert.Equal(t, "Bia Ribeiro", rows[2].User.Name)
-						assert.Equal(t, "Bia Post2", rows[2].Post.Title)
+						tt.AssertEqual(t, bia.ID, rows[2].User.ID)
+						tt.AssertEqual(t, "Bia Ribeiro", rows[2].User.Name)
+						tt.AssertEqual(t, "Bia Post2", rows[2].Post.Title)
 					})
 				})
 			})
@@ -388,24 +388,24 @@ func QueryTest(
 				ctx := context.Background()
 
 				_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Andréa Sá', 0)`)
-				assert.Equal(t, nil, err)
+				tt.AssertNoErr(t, err)
 
 				_, err = db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Caio Sá', 0)`)
-				assert.Equal(t, nil, err)
+				tt.AssertNoErr(t, err)
 
 				c := newTestDB(db, config.driver)
 				err = c.Query(ctx, &User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
-				assert.NotEqual(t, nil, err)
+				tt.AssertErrContains(t, err, "expected", "to be a slice", "User")
 
 				err = c.Query(ctx, []*User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
-				assert.NotEqual(t, nil, err)
+				tt.AssertErrContains(t, err, "expected", "slice of structs", "User")
 
 				var i int
 				err = c.Query(ctx, &i, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
-				assert.NotEqual(t, nil, err)
+				tt.AssertErrContains(t, err, "expected", "to be a slice", "int")
 
 				err = c.Query(ctx, &[]int{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
-				assert.NotEqual(t, nil, err)
+				tt.AssertErrContains(t, err, "expected", "slice of structs", "[]int")
 			})
 
 			t.Run("should report error if the query is not valid", func(t *testing.T) {
@@ -416,7 +416,7 @@ func QueryTest(
 				c := newTestDB(db, config.driver)
 				var users []User
 				err := c.Query(ctx, &users, `SELECT * FROM not a valid query`)
-				assert.NotEqual(t, nil, err)
+				tt.AssertErrContains(t, err, "error running query")
 			})
 
 			t.Run("should report error if using nested struct and the query starts with SELECT", func(t *testing.T) {
@@ -430,9 +430,7 @@ func QueryTest(
 					Post Post `tablename:"posts"`
 				}
 				err := c.Query(ctx, &rows, `SELECT * FROM users u JOIN posts p ON u.id = p.user_id`)
-				assert.NotEqual(t, nil, err)
-				assert.Equal(t, true, strings.Contains(err.Error(), "nested struct"), "unexpected error msg: "+err.Error())
-				assert.Equal(t, true, strings.Contains(err.Error(), "feature"), "unexpected error msg: "+err.Error())
+				tt.AssertErrContains(t, err, "nested struct", "feature")
 			})
 
 			t.Run("should report error for nested structs with invalid types", func(t *testing.T) {
@@ -451,11 +449,7 @@ func QueryTest(
 						` ORDER BY u.id, p.id`,
 					), "% Ribeiro")
 
-					assert.NotEqual(t, nil, err)
-					msg := err.Error()
-					for _, str := range []string{"foo", "int"} {
-						assert.Equal(t, true, strings.Contains(msg, str), fmt.Sprintf("missing expected substr '%s' in error message: '%s'", str, msg))
-					}
+					tt.AssertErrContains(t, err, "foo", "int")
 				})
 
 				t.Run("*struct", func(t *testing.T) {
@@ -473,11 +467,7 @@ func QueryTest(
 						` ORDER BY u.id, p.id`,
 					), "% Ribeiro")
 
-					assert.NotEqual(t, nil, err)
-					msg := err.Error()
-					for _, str := range []string{"foo", "*ksql.User"} {
-						assert.Equal(t, true, strings.Contains(msg, str), fmt.Sprintf("missing expected substr '%s' in error message: '%s'", str, msg))
-					}
+					tt.AssertErrContains(t, err, "foo", "*ksql.User")
 				})
 			})
 

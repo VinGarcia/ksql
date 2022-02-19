@@ -154,7 +154,7 @@ func (c DB) Query(
 
 	rows, err := c.db.QueryContext(ctx, query, params...)
 	if err != nil {
-		return fmt.Errorf("error running query: %s", err.Error())
+		return fmt.Errorf("error running query: %s", err)
 	}
 	defer rows.Close()
 
