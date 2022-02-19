@@ -684,318 +684,332 @@ func QueryOneTest(
 
 func TestInsert(t *testing.T) {
 	for _, config := range supportedConfigs {
-		t.Run(config.driver, func(t *testing.T) {
-			t.Run("success cases", func(t *testing.T) {
-				t.Run("single primary key tables", func(t *testing.T) {
-					err := createTables(config.driver)
-					if err != nil {
-						t.Fatal("could not create test table!, reason:", err.Error())
-					}
+		InsertTest(t,
+			config,
+			func(t *testing.T) (DBAdapter, io.Closer) {
+				db, close := connectDB(t, config)
+				return db, close
+			},
+		)
+	}
+}
 
-					t.Run("should insert one user correctly", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						u := User{
-							Name: "Fernanda",
-							Address: Address{
-								Country: "Brazil",
-							},
-						}
-
-						err := c.Insert(ctx, UsersTable, &u)
-						assert.Equal(t, nil, err)
-						assert.NotEqual(t, 0, u.ID)
-
-						result := User{}
-						err = getUserByID(c.db, c.dialect, &result, u.ID)
-						assert.Equal(t, nil, err)
-
-						assert.Equal(t, u.Name, result.Name)
-						assert.Equal(t, u.Address, result.Address)
-					})
-
-					t.Run("should insert ignoring the ID for sqlite and multiple ids", func(t *testing.T) {
-						if supportedDialects[config.driver].InsertMethod() != insertWithLastInsertID {
-							return
-						}
-
-						// Using columns "id" and "name" as IDs:
-						table := NewTable("users", "id", "name")
-
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						u := User{
-							Name: "No ID returned",
-							Age:  3434, // Random number to avoid false positives on this test
-
-							Address: Address{
-								Country: "Brazil 3434",
-							},
-						}
-
-						err = c.Insert(ctx, table, &u)
-						assert.Equal(t, nil, err)
-						assert.Equal(t, uint(0), u.ID)
-
-						result := User{}
-						err = getUserByName(c.db, config.driver, &result, "No ID returned")
-						assert.Equal(t, nil, err)
-
-						assert.Equal(t, u.Age, result.Age)
-						assert.Equal(t, u.Address, result.Address)
-					})
-
-					t.Run("should work with anonymous structs", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-						err = c.Insert(ctx, UsersTable, &struct {
-							ID      int                    `ksql:"id"`
-							Name    string                 `ksql:"name"`
-							Address map[string]interface{} `ksql:"address,json"`
-						}{Name: "fake-name", Address: map[string]interface{}{"city": "bar"}})
-						assert.Equal(t, nil, err)
-					})
-
-					t.Run("should work with preset IDs", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						usersByName := NewTable("users", "name")
-
-						err = c.Insert(ctx, usersByName, &struct {
-							Name string `ksql:"name"`
-							Age  int    `ksql:"age"`
-						}{Name: "Preset Name", Age: 5455})
-						assert.Equal(t, nil, err)
-
-						var inserted User
-						err := getUserByName(db, config.driver, &inserted, "Preset Name")
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 5455, inserted.Age)
-					})
-				})
-
-				t.Run("composite key tables", func(t *testing.T) {
-					err := createTables(config.driver)
-					if err != nil {
-						t.Fatal("could not create test table!, reason:", err.Error())
-					}
-
-					t.Run("should insert in composite key tables correctly", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						table := NewTable("user_permissions", "id", "user_id", "perm_id")
-						err = c.Insert(ctx, table, &UserPermission{
-							UserID: 1,
-							PermID: 42,
-						})
-						tt.AssertNoErr(t, err)
-
-						userPerms, err := getUserPermissionsByUser(db, config.driver, 1)
-						tt.AssertNoErr(t, err)
-						tt.AssertEqual(t, len(userPerms), 1)
-						tt.AssertEqual(t, userPerms[0].UserID, 1)
-						tt.AssertEqual(t, userPerms[0].PermID, 42)
-					})
-
-					t.Run("should accept partially provided values for composite key tables", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						// Table defined with 3 values, but we'll provide only 2,
-						// the third will be generated for the purposes of this test:
-						table := NewTable("user_permissions", "id", "user_id", "perm_id")
-						permission := UserPermission{
-							UserID: 2,
-							PermID: 42,
-						}
-						err = c.Insert(ctx, table, &permission)
-						tt.AssertNoErr(t, err)
-
-						userPerms, err := getUserPermissionsByUser(db, config.driver, 2)
-						tt.AssertNoErr(t, err)
-
-						// Should retrieve the generated ID from the database,
-						// only if the database supports returning multiple values:
-						switch c.dialect.InsertMethod() {
-						case insertWithNoIDRetrieval, insertWithLastInsertID:
-							tt.AssertEqual(t, permission.ID, 0)
-							tt.AssertEqual(t, len(userPerms), 1)
-							tt.AssertEqual(t, userPerms[0].UserID, 2)
-							tt.AssertEqual(t, userPerms[0].PermID, 42)
-						case insertWithReturning, insertWithOutput:
-							tt.AssertNotEqual(t, permission.ID, 0)
-							tt.AssertEqual(t, len(userPerms), 1)
-							tt.AssertEqual(t, userPerms[0].ID, permission.ID)
-							tt.AssertEqual(t, userPerms[0].UserID, 2)
-							tt.AssertEqual(t, userPerms[0].PermID, 42)
-						}
-					})
-				})
-			})
-
-			t.Run("testing error cases", func(t *testing.T) {
+func InsertTest(
+	t *testing.T,
+	config testConfig,
+	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
+) {
+	t.Run(config.driver, func(t *testing.T) {
+		t.Run("success cases", func(t *testing.T) {
+			t.Run("single primary key tables", func(t *testing.T) {
 				err := createTables(config.driver)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
 
-				t.Run("should report error for invalid input types", func(t *testing.T) {
-					db, closer := connectDB(t, config)
+				t.Run("should insert one user correctly", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
 					ctx := context.Background()
 					c := newTestDB(db, config.driver)
 
-					err = c.Insert(ctx, UsersTable, "foo")
-					assert.NotEqual(t, nil, err)
-
-					err = c.Insert(ctx, UsersTable, nullable.String("foo"))
-					assert.NotEqual(t, nil, err)
-
-					err = c.Insert(ctx, UsersTable, map[string]interface{}{
-						"name": "foo",
-						"age":  12,
-					})
-					assert.NotEqual(t, nil, err)
-
-					cantInsertSlice := []interface{}{
-						&User{Name: "foo", Age: 22},
-						&User{Name: "bar", Age: 32},
+					u := User{
+						Name: "Fernanda",
+						Address: Address{
+							Country: "Brazil",
+						},
 					}
-					err = c.Insert(ctx, UsersTable, cantInsertSlice)
-					assert.NotEqual(t, nil, err)
 
-					// We might want to support this in the future, but not for now:
-					err = c.Insert(ctx, UsersTable, User{Name: "not a ptr to user", Age: 42})
-					assert.NotEqual(t, nil, err)
-				})
+					err := c.Insert(ctx, UsersTable, &u)
+					assert.Equal(t, nil, err)
+					assert.NotEqual(t, 0, u.ID)
 
-				t.Run("should report error if for some reason the insertMethod is invalid", func(t *testing.T) {
-					db, closer := connectDB(t, config)
-					defer closer.Close()
-
-					ctx := context.Background()
-					c := newTestDB(db, config.driver)
-
-					// This is an invalid value:
-					c.dialect = brokenDialect{}
-
-					err = c.Insert(ctx, UsersTable, &User{Name: "foo"})
-					assert.NotEqual(t, nil, err)
-				})
-
-				t.Run("should report error if it receives a nil pointer to a struct", func(t *testing.T) {
-					db, closer := connectDB(t, config)
-					defer closer.Close()
-
-					ctx := context.Background()
-					c := newTestDB(db, config.driver)
-
-					var user *User
-					err := c.Insert(ctx, UsersTable, user)
-					assert.NotEqual(t, nil, err)
-				})
-
-				t.Run("should report error if table contains an empty ID name", func(t *testing.T) {
-					db, closer := connectDB(t, config)
-					defer closer.Close()
-
-					ctx := context.Background()
-					c := newTestDB(db, config.driver)
-
-					err := c.Insert(ctx, NewTable("users", ""), &User{Name: "fake-name"})
-					tt.AssertErrContains(t, err, "ksql.Table", "ID", "empty string")
-				})
-
-				t.Run("should report error if ksql.Table.name is empty", func(t *testing.T) {
-					db, closer := connectDB(t, config)
-					defer closer.Close()
-
-					ctx := context.Background()
-					c := newTestDB(db, config.driver)
-
-					err := c.Insert(ctx, NewTable("", "id"), &User{Name: "fake-name"})
-					tt.AssertErrContains(t, err, "ksql.Table", "table name", "empty string")
-				})
-
-				t.Run("should not panic if a column doesn't exist in the database", func(t *testing.T) {
-					db, closer := connectDB(t, config)
-					defer closer.Close()
-
-					ctx := context.Background()
-					c := newTestDB(db, config.driver)
-
-					err = c.Insert(ctx, UsersTable, &struct {
-						ID                string `ksql:"id"`
-						NonExistingColumn int    `ksql:"non_existing"`
-						Name              string `ksql:"name"`
-					}{NonExistingColumn: 42, Name: "fake-name"})
-					assert.NotEqual(t, nil, err)
-					msg := err.Error()
-					assert.Equal(t, true, strings.Contains(msg, "column"))
-					assert.Equal(t, true, strings.Contains(msg, "non_existing"))
-				})
-
-				t.Run("should not panic if the ID column doesn't exist in the database", func(t *testing.T) {
-					db, closer := connectDB(t, config)
-					defer closer.Close()
-
-					ctx := context.Background()
-					c := newTestDB(db, config.driver)
-
-					brokenTable := NewTable("users", "non_existing_id")
-
-					_ = c.Insert(ctx, brokenTable, &struct {
-						ID   string `ksql:"non_existing_id"`
-						Age  int    `ksql:"age"`
-						Name string `ksql:"name"`
-					}{Age: 42, Name: "fake-name"})
-				})
-
-				t.Run("should not panic if the ID column is missing in the struct", func(t *testing.T) {
-					db, closer := connectDB(t, config)
-					defer closer.Close()
-
-					ctx := context.Background()
-					c := newTestDB(db, config.driver)
-
-					err = c.Insert(ctx, UsersTable, &struct {
-						Age  int    `ksql:"age"`
-						Name string `ksql:"name"`
-					}{Age: 42, Name: "Inserted With no ID"})
+					result := User{}
+					err = getUserByID(c.db, c.dialect, &result, u.ID)
 					assert.Equal(t, nil, err)
 
-					var u User
-					err = getUserByName(db, config.driver, &u, "Inserted With no ID")
+					assert.Equal(t, u.Name, result.Name)
+					assert.Equal(t, u.Address, result.Address)
+				})
+
+				t.Run("should insert ignoring the ID for sqlite and multiple ids", func(t *testing.T) {
+					if supportedDialects[config.driver].InsertMethod() != insertWithLastInsertID {
+						return
+					}
+
+					// Using columns "id" and "name" as IDs:
+					table := NewTable("users", "id", "name")
+
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					u := User{
+						Name: "No ID returned",
+						Age:  3434, // Random number to avoid false positives on this test
+
+						Address: Address{
+							Country: "Brazil 3434",
+						},
+					}
+
+					err = c.Insert(ctx, table, &u)
 					assert.Equal(t, nil, err)
-					assert.NotEqual(t, uint(0), u.ID)
-					assert.Equal(t, 42, u.Age)
+					assert.Equal(t, uint(0), u.ID)
+
+					result := User{}
+					err = getUserByName(c.db, config.driver, &result, "No ID returned")
+					assert.Equal(t, nil, err)
+
+					assert.Equal(t, u.Age, result.Age)
+					assert.Equal(t, u.Address, result.Address)
+				})
+
+				t.Run("should work with anonymous structs", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+					err = c.Insert(ctx, UsersTable, &struct {
+						ID      int                    `ksql:"id"`
+						Name    string                 `ksql:"name"`
+						Address map[string]interface{} `ksql:"address,json"`
+					}{Name: "fake-name", Address: map[string]interface{}{"city": "bar"}})
+					assert.Equal(t, nil, err)
+				})
+
+				t.Run("should work with preset IDs", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					usersByName := NewTable("users", "name")
+
+					err = c.Insert(ctx, usersByName, &struct {
+						Name string `ksql:"name"`
+						Age  int    `ksql:"age"`
+					}{Name: "Preset Name", Age: 5455})
+					assert.Equal(t, nil, err)
+
+					var inserted User
+					err := getUserByName(db, config.driver, &inserted, "Preset Name")
+					assert.Equal(t, nil, err)
+					assert.Equal(t, 5455, inserted.Age)
+				})
+			})
+
+			t.Run("composite key tables", func(t *testing.T) {
+				err := createTables(config.driver)
+				if err != nil {
+					t.Fatal("could not create test table!, reason:", err.Error())
+				}
+
+				t.Run("should insert in composite key tables correctly", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					table := NewTable("user_permissions", "id", "user_id", "perm_id")
+					err = c.Insert(ctx, table, &UserPermission{
+						UserID: 1,
+						PermID: 42,
+					})
+					tt.AssertNoErr(t, err)
+
+					userPerms, err := getUserPermissionsByUser(db, config.driver, 1)
+					tt.AssertNoErr(t, err)
+					tt.AssertEqual(t, len(userPerms), 1)
+					tt.AssertEqual(t, userPerms[0].UserID, 1)
+					tt.AssertEqual(t, userPerms[0].PermID, 42)
+				})
+
+				t.Run("should accept partially provided values for composite key tables", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					// Table defined with 3 values, but we'll provide only 2,
+					// the third will be generated for the purposes of this test:
+					table := NewTable("user_permissions", "id", "user_id", "perm_id")
+					permission := UserPermission{
+						UserID: 2,
+						PermID: 42,
+					}
+					err = c.Insert(ctx, table, &permission)
+					tt.AssertNoErr(t, err)
+
+					userPerms, err := getUserPermissionsByUser(db, config.driver, 2)
+					tt.AssertNoErr(t, err)
+
+					// Should retrieve the generated ID from the database,
+					// only if the database supports returning multiple values:
+					switch c.dialect.InsertMethod() {
+					case insertWithNoIDRetrieval, insertWithLastInsertID:
+						tt.AssertEqual(t, permission.ID, 0)
+						tt.AssertEqual(t, len(userPerms), 1)
+						tt.AssertEqual(t, userPerms[0].UserID, 2)
+						tt.AssertEqual(t, userPerms[0].PermID, 42)
+					case insertWithReturning, insertWithOutput:
+						tt.AssertNotEqual(t, permission.ID, 0)
+						tt.AssertEqual(t, len(userPerms), 1)
+						tt.AssertEqual(t, userPerms[0].ID, permission.ID)
+						tt.AssertEqual(t, userPerms[0].UserID, 2)
+						tt.AssertEqual(t, userPerms[0].PermID, 42)
+					}
 				})
 			})
 		})
-	}
+
+		t.Run("testing error cases", func(t *testing.T) {
+			err := createTables(config.driver)
+			if err != nil {
+				t.Fatal("could not create test table!, reason:", err.Error())
+			}
+
+			t.Run("should report error for invalid input types", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, config.driver)
+
+				err = c.Insert(ctx, UsersTable, "foo")
+				assert.NotEqual(t, nil, err)
+
+				err = c.Insert(ctx, UsersTable, nullable.String("foo"))
+				assert.NotEqual(t, nil, err)
+
+				err = c.Insert(ctx, UsersTable, map[string]interface{}{
+					"name": "foo",
+					"age":  12,
+				})
+				assert.NotEqual(t, nil, err)
+
+				cantInsertSlice := []interface{}{
+					&User{Name: "foo", Age: 22},
+					&User{Name: "bar", Age: 32},
+				}
+				err = c.Insert(ctx, UsersTable, cantInsertSlice)
+				assert.NotEqual(t, nil, err)
+
+				// We might want to support this in the future, but not for now:
+				err = c.Insert(ctx, UsersTable, User{Name: "not a ptr to user", Age: 42})
+				assert.NotEqual(t, nil, err)
+			})
+
+			t.Run("should report error if for some reason the insertMethod is invalid", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, config.driver)
+
+				// This is an invalid value:
+				c.dialect = brokenDialect{}
+
+				err = c.Insert(ctx, UsersTable, &User{Name: "foo"})
+				assert.NotEqual(t, nil, err)
+			})
+
+			t.Run("should report error if it receives a nil pointer to a struct", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, config.driver)
+
+				var user *User
+				err := c.Insert(ctx, UsersTable, user)
+				assert.NotEqual(t, nil, err)
+			})
+
+			t.Run("should report error if table contains an empty ID name", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, config.driver)
+
+				err := c.Insert(ctx, NewTable("users", ""), &User{Name: "fake-name"})
+				tt.AssertErrContains(t, err, "ksql.Table", "ID", "empty string")
+			})
+
+			t.Run("should report error if ksql.Table.name is empty", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, config.driver)
+
+				err := c.Insert(ctx, NewTable("", "id"), &User{Name: "fake-name"})
+				tt.AssertErrContains(t, err, "ksql.Table", "table name", "empty string")
+			})
+
+			t.Run("should not panic if a column doesn't exist in the database", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, config.driver)
+
+				err = c.Insert(ctx, UsersTable, &struct {
+					ID                string `ksql:"id"`
+					NonExistingColumn int    `ksql:"non_existing"`
+					Name              string `ksql:"name"`
+				}{NonExistingColumn: 42, Name: "fake-name"})
+				assert.NotEqual(t, nil, err)
+				msg := err.Error()
+				assert.Equal(t, true, strings.Contains(msg, "column"))
+				assert.Equal(t, true, strings.Contains(msg, "non_existing"))
+			})
+
+			t.Run("should not panic if the ID column doesn't exist in the database", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, config.driver)
+
+				brokenTable := NewTable("users", "non_existing_id")
+
+				_ = c.Insert(ctx, brokenTable, &struct {
+					ID   string `ksql:"non_existing_id"`
+					Age  int    `ksql:"age"`
+					Name string `ksql:"name"`
+				}{Age: 42, Name: "fake-name"})
+			})
+
+			t.Run("should not panic if the ID column is missing in the struct", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, config.driver)
+
+				err = c.Insert(ctx, UsersTable, &struct {
+					Age  int    `ksql:"age"`
+					Name string `ksql:"name"`
+				}{Age: 42, Name: "Inserted With no ID"})
+				assert.Equal(t, nil, err)
+
+				var u User
+				err = getUserByName(db, config.driver, &u, "Inserted With no ID")
+				assert.Equal(t, nil, err)
+				assert.NotEqual(t, uint(0), u.ID)
+				assert.Equal(t, 42, u.Age)
+			})
+		})
+	})
 }
 
 type brokenDialect struct{}
