@@ -503,181 +503,195 @@ func QueryTest(
 
 func TestQueryOne(t *testing.T) {
 	for _, config := range supportedConfigs {
-		t.Run(config.driver, func(t *testing.T) {
-			variations := []struct {
-				desc        string
-				queryPrefix string
-			}{
-				{
-					desc:        "with select *",
-					queryPrefix: "SELECT * ",
-				},
-				{
-					desc:        "building the SELECT part of the query internally",
-					queryPrefix: "",
-				},
-			}
-			for _, variation := range variations {
-				err := createTables(config.driver)
-				if err != nil {
-					t.Fatal("could not create test table!, reason:", err.Error())
-				}
-
-				t.Run(variation.desc, func(t *testing.T) {
-					t.Run("should return RecordNotFoundErr when there are no results", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-						u := User{}
-						err := c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE id=1;`)
-						assert.Equal(t, ErrRecordNotFound, err)
-					})
-
-					t.Run("should return a user correctly", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-
-						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
-						assert.Equal(t, nil, err)
-
-						c := newTestDB(db, config.driver)
-						u := User{}
-						err = c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
-
-						assert.Equal(t, nil, err)
-						assert.NotEqual(t, uint(0), u.ID)
-						assert.Equal(t, "Bia", u.Name)
-						assert.Equal(t, Address{
-							Country: "BR",
-						}, u.Address)
-					})
-
-					t.Run("should return only the first result on multiples matches", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-
-						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Andréa Sá', 0, '{"country":"US"}')`)
-						assert.Equal(t, nil, err)
-
-						_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Caio Sá', 0, '{"country":"BR"}')`)
-						assert.Equal(t, nil, err)
-
-						c := newTestDB(db, config.driver)
-
-						var u User
-						err = c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0)+` ORDER BY id ASC`, "% Sá")
-						assert.Equal(t, nil, err)
-						assert.Equal(t, "Andréa Sá", u.Name)
-						assert.Equal(t, 0, u.Age)
-						assert.Equal(t, Address{
-							Country: "US",
-						}, u.Address)
-					})
-
-					t.Run("should query joined tables correctly", func(t *testing.T) {
-						// This test only makes sense with no query prefix
-						if variation.queryPrefix != "" {
-							return
-						}
-
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-
-						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
-						assert.Equal(t, nil, err)
-						var joao User
-						getUserByName(db, config.driver, &joao, "João Ribeiro")
-
-						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
-						assert.Equal(t, nil, err)
-
-						c := newTestDB(db, config.driver)
-						var row struct {
-							User User `tablename:"u"`
-							Post Post `tablename:"p"`
-						}
-						err = c.QueryOne(ctx, &row, fmt.Sprint(
-							`FROM users u JOIN posts p ON p.user_id = u.id`,
-							` WHERE u.name like `, c.dialect.Placeholder(0),
-							` ORDER BY u.id, p.id`,
-						), "% Ribeiro")
-
-						assert.Equal(t, nil, err)
-						assert.Equal(t, joao.ID, row.User.ID)
-						assert.Equal(t, "João Ribeiro", row.User.Name)
-						assert.Equal(t, "João Post1", row.Post.Title)
-					})
-				})
-			}
-
-			t.Run("should report error if input is not a pointer to struct", func(t *testing.T) {
-				db, closer := connectDB(t, config)
-				defer closer.Close()
-
-				ctx := context.Background()
-
-				_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Andréa Sá', 0, '{"country":"US"}')`)
-				assert.Equal(t, nil, err)
-
-				_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Caio Sá', 0, '{"country":"BR"}')`)
-				assert.Equal(t, nil, err)
-
-				c := newTestDB(db, config.driver)
-
-				err = c.QueryOne(ctx, &[]User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
-				assert.NotEqual(t, nil, err)
-
-				err = c.QueryOne(ctx, User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
-				assert.NotEqual(t, nil, err)
-			})
-
-			t.Run("should report error if it receives a nil pointer to a struct", func(t *testing.T) {
-				db, closer := connectDB(t, config)
-				defer closer.Close()
-
-				ctx := context.Background()
-				c := newTestDB(db, config.driver)
-				var user *User
-				err := c.QueryOne(ctx, user, `SELECT * FROM users`)
-				assert.NotEqual(t, nil, err)
-			})
-
-			t.Run("should report error if the query is not valid", func(t *testing.T) {
-				db, closer := connectDB(t, config)
-				defer closer.Close()
-
-				ctx := context.Background()
-				c := newTestDB(db, config.driver)
-				var user User
-				err := c.QueryOne(ctx, &user, `SELECT * FROM not a valid query`)
-				assert.NotEqual(t, nil, err)
-			})
-
-			t.Run("should report error if using nested struct and the query starts with SELECT", func(t *testing.T) {
-				db, closer := connectDB(t, config)
-				defer closer.Close()
-
-				ctx := context.Background()
-				c := newTestDB(db, config.driver)
-				var row struct {
-					User User `tablename:"users"`
-					Post Post `tablename:"posts"`
-				}
-				err := c.QueryOne(ctx, &row, `SELECT * FROM users u JOIN posts p ON u.id = p.user_id LIMIT 1`)
-				assert.NotEqual(t, nil, err)
-				assert.Equal(t, true, strings.Contains(err.Error(), "nested struct"), "unexpected error msg: "+err.Error())
-				assert.Equal(t, true, strings.Contains(err.Error(), "feature"), "unexpected error msg: "+err.Error())
-			})
-		})
+		QueryOneTest(t,
+			config,
+			func(t *testing.T) (DBAdapter, io.Closer) {
+				db, close := connectDB(t, config)
+				return db, close
+			},
+		)
 	}
+}
+
+func QueryOneTest(
+	t *testing.T,
+	config testConfig,
+	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
+) {
+	t.Run(config.driver, func(t *testing.T) {
+		variations := []struct {
+			desc        string
+			queryPrefix string
+		}{
+			{
+				desc:        "with select *",
+				queryPrefix: "SELECT * ",
+			},
+			{
+				desc:        "building the SELECT part of the query internally",
+				queryPrefix: "",
+			},
+		}
+		for _, variation := range variations {
+			err := createTables(config.driver)
+			if err != nil {
+				t.Fatal("could not create test table!, reason:", err.Error())
+			}
+
+			t.Run(variation.desc, func(t *testing.T) {
+				t.Run("should return RecordNotFoundErr when there are no results", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+					u := User{}
+					err := c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE id=1;`)
+					assert.Equal(t, ErrRecordNotFound, err)
+				})
+
+				t.Run("should return a user correctly", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+
+					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
+					assert.Equal(t, nil, err)
+
+					c := newTestDB(db, config.driver)
+					u := User{}
+					err = c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
+
+					assert.Equal(t, nil, err)
+					assert.NotEqual(t, uint(0), u.ID)
+					assert.Equal(t, "Bia", u.Name)
+					assert.Equal(t, Address{
+						Country: "BR",
+					}, u.Address)
+				})
+
+				t.Run("should return only the first result on multiples matches", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+
+					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Andréa Sá', 0, '{"country":"US"}')`)
+					assert.Equal(t, nil, err)
+
+					_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Caio Sá', 0, '{"country":"BR"}')`)
+					assert.Equal(t, nil, err)
+
+					c := newTestDB(db, config.driver)
+
+					var u User
+					err = c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0)+` ORDER BY id ASC`, "% Sá")
+					assert.Equal(t, nil, err)
+					assert.Equal(t, "Andréa Sá", u.Name)
+					assert.Equal(t, 0, u.Age)
+					assert.Equal(t, Address{
+						Country: "US",
+					}, u.Address)
+				})
+
+				t.Run("should query joined tables correctly", func(t *testing.T) {
+					// This test only makes sense with no query prefix
+					if variation.queryPrefix != "" {
+						return
+					}
+
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+
+					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
+					assert.Equal(t, nil, err)
+					var joao User
+					getUserByName(db, config.driver, &joao, "João Ribeiro")
+
+					_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
+					assert.Equal(t, nil, err)
+
+					c := newTestDB(db, config.driver)
+					var row struct {
+						User User `tablename:"u"`
+						Post Post `tablename:"p"`
+					}
+					err = c.QueryOne(ctx, &row, fmt.Sprint(
+						`FROM users u JOIN posts p ON p.user_id = u.id`,
+						` WHERE u.name like `, c.dialect.Placeholder(0),
+						` ORDER BY u.id, p.id`,
+					), "% Ribeiro")
+
+					assert.Equal(t, nil, err)
+					assert.Equal(t, joao.ID, row.User.ID)
+					assert.Equal(t, "João Ribeiro", row.User.Name)
+					assert.Equal(t, "João Post1", row.Post.Title)
+				})
+			})
+		}
+
+		t.Run("should report error if input is not a pointer to struct", func(t *testing.T) {
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx := context.Background()
+
+			_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Andréa Sá', 0, '{"country":"US"}')`)
+			assert.Equal(t, nil, err)
+
+			_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Caio Sá', 0, '{"country":"BR"}')`)
+			assert.Equal(t, nil, err)
+
+			c := newTestDB(db, config.driver)
+
+			err = c.QueryOne(ctx, &[]User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
+			assert.NotEqual(t, nil, err)
+
+			err = c.QueryOne(ctx, User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
+			assert.NotEqual(t, nil, err)
+		})
+
+		t.Run("should report error if it receives a nil pointer to a struct", func(t *testing.T) {
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx := context.Background()
+			c := newTestDB(db, config.driver)
+			var user *User
+			err := c.QueryOne(ctx, user, `SELECT * FROM users`)
+			assert.NotEqual(t, nil, err)
+		})
+
+		t.Run("should report error if the query is not valid", func(t *testing.T) {
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx := context.Background()
+			c := newTestDB(db, config.driver)
+			var user User
+			err := c.QueryOne(ctx, &user, `SELECT * FROM not a valid query`)
+			assert.NotEqual(t, nil, err)
+		})
+
+		t.Run("should report error if using nested struct and the query starts with SELECT", func(t *testing.T) {
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx := context.Background()
+			c := newTestDB(db, config.driver)
+			var row struct {
+				User User `tablename:"users"`
+				Post Post `tablename:"posts"`
+			}
+			err := c.QueryOne(ctx, &row, `SELECT * FROM users u JOIN posts p ON u.id = p.user_id LIMIT 1`)
+			assert.NotEqual(t, nil, err)
+			assert.Equal(t, true, strings.Contains(err.Error(), "nested struct"), "unexpected error msg: "+err.Error())
+			assert.Equal(t, true, strings.Contains(err.Error(), "feature"), "unexpected error msg: "+err.Error())
+		})
+	})
 }
 
 func TestInsert(t *testing.T) {
