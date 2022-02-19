@@ -1032,302 +1032,316 @@ func (brokenDialect) DriverName() string {
 
 func TestDelete(t *testing.T) {
 	for _, config := range supportedConfigs {
-		t.Run(config.driver, func(t *testing.T) {
-			err := createTables(config.driver)
-			if err != nil {
-				t.Fatal("could not create test table!, reason:", err.Error())
+		DeleteTest(t,
+			config,
+			func(t *testing.T) (DBAdapter, io.Closer) {
+				db, close := connectDB(t, config)
+				return db, close
+			},
+		)
+	}
+}
+
+func DeleteTest(
+	t *testing.T,
+	config testConfig,
+	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
+) {
+	t.Run(config.driver, func(t *testing.T) {
+		err := createTables(config.driver)
+		if err != nil {
+			t.Fatal("could not create test table!, reason:", err.Error())
+		}
+
+		t.Run("should delete from tables with a single primary key correctly", func(t *testing.T) {
+			tests := []struct {
+				desc               string
+				deletionKeyForUser func(u User) interface{}
+			}{
+				{
+					desc: "passing only the ID as key",
+					deletionKeyForUser: func(u User) interface{} {
+						return u.ID
+					},
+				},
+				{
+					desc: "passing only the entire user",
+					deletionKeyForUser: func(u User) interface{} {
+						return u
+					},
+				},
+				{
+					desc: "passing the address of the user",
+					deletionKeyForUser: func(u User) interface{} {
+						return &u
+					},
+				},
 			}
 
-			t.Run("should delete from tables with a single primary key correctly", func(t *testing.T) {
-				tests := []struct {
-					desc               string
-					deletionKeyForUser func(u User) interface{}
-				}{
-					{
-						desc: "passing only the ID as key",
-						deletionKeyForUser: func(u User) interface{} {
-							return u.ID
-						},
-					},
-					{
-						desc: "passing only the entire user",
-						deletionKeyForUser: func(u User) interface{} {
-							return u
-						},
-					},
-					{
-						desc: "passing the address of the user",
-						deletionKeyForUser: func(u User) interface{} {
-							return &u
-						},
-					},
-				}
-
-				for _, test := range tests {
-					t.Run(test.desc, func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						u1 := User{
-							Name: "Fernanda",
-						}
-
-						err := c.Insert(ctx, UsersTable, &u1)
-						assert.Equal(t, nil, err)
-						assert.NotEqual(t, uint(0), u1.ID)
-
-						result := User{}
-						err = getUserByID(c.db, c.dialect, &result, u1.ID)
-						assert.Equal(t, nil, err)
-						assert.Equal(t, u1.ID, result.ID)
-
-						u2 := User{
-							Name: "Won't be deleted",
-						}
-
-						err = c.Insert(ctx, UsersTable, &u2)
-						assert.Equal(t, nil, err)
-						assert.NotEqual(t, uint(0), u2.ID)
-
-						result = User{}
-						err = getUserByID(c.db, c.dialect, &result, u2.ID)
-						assert.Equal(t, nil, err)
-						assert.Equal(t, u2.ID, result.ID)
-
-						err = c.Delete(ctx, UsersTable, test.deletionKeyForUser(u1))
-						assert.Equal(t, nil, err)
-
-						result = User{}
-						err = getUserByID(c.db, c.dialect, &result, u1.ID)
-						assert.Equal(t, sql.ErrNoRows, err)
-
-						result = User{}
-						err = getUserByID(c.db, c.dialect, &result, u2.ID)
-						assert.Equal(t, nil, err)
-
-						assert.NotEqual(t, uint(0), result.ID)
-						assert.Equal(t, "Won't be deleted", result.Name)
-					})
-				}
-			})
-
-			t.Run("should delete from tables with composite primary keys correctly", func(t *testing.T) {
-				t.Run("using structs", func(t *testing.T) {
-					db, closer := connectDB(t, config)
+			for _, test := range tests {
+				t.Run(test.desc, func(t *testing.T) {
+					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
 					ctx := context.Background()
 					c := newTestDB(db, config.driver)
 
-					// This permission should not be deleted, we'll use the id to check it:
-					p0 := UserPermission{
-						UserID: 1,
-						PermID: 44,
+					u1 := User{
+						Name: "Fernanda",
 					}
-					err = c.Insert(ctx, NewTable("user_permissions", "id"), &p0)
-					tt.AssertNoErr(t, err)
-					tt.AssertNotEqual(t, p0.ID, 0)
 
-					p1 := UserPermission{
-						UserID: 1,
-						PermID: 42,
+					err := c.Insert(ctx, UsersTable, &u1)
+					assert.Equal(t, nil, err)
+					assert.NotEqual(t, uint(0), u1.ID)
+
+					result := User{}
+					err = getUserByID(c.db, c.dialect, &result, u1.ID)
+					assert.Equal(t, nil, err)
+					assert.Equal(t, u1.ID, result.ID)
+
+					u2 := User{
+						Name: "Won't be deleted",
 					}
-					err = c.Insert(ctx, NewTable("user_permissions", "id"), &p1)
-					tt.AssertNoErr(t, err)
 
-					err = c.Delete(ctx, UserPermissionsTable, p1)
-					tt.AssertNoErr(t, err)
+					err = c.Insert(ctx, UsersTable, &u2)
+					assert.Equal(t, nil, err)
+					assert.NotEqual(t, uint(0), u2.ID)
 
-					userPerms, err := getUserPermissionsByUser(db, config.driver, 1)
-					tt.AssertNoErr(t, err)
-					tt.AssertEqual(t, len(userPerms), 1)
-					tt.AssertEqual(t, userPerms[0].UserID, 1)
-					tt.AssertEqual(t, userPerms[0].PermID, 44)
+					result = User{}
+					err = getUserByID(c.db, c.dialect, &result, u2.ID)
+					assert.Equal(t, nil, err)
+					assert.Equal(t, u2.ID, result.ID)
+
+					err = c.Delete(ctx, UsersTable, test.deletionKeyForUser(u1))
+					assert.Equal(t, nil, err)
+
+					result = User{}
+					err = getUserByID(c.db, c.dialect, &result, u1.ID)
+					assert.Equal(t, sql.ErrNoRows, err)
+
+					result = User{}
+					err = getUserByID(c.db, c.dialect, &result, u2.ID)
+					assert.Equal(t, nil, err)
+
+					assert.NotEqual(t, uint(0), result.ID)
+					assert.Equal(t, "Won't be deleted", result.Name)
 				})
+			}
+		})
 
-				t.Run("using maps", func(t *testing.T) {
-					db, closer := connectDB(t, config)
-					defer closer.Close()
-
-					ctx := context.Background()
-					c := newTestDB(db, config.driver)
-
-					// This permission should not be deleted, we'll use the id to check it:
-					p0 := UserPermission{
-						UserID: 2,
-						PermID: 44,
-					}
-					err = c.Insert(ctx, NewTable("user_permissions", "id"), &p0)
-					tt.AssertNoErr(t, err)
-					tt.AssertNotEqual(t, p0.ID, 0)
-
-					p1 := UserPermission{
-						UserID: 2,
-						PermID: 42,
-					}
-					err = c.Insert(ctx, NewTable("user_permissions", "id"), &p1)
-					tt.AssertNoErr(t, err)
-
-					err = c.Delete(ctx, UserPermissionsTable, map[string]interface{}{
-						"user_id": 2,
-						"perm_id": 42,
-					})
-					tt.AssertNoErr(t, err)
-
-					userPerms, err := getUserPermissionsByUser(db, config.driver, 2)
-					tt.AssertNoErr(t, err)
-					tt.AssertEqual(t, len(userPerms), 1)
-					tt.AssertEqual(t, userPerms[0].UserID, 2)
-					tt.AssertEqual(t, userPerms[0].PermID, 44)
-				})
-			})
-
-			t.Run("should return ErrRecordNotFound if no rows were deleted", func(t *testing.T) {
-				db, closer := connectDB(t, config)
+		t.Run("should delete from tables with composite primary keys correctly", func(t *testing.T) {
+			t.Run("using structs", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
 				ctx := context.Background()
 				c := newTestDB(db, config.driver)
 
-				err = c.Delete(ctx, UsersTable, 4200)
-				assert.Equal(t, ErrRecordNotFound, err)
+				// This permission should not be deleted, we'll use the id to check it:
+				p0 := UserPermission{
+					UserID: 1,
+					PermID: 44,
+				}
+				err = c.Insert(ctx, NewTable("user_permissions", "id"), &p0)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, p0.ID, 0)
+
+				p1 := UserPermission{
+					UserID: 1,
+					PermID: 42,
+				}
+				err = c.Insert(ctx, NewTable("user_permissions", "id"), &p1)
+				tt.AssertNoErr(t, err)
+
+				err = c.Delete(ctx, UserPermissionsTable, p1)
+				tt.AssertNoErr(t, err)
+
+				userPerms, err := getUserPermissionsByUser(db, config.driver, 1)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, len(userPerms), 1)
+				tt.AssertEqual(t, userPerms[0].UserID, 1)
+				tt.AssertEqual(t, userPerms[0].PermID, 44)
 			})
 
-			t.Run("should report error if it receives a nil pointer to a struct", func(t *testing.T) {
-				db, closer := connectDB(t, config)
+			t.Run("using maps", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
 				ctx := context.Background()
 				c := newTestDB(db, config.driver)
 
-				var user *User
-				err := c.Delete(ctx, UsersTable, user)
-				assert.NotEqual(t, nil, err)
-			})
+				// This permission should not be deleted, we'll use the id to check it:
+				p0 := UserPermission{
+					UserID: 2,
+					PermID: 44,
+				}
+				err = c.Insert(ctx, NewTable("user_permissions", "id"), &p0)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, p0.ID, 0)
 
-			t.Run("should report error if one of the ids is missing from the input", func(t *testing.T) {
-				t.Run("single id", func(t *testing.T) {
-					t.Run("struct with missing attr", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
+				p1 := UserPermission{
+					UserID: 2,
+					PermID: 42,
+				}
+				err = c.Insert(ctx, NewTable("user_permissions", "id"), &p1)
+				tt.AssertNoErr(t, err)
 
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						err := c.Delete(ctx, NewTable("users", "id"), &struct {
-							// Missing ID
-							Name string `ksql:"name"`
-						}{Name: "fake-name"})
-						tt.AssertErrContains(t, err, "missing required", "id")
-					})
-
-					t.Run("struct with NULL attr", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						err := c.Delete(ctx, NewTable("users", "id"), &struct {
-							// Null ID
-							ID   *int   `ksql:"id"`
-							Name string `ksql:"name"`
-						}{Name: "fake-name"})
-						tt.AssertErrContains(t, err, "missing required", "id")
-					})
-
-					t.Run("struct with zero attr", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						err := c.Delete(ctx, NewTable("users", "id"), &struct {
-							// Uninitialized ID
-							ID   int    `ksql:"id"`
-							Name string `ksql:"name"`
-						}{Name: "fake-name"})
-						tt.AssertErrContains(t, err, "invalid value", "0", "id")
-					})
+				err = c.Delete(ctx, UserPermissionsTable, map[string]interface{}{
+					"user_id": 2,
+					"perm_id": 42,
 				})
+				tt.AssertNoErr(t, err)
 
-				t.Run("multiple ids", func(t *testing.T) {
-					t.Run("struct with missing attr", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), map[string]interface{}{
-							// Missing PermID
-							"user_id": 1,
-							"name":    "fake-name",
-						})
-						tt.AssertErrContains(t, err, "missing required", "perm_id")
-					})
-
-					t.Run("struct with NULL attr", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), map[string]interface{}{
-							// Null Perm ID
-							"user_id": 1,
-							"perm_id": nil,
-							"name":    "fake-name",
-						})
-						tt.AssertErrContains(t, err, "invalid value", "nil", "perm_id")
-					})
-
-					t.Run("struct with zero attr", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), map[string]interface{}{
-							// Zero Perm ID
-							"user_id": 1,
-							"perm_id": 0,
-							"name":    "fake-name",
-						})
-						tt.AssertErrContains(t, err, "invalid value", "0", "perm_id")
-					})
-				})
-			})
-
-			t.Run("should report error if table contains an empty ID name", func(t *testing.T) {
-				db, closer := connectDB(t, config)
-				defer closer.Close()
-
-				ctx := context.Background()
-				c := newTestDB(db, config.driver)
-
-				err := c.Delete(ctx, NewTable("users", ""), &User{ID: 42, Name: "fake-name"})
-				tt.AssertErrContains(t, err, "ksql.Table", "ID", "empty string")
-			})
-
-			t.Run("should report error if ksql.Table.name is empty", func(t *testing.T) {
-				db, closer := connectDB(t, config)
-				defer closer.Close()
-
-				ctx := context.Background()
-				c := newTestDB(db, config.driver)
-
-				err := c.Delete(ctx, NewTable("", "id"), &User{Name: "fake-name"})
-				tt.AssertErrContains(t, err, "ksql.Table", "table name", "empty string")
+				userPerms, err := getUserPermissionsByUser(db, config.driver, 2)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, len(userPerms), 1)
+				tt.AssertEqual(t, userPerms[0].UserID, 2)
+				tt.AssertEqual(t, userPerms[0].PermID, 44)
 			})
 		})
-	}
+
+		t.Run("should return ErrRecordNotFound if no rows were deleted", func(t *testing.T) {
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx := context.Background()
+			c := newTestDB(db, config.driver)
+
+			err = c.Delete(ctx, UsersTable, 4200)
+			assert.Equal(t, ErrRecordNotFound, err)
+		})
+
+		t.Run("should report error if it receives a nil pointer to a struct", func(t *testing.T) {
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx := context.Background()
+			c := newTestDB(db, config.driver)
+
+			var user *User
+			err := c.Delete(ctx, UsersTable, user)
+			assert.NotEqual(t, nil, err)
+		})
+
+		t.Run("should report error if one of the ids is missing from the input", func(t *testing.T) {
+			t.Run("single id", func(t *testing.T) {
+				t.Run("struct with missing attr", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					err := c.Delete(ctx, NewTable("users", "id"), &struct {
+						// Missing ID
+						Name string `ksql:"name"`
+					}{Name: "fake-name"})
+					tt.AssertErrContains(t, err, "missing required", "id")
+				})
+
+				t.Run("struct with NULL attr", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					err := c.Delete(ctx, NewTable("users", "id"), &struct {
+						// Null ID
+						ID   *int   `ksql:"id"`
+						Name string `ksql:"name"`
+					}{Name: "fake-name"})
+					tt.AssertErrContains(t, err, "missing required", "id")
+				})
+
+				t.Run("struct with zero attr", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					err := c.Delete(ctx, NewTable("users", "id"), &struct {
+						// Uninitialized ID
+						ID   int    `ksql:"id"`
+						Name string `ksql:"name"`
+					}{Name: "fake-name"})
+					tt.AssertErrContains(t, err, "invalid value", "0", "id")
+				})
+			})
+
+			t.Run("multiple ids", func(t *testing.T) {
+				t.Run("struct with missing attr", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), map[string]interface{}{
+						// Missing PermID
+						"user_id": 1,
+						"name":    "fake-name",
+					})
+					tt.AssertErrContains(t, err, "missing required", "perm_id")
+				})
+
+				t.Run("struct with NULL attr", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), map[string]interface{}{
+						// Null Perm ID
+						"user_id": 1,
+						"perm_id": nil,
+						"name":    "fake-name",
+					})
+					tt.AssertErrContains(t, err, "invalid value", "nil", "perm_id")
+				})
+
+				t.Run("struct with zero attr", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), map[string]interface{}{
+						// Zero Perm ID
+						"user_id": 1,
+						"perm_id": 0,
+						"name":    "fake-name",
+					})
+					tt.AssertErrContains(t, err, "invalid value", "0", "perm_id")
+				})
+			})
+		})
+
+		t.Run("should report error if table contains an empty ID name", func(t *testing.T) {
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx := context.Background()
+			c := newTestDB(db, config.driver)
+
+			err := c.Delete(ctx, NewTable("users", ""), &User{ID: 42, Name: "fake-name"})
+			tt.AssertErrContains(t, err, "ksql.Table", "ID", "empty string")
+		})
+
+		t.Run("should report error if ksql.Table.name is empty", func(t *testing.T) {
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx := context.Background()
+			c := newTestDB(db, config.driver)
+
+			err := c.Delete(ctx, NewTable("", "id"), &User{Name: "fake-name"})
+			tt.AssertErrContains(t, err, "ksql.Table", "table name", "empty string")
+		})
+	})
 }
 
 func TestUpdate(t *testing.T) {
