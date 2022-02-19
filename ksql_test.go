@@ -1543,514 +1543,528 @@ func UpdateTest(
 
 func TestQueryChunks(t *testing.T) {
 	for _, config := range supportedConfigs {
-		t.Run(config.driver, func(t *testing.T) {
-			variations := []struct {
-				desc        string
-				queryPrefix string
-			}{
-				{
-					desc:        "with select *",
-					queryPrefix: "SELECT * ",
-				},
-				{
-					desc:        "building the SELECT part of the query internally",
-					queryPrefix: "",
-				},
-			}
-			for _, variation := range variations {
-				t.Run(variation.desc, func(t *testing.T) {
-					t.Run("should query a single row correctly", func(t *testing.T) {
-						err := createTables(config.driver)
-						if err != nil {
-							t.Fatal("could not create test table!, reason:", err.Error())
-						}
-
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						_ = c.Insert(ctx, UsersTable, &User{
-							Name:    "User1",
-							Address: Address{Country: "BR"},
-						})
-
-						var length int
-						var u User
-						err = c.QueryChunks(ctx, ChunkParser{
-							Query:  variation.queryPrefix + `FROM users WHERE name = ` + c.dialect.Placeholder(0),
-							Params: []interface{}{"User1"},
-
-							ChunkSize: 100,
-							ForEachChunk: func(users []User) error {
-								length = len(users)
-								if length > 0 {
-									u = users[0]
-								}
-								return nil
-							},
-						})
-
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 1, length)
-						assert.NotEqual(t, uint(0), u.ID)
-						assert.Equal(t, "User1", u.Name)
-						assert.Equal(t, "BR", u.Address.Country)
-					})
-
-					t.Run("should query one chunk correctly", func(t *testing.T) {
-						err := createTables(config.driver)
-						if err != nil {
-							t.Fatal("could not create test table!, reason:", err.Error())
-						}
-
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Address: Address{Country: "US"}})
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User2", Address: Address{Country: "BR"}})
-
-						var lengths []int
-						var users []User
-						err = c.QueryChunks(ctx, ChunkParser{
-							Query:  variation.queryPrefix + `from users where name like ` + c.dialect.Placeholder(0) + ` order by name asc;`,
-							Params: []interface{}{"User%"},
-
-							ChunkSize: 2,
-							ForEachChunk: func(buffer []User) error {
-								users = append(users, buffer...)
-								lengths = append(lengths, len(buffer))
-								return nil
-							},
-						})
-
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 1, len(lengths))
-						assert.Equal(t, 2, lengths[0])
-
-						assert.NotEqual(t, uint(0), users[0].ID)
-						assert.Equal(t, "User1", users[0].Name)
-						assert.Equal(t, "US", users[0].Address.Country)
-
-						assert.NotEqual(t, uint(0), users[1].ID)
-						assert.Equal(t, "User2", users[1].Name)
-						assert.Equal(t, "BR", users[1].Address.Country)
-					})
-
-					t.Run("should query chunks of 1 correctly", func(t *testing.T) {
-						err := createTables(config.driver)
-						if err != nil {
-							t.Fatal("could not create test table!, reason:", err.Error())
-						}
-
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Address: Address{Country: "US"}})
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User2", Address: Address{Country: "BR"}})
-
-						var lengths []int
-						var users []User
-						err = c.QueryChunks(ctx, ChunkParser{
-							Query:  variation.queryPrefix + `from users where name like ` + c.dialect.Placeholder(0) + ` order by name asc;`,
-							Params: []interface{}{"User%"},
-
-							ChunkSize: 1,
-							ForEachChunk: func(buffer []User) error {
-								lengths = append(lengths, len(buffer))
-								users = append(users, buffer...)
-								return nil
-							},
-						})
-
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 2, len(users))
-						assert.Equal(t, []int{1, 1}, lengths)
-
-						assert.NotEqual(t, uint(0), users[0].ID)
-						assert.Equal(t, "User1", users[0].Name)
-						assert.Equal(t, "US", users[0].Address.Country)
-
-						assert.NotEqual(t, uint(0), users[1].ID)
-						assert.Equal(t, "User2", users[1].Name)
-						assert.Equal(t, "BR", users[1].Address.Country)
-					})
-
-					t.Run("should load partially filled chunks correctly", func(t *testing.T) {
-						err := createTables(config.driver)
-						if err != nil {
-							t.Fatal("could not create test table!, reason:", err.Error())
-						}
-
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User3"})
-
-						var lengths []int
-						var users []User
-						err = c.QueryChunks(ctx, ChunkParser{
-							Query:  variation.queryPrefix + `from users where name like ` + c.dialect.Placeholder(0) + ` order by name asc;`,
-							Params: []interface{}{"User%"},
-
-							ChunkSize: 2,
-							ForEachChunk: func(buffer []User) error {
-								lengths = append(lengths, len(buffer))
-								users = append(users, buffer...)
-								return nil
-							},
-						})
-
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 3, len(users))
-						assert.NotEqual(t, uint(0), users[0].ID)
-						assert.Equal(t, "User1", users[0].Name)
-						assert.NotEqual(t, uint(0), users[1].ID)
-						assert.Equal(t, "User2", users[1].Name)
-						assert.NotEqual(t, uint(0), users[2].ID)
-						assert.Equal(t, "User3", users[2].Name)
-						assert.Equal(t, []int{2, 1}, lengths)
-					})
-
-					// xxx
-					t.Run("should query joined tables correctly", func(t *testing.T) {
-						// This test only makes sense with no query prefix
-						if variation.queryPrefix != "" {
-							return
-						}
-
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						joao := User{
-							Name: "Thiago Ribeiro",
-							Age:  24,
-						}
-						thatiana := User{
-							Name: "Thatiana Ribeiro",
-							Age:  20,
-						}
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-						_ = c.Insert(ctx, UsersTable, &joao)
-						_ = c.Insert(ctx, UsersTable, &thatiana)
-
-						_, err := db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, thatiana.ID, `, 'Thatiana Post1')`))
-						assert.Equal(t, nil, err)
-						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, thatiana.ID, `, 'Thatiana Post2')`))
-						assert.Equal(t, nil, err)
-						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'Thiago Post1')`))
-						assert.Equal(t, nil, err)
-
-						var lengths []int
-						var users []User
-						var posts []Post
-						err = c.QueryChunks(ctx, ChunkParser{
-							Query: fmt.Sprint(
-								`FROM users u JOIN posts p ON p.user_id = u.id`,
-								` WHERE u.name like `, c.dialect.Placeholder(0),
-								` ORDER BY u.id, p.id`,
-							),
-							Params: []interface{}{"% Ribeiro"},
-
-							ChunkSize: 2,
-							ForEachChunk: func(chunk []struct {
-								User User `tablename:"u"`
-								Post Post `tablename:"p"`
-							}) error {
-								lengths = append(lengths, len(chunk))
-								for _, row := range chunk {
-									users = append(users, row.User)
-									posts = append(posts, row.Post)
-								}
-								return nil
-							},
-						})
-
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 3, len(posts))
-
-						assert.Equal(t, joao.ID, users[0].ID)
-						assert.Equal(t, "Thiago Ribeiro", users[0].Name)
-						assert.Equal(t, "Thiago Post1", posts[0].Title)
-
-						assert.Equal(t, thatiana.ID, users[1].ID)
-						assert.Equal(t, "Thatiana Ribeiro", users[1].Name)
-						assert.Equal(t, "Thatiana Post1", posts[1].Title)
-
-						assert.Equal(t, thatiana.ID, users[2].ID)
-						assert.Equal(t, "Thatiana Ribeiro", users[2].Name)
-						assert.Equal(t, "Thatiana Post2", posts[2].Title)
-					})
-
-					t.Run("should abort the first iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
-						err := createTables(config.driver)
-						if err != nil {
-							t.Fatal("could not create test table!, reason:", err.Error())
-						}
-
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User3"})
-
-						var lengths []int
-						var users []User
-						err = c.QueryChunks(ctx, ChunkParser{
-							Query:  variation.queryPrefix + `from users where name like ` + c.dialect.Placeholder(0) + ` order by name asc;`,
-							Params: []interface{}{"User%"},
-
-							ChunkSize: 2,
-							ForEachChunk: func(buffer []User) error {
-								lengths = append(lengths, len(buffer))
-								users = append(users, buffer...)
-								return ErrAbortIteration
-							},
-						})
-
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 2, len(users))
-						assert.NotEqual(t, uint(0), users[0].ID)
-						assert.Equal(t, "User1", users[0].Name)
-						assert.NotEqual(t, uint(0), users[1].ID)
-						assert.Equal(t, "User2", users[1].Name)
-						assert.Equal(t, []int{2}, lengths)
-					})
-
-					t.Run("should abort the last iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
-						err := createTables(config.driver)
-						if err != nil {
-							t.Fatal("could not create test table!, reason:", err.Error())
-						}
-
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User3"})
-
-						returnVals := []error{nil, ErrAbortIteration}
-						var lengths []int
-						var users []User
-						err = c.QueryChunks(ctx, ChunkParser{
-							Query:  variation.queryPrefix + `from users where name like ` + c.dialect.Placeholder(0) + ` order by name asc;`,
-							Params: []interface{}{"User%"},
-
-							ChunkSize: 2,
-							ForEachChunk: func(buffer []User) error {
-								lengths = append(lengths, len(buffer))
-								users = append(users, buffer...)
-
-								return shiftErrSlice(&returnVals)
-							},
-						})
-
-						assert.Equal(t, nil, err)
-						assert.Equal(t, 3, len(users))
-						assert.NotEqual(t, uint(0), users[0].ID)
-						assert.Equal(t, "User1", users[0].Name)
-						assert.NotEqual(t, uint(0), users[1].ID)
-						assert.Equal(t, "User2", users[1].Name)
-						assert.NotEqual(t, uint(0), users[2].ID)
-						assert.Equal(t, "User3", users[2].Name)
-						assert.Equal(t, []int{2, 1}, lengths)
-					})
-
-					t.Run("should return error if the callback returns an error in the first iteration", func(t *testing.T) {
-						err := createTables(config.driver)
-						if err != nil {
-							t.Fatal("could not create test table!, reason:", err.Error())
-						}
-
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User3"})
-
-						var lengths []int
-						var users []User
-						err = c.QueryChunks(ctx, ChunkParser{
-							Query:  variation.queryPrefix + `from users where name like ` + c.dialect.Placeholder(0) + ` order by name asc;`,
-							Params: []interface{}{"User%"},
-
-							ChunkSize: 2,
-							ForEachChunk: func(buffer []User) error {
-								lengths = append(lengths, len(buffer))
-								users = append(users, buffer...)
-								return errors.New("fake error msg")
-							},
-						})
-
-						assert.NotEqual(t, nil, err)
-						assert.Equal(t, 2, len(users))
-						assert.NotEqual(t, uint(0), users[0].ID)
-						assert.Equal(t, "User1", users[0].Name)
-						assert.NotEqual(t, uint(0), users[1].ID)
-						assert.Equal(t, "User2", users[1].Name)
-						assert.Equal(t, []int{2}, lengths)
-					})
-
-					t.Run("should return error if the callback returns an error in the last iteration", func(t *testing.T) {
-						err := createTables(config.driver)
-						if err != nil {
-							t.Fatal("could not create test table!, reason:", err.Error())
-						}
-
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
-						_ = c.Insert(ctx, UsersTable, &User{Name: "User3"})
-
-						returnVals := []error{nil, errors.New("fake error msg")}
-						var lengths []int
-						var users []User
-						err = c.QueryChunks(ctx, ChunkParser{
-							Query:  variation.queryPrefix + `from users where name like ` + c.dialect.Placeholder(0) + ` order by name asc;`,
-							Params: []interface{}{"User%"},
-
-							ChunkSize: 2,
-							ForEachChunk: func(buffer []User) error {
-								lengths = append(lengths, len(buffer))
-								users = append(users, buffer...)
-
-								return shiftErrSlice(&returnVals)
-							},
-						})
-
-						assert.NotEqual(t, nil, err)
-						assert.Equal(t, 3, len(users))
-						assert.NotEqual(t, uint(0), users[0].ID)
-						assert.Equal(t, "User1", users[0].Name)
-						assert.NotEqual(t, uint(0), users[1].ID)
-						assert.Equal(t, "User2", users[1].Name)
-						assert.NotEqual(t, uint(0), users[2].ID)
-						assert.Equal(t, "User3", users[2].Name)
-						assert.Equal(t, []int{2, 1}, lengths)
-					})
-
-					t.Run("should report error if the input function is invalid", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						funcs := []interface{}{
-							nil,
-							"not a function",
-							func() error {
-								return nil
-							},
-							func(extraInputValue []User, extra []User) error {
-								return nil
-							},
-							func(invalidArgType string) error {
-								return nil
-							},
-							func(missingReturnType []User) {
-								return
-							},
-							func(users []User) string {
-								return ""
-							},
-							func(extraReturnValue []User) ([]User, error) {
-								return nil, nil
-							},
-							func(notSliceOfStructs []string) error {
-								return nil
-							},
-						}
-
-						for _, fn := range funcs {
-							err := c.QueryChunks(ctx, ChunkParser{
-								Query:  variation.queryPrefix + `FROM users`,
-								Params: []interface{}{},
-
-								ChunkSize:    2,
-								ForEachChunk: fn,
-							})
-							assert.NotEqual(t, nil, err)
-						}
-					})
-
-					t.Run("should report error if the query is not valid", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-						err := c.QueryChunks(ctx, ChunkParser{
-							Query:  `SELECT * FROM not a valid query`,
-							Params: []interface{}{},
-
-							ChunkSize: 2,
-							ForEachChunk: func(buffer []User) error {
-								return nil
-							},
-						})
-						assert.NotEqual(t, nil, err)
-					})
-
-					t.Run("should report error if using nested struct and the query starts with SELECT", func(t *testing.T) {
-						db, closer := connectDB(t, config)
-						defer closer.Close()
-
-						ctx := context.Background()
-						c := newTestDB(db, config.driver)
-
-						err := c.QueryChunks(ctx, ChunkParser{
-							Query:  `SELECT * FROM users u JOIN posts p ON u.id = p.user_id`,
-							Params: []interface{}{},
-
-							ChunkSize: 2,
-							ForEachChunk: func(buffer []struct {
-								User User `tablename:"users"`
-								Post Post `tablename:"posts"`
-							}) error {
-								return nil
-							},
-						})
-
-						assert.NotEqual(t, nil, err)
-						assert.Equal(t, true, strings.Contains(err.Error(), "nested struct"), "unexpected error msg: "+err.Error())
-						assert.Equal(t, true, strings.Contains(err.Error(), "feature"), "unexpected error msg: "+err.Error())
-					})
-				})
-			}
-		})
+		QueryChunksTest(t,
+			config,
+			func(t *testing.T) (DBAdapter, io.Closer) {
+				db, close := connectDB(t, config)
+				return db, close
+			},
+		)
 	}
+}
+
+func QueryChunksTest(
+	t *testing.T,
+	config testConfig,
+	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
+) {
+	t.Run(config.driver, func(t *testing.T) {
+		variations := []struct {
+			desc        string
+			queryPrefix string
+		}{
+			{
+				desc:        "with select *",
+				queryPrefix: "SELECT * ",
+			},
+			{
+				desc:        "building the SELECT part of the query internally",
+				queryPrefix: "",
+			},
+		}
+		for _, variation := range variations {
+			t.Run(variation.desc, func(t *testing.T) {
+				t.Run("should query a single row correctly", func(t *testing.T) {
+					err := createTables(config.driver)
+					if err != nil {
+						t.Fatal("could not create test table!, reason:", err.Error())
+					}
+
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					_ = c.Insert(ctx, UsersTable, &User{
+						Name:    "User1",
+						Address: Address{Country: "BR"},
+					})
+
+					var length int
+					var u User
+					err = c.QueryChunks(ctx, ChunkParser{
+						Query:  variation.queryPrefix + `FROM users WHERE name = ` + c.dialect.Placeholder(0),
+						Params: []interface{}{"User1"},
+
+						ChunkSize: 100,
+						ForEachChunk: func(users []User) error {
+							length = len(users)
+							if length > 0 {
+								u = users[0]
+							}
+							return nil
+						},
+					})
+
+					assert.Equal(t, nil, err)
+					assert.Equal(t, 1, length)
+					assert.NotEqual(t, uint(0), u.ID)
+					assert.Equal(t, "User1", u.Name)
+					assert.Equal(t, "BR", u.Address.Country)
+				})
+
+				t.Run("should query one chunk correctly", func(t *testing.T) {
+					err := createTables(config.driver)
+					if err != nil {
+						t.Fatal("could not create test table!, reason:", err.Error())
+					}
+
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Address: Address{Country: "US"}})
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User2", Address: Address{Country: "BR"}})
+
+					var lengths []int
+					var users []User
+					err = c.QueryChunks(ctx, ChunkParser{
+						Query:  variation.queryPrefix + `from users where name like ` + c.dialect.Placeholder(0) + ` order by name asc;`,
+						Params: []interface{}{"User%"},
+
+						ChunkSize: 2,
+						ForEachChunk: func(buffer []User) error {
+							users = append(users, buffer...)
+							lengths = append(lengths, len(buffer))
+							return nil
+						},
+					})
+
+					assert.Equal(t, nil, err)
+					assert.Equal(t, 1, len(lengths))
+					assert.Equal(t, 2, lengths[0])
+
+					assert.NotEqual(t, uint(0), users[0].ID)
+					assert.Equal(t, "User1", users[0].Name)
+					assert.Equal(t, "US", users[0].Address.Country)
+
+					assert.NotEqual(t, uint(0), users[1].ID)
+					assert.Equal(t, "User2", users[1].Name)
+					assert.Equal(t, "BR", users[1].Address.Country)
+				})
+
+				t.Run("should query chunks of 1 correctly", func(t *testing.T) {
+					err := createTables(config.driver)
+					if err != nil {
+						t.Fatal("could not create test table!, reason:", err.Error())
+					}
+
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Address: Address{Country: "US"}})
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User2", Address: Address{Country: "BR"}})
+
+					var lengths []int
+					var users []User
+					err = c.QueryChunks(ctx, ChunkParser{
+						Query:  variation.queryPrefix + `from users where name like ` + c.dialect.Placeholder(0) + ` order by name asc;`,
+						Params: []interface{}{"User%"},
+
+						ChunkSize: 1,
+						ForEachChunk: func(buffer []User) error {
+							lengths = append(lengths, len(buffer))
+							users = append(users, buffer...)
+							return nil
+						},
+					})
+
+					assert.Equal(t, nil, err)
+					assert.Equal(t, 2, len(users))
+					assert.Equal(t, []int{1, 1}, lengths)
+
+					assert.NotEqual(t, uint(0), users[0].ID)
+					assert.Equal(t, "User1", users[0].Name)
+					assert.Equal(t, "US", users[0].Address.Country)
+
+					assert.NotEqual(t, uint(0), users[1].ID)
+					assert.Equal(t, "User2", users[1].Name)
+					assert.Equal(t, "BR", users[1].Address.Country)
+				})
+
+				t.Run("should load partially filled chunks correctly", func(t *testing.T) {
+					err := createTables(config.driver)
+					if err != nil {
+						t.Fatal("could not create test table!, reason:", err.Error())
+					}
+
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User3"})
+
+					var lengths []int
+					var users []User
+					err = c.QueryChunks(ctx, ChunkParser{
+						Query:  variation.queryPrefix + `from users where name like ` + c.dialect.Placeholder(0) + ` order by name asc;`,
+						Params: []interface{}{"User%"},
+
+						ChunkSize: 2,
+						ForEachChunk: func(buffer []User) error {
+							lengths = append(lengths, len(buffer))
+							users = append(users, buffer...)
+							return nil
+						},
+					})
+
+					assert.Equal(t, nil, err)
+					assert.Equal(t, 3, len(users))
+					assert.NotEqual(t, uint(0), users[0].ID)
+					assert.Equal(t, "User1", users[0].Name)
+					assert.NotEqual(t, uint(0), users[1].ID)
+					assert.Equal(t, "User2", users[1].Name)
+					assert.NotEqual(t, uint(0), users[2].ID)
+					assert.Equal(t, "User3", users[2].Name)
+					assert.Equal(t, []int{2, 1}, lengths)
+				})
+
+				// xxx
+				t.Run("should query joined tables correctly", func(t *testing.T) {
+					// This test only makes sense with no query prefix
+					if variation.queryPrefix != "" {
+						return
+					}
+
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					joao := User{
+						Name: "Thiago Ribeiro",
+						Age:  24,
+					}
+					thatiana := User{
+						Name: "Thatiana Ribeiro",
+						Age:  20,
+					}
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+					_ = c.Insert(ctx, UsersTable, &joao)
+					_ = c.Insert(ctx, UsersTable, &thatiana)
+
+					_, err := db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, thatiana.ID, `, 'Thatiana Post1')`))
+					assert.Equal(t, nil, err)
+					_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, thatiana.ID, `, 'Thatiana Post2')`))
+					assert.Equal(t, nil, err)
+					_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'Thiago Post1')`))
+					assert.Equal(t, nil, err)
+
+					var lengths []int
+					var users []User
+					var posts []Post
+					err = c.QueryChunks(ctx, ChunkParser{
+						Query: fmt.Sprint(
+							`FROM users u JOIN posts p ON p.user_id = u.id`,
+							` WHERE u.name like `, c.dialect.Placeholder(0),
+							` ORDER BY u.id, p.id`,
+						),
+						Params: []interface{}{"% Ribeiro"},
+
+						ChunkSize: 2,
+						ForEachChunk: func(chunk []struct {
+							User User `tablename:"u"`
+							Post Post `tablename:"p"`
+						}) error {
+							lengths = append(lengths, len(chunk))
+							for _, row := range chunk {
+								users = append(users, row.User)
+								posts = append(posts, row.Post)
+							}
+							return nil
+						},
+					})
+
+					assert.Equal(t, nil, err)
+					assert.Equal(t, 3, len(posts))
+
+					assert.Equal(t, joao.ID, users[0].ID)
+					assert.Equal(t, "Thiago Ribeiro", users[0].Name)
+					assert.Equal(t, "Thiago Post1", posts[0].Title)
+
+					assert.Equal(t, thatiana.ID, users[1].ID)
+					assert.Equal(t, "Thatiana Ribeiro", users[1].Name)
+					assert.Equal(t, "Thatiana Post1", posts[1].Title)
+
+					assert.Equal(t, thatiana.ID, users[2].ID)
+					assert.Equal(t, "Thatiana Ribeiro", users[2].Name)
+					assert.Equal(t, "Thatiana Post2", posts[2].Title)
+				})
+
+				t.Run("should abort the first iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
+					err := createTables(config.driver)
+					if err != nil {
+						t.Fatal("could not create test table!, reason:", err.Error())
+					}
+
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User3"})
+
+					var lengths []int
+					var users []User
+					err = c.QueryChunks(ctx, ChunkParser{
+						Query:  variation.queryPrefix + `from users where name like ` + c.dialect.Placeholder(0) + ` order by name asc;`,
+						Params: []interface{}{"User%"},
+
+						ChunkSize: 2,
+						ForEachChunk: func(buffer []User) error {
+							lengths = append(lengths, len(buffer))
+							users = append(users, buffer...)
+							return ErrAbortIteration
+						},
+					})
+
+					assert.Equal(t, nil, err)
+					assert.Equal(t, 2, len(users))
+					assert.NotEqual(t, uint(0), users[0].ID)
+					assert.Equal(t, "User1", users[0].Name)
+					assert.NotEqual(t, uint(0), users[1].ID)
+					assert.Equal(t, "User2", users[1].Name)
+					assert.Equal(t, []int{2}, lengths)
+				})
+
+				t.Run("should abort the last iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
+					err := createTables(config.driver)
+					if err != nil {
+						t.Fatal("could not create test table!, reason:", err.Error())
+					}
+
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User3"})
+
+					returnVals := []error{nil, ErrAbortIteration}
+					var lengths []int
+					var users []User
+					err = c.QueryChunks(ctx, ChunkParser{
+						Query:  variation.queryPrefix + `from users where name like ` + c.dialect.Placeholder(0) + ` order by name asc;`,
+						Params: []interface{}{"User%"},
+
+						ChunkSize: 2,
+						ForEachChunk: func(buffer []User) error {
+							lengths = append(lengths, len(buffer))
+							users = append(users, buffer...)
+
+							return shiftErrSlice(&returnVals)
+						},
+					})
+
+					assert.Equal(t, nil, err)
+					assert.Equal(t, 3, len(users))
+					assert.NotEqual(t, uint(0), users[0].ID)
+					assert.Equal(t, "User1", users[0].Name)
+					assert.NotEqual(t, uint(0), users[1].ID)
+					assert.Equal(t, "User2", users[1].Name)
+					assert.NotEqual(t, uint(0), users[2].ID)
+					assert.Equal(t, "User3", users[2].Name)
+					assert.Equal(t, []int{2, 1}, lengths)
+				})
+
+				t.Run("should return error if the callback returns an error in the first iteration", func(t *testing.T) {
+					err := createTables(config.driver)
+					if err != nil {
+						t.Fatal("could not create test table!, reason:", err.Error())
+					}
+
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User3"})
+
+					var lengths []int
+					var users []User
+					err = c.QueryChunks(ctx, ChunkParser{
+						Query:  variation.queryPrefix + `from users where name like ` + c.dialect.Placeholder(0) + ` order by name asc;`,
+						Params: []interface{}{"User%"},
+
+						ChunkSize: 2,
+						ForEachChunk: func(buffer []User) error {
+							lengths = append(lengths, len(buffer))
+							users = append(users, buffer...)
+							return errors.New("fake error msg")
+						},
+					})
+
+					assert.NotEqual(t, nil, err)
+					assert.Equal(t, 2, len(users))
+					assert.NotEqual(t, uint(0), users[0].ID)
+					assert.Equal(t, "User1", users[0].Name)
+					assert.NotEqual(t, uint(0), users[1].ID)
+					assert.Equal(t, "User2", users[1].Name)
+					assert.Equal(t, []int{2}, lengths)
+				})
+
+				t.Run("should return error if the callback returns an error in the last iteration", func(t *testing.T) {
+					err := createTables(config.driver)
+					if err != nil {
+						t.Fatal("could not create test table!, reason:", err.Error())
+					}
+
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
+					_ = c.Insert(ctx, UsersTable, &User{Name: "User3"})
+
+					returnVals := []error{nil, errors.New("fake error msg")}
+					var lengths []int
+					var users []User
+					err = c.QueryChunks(ctx, ChunkParser{
+						Query:  variation.queryPrefix + `from users where name like ` + c.dialect.Placeholder(0) + ` order by name asc;`,
+						Params: []interface{}{"User%"},
+
+						ChunkSize: 2,
+						ForEachChunk: func(buffer []User) error {
+							lengths = append(lengths, len(buffer))
+							users = append(users, buffer...)
+
+							return shiftErrSlice(&returnVals)
+						},
+					})
+
+					assert.NotEqual(t, nil, err)
+					assert.Equal(t, 3, len(users))
+					assert.NotEqual(t, uint(0), users[0].ID)
+					assert.Equal(t, "User1", users[0].Name)
+					assert.NotEqual(t, uint(0), users[1].ID)
+					assert.Equal(t, "User2", users[1].Name)
+					assert.NotEqual(t, uint(0), users[2].ID)
+					assert.Equal(t, "User3", users[2].Name)
+					assert.Equal(t, []int{2, 1}, lengths)
+				})
+
+				t.Run("should report error if the input function is invalid", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					funcs := []interface{}{
+						nil,
+						"not a function",
+						func() error {
+							return nil
+						},
+						func(extraInputValue []User, extra []User) error {
+							return nil
+						},
+						func(invalidArgType string) error {
+							return nil
+						},
+						func(missingReturnType []User) {
+							return
+						},
+						func(users []User) string {
+							return ""
+						},
+						func(extraReturnValue []User) ([]User, error) {
+							return nil, nil
+						},
+						func(notSliceOfStructs []string) error {
+							return nil
+						},
+					}
+
+					for _, fn := range funcs {
+						err := c.QueryChunks(ctx, ChunkParser{
+							Query:  variation.queryPrefix + `FROM users`,
+							Params: []interface{}{},
+
+							ChunkSize:    2,
+							ForEachChunk: fn,
+						})
+						assert.NotEqual(t, nil, err)
+					}
+				})
+
+				t.Run("should report error if the query is not valid", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+					err := c.QueryChunks(ctx, ChunkParser{
+						Query:  `SELECT * FROM not a valid query`,
+						Params: []interface{}{},
+
+						ChunkSize: 2,
+						ForEachChunk: func(buffer []User) error {
+							return nil
+						},
+					})
+					assert.NotEqual(t, nil, err)
+				})
+
+				t.Run("should report error if using nested struct and the query starts with SELECT", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, config.driver)
+
+					err := c.QueryChunks(ctx, ChunkParser{
+						Query:  `SELECT * FROM users u JOIN posts p ON u.id = p.user_id`,
+						Params: []interface{}{},
+
+						ChunkSize: 2,
+						ForEachChunk: func(buffer []struct {
+							User User `tablename:"users"`
+							Post Post `tablename:"posts"`
+						}) error {
+							return nil
+						},
+					})
+
+					assert.NotEqual(t, nil, err)
+					assert.Equal(t, true, strings.Contains(err.Error(), "nested struct"), "unexpected error msg: "+err.Error())
+					assert.Equal(t, true, strings.Contains(err.Error(), "feature"), "unexpected error msg: "+err.Error())
+				})
+			})
+		}
+	})
 }
 
 func TestTransaction(t *testing.T) {
