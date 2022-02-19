@@ -547,7 +547,7 @@ func QueryOneTest(
 					c := newTestDB(db, config.driver)
 					u := User{}
 					err := c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE id=1;`)
-					assert.Equal(t, ErrRecordNotFound, err)
+					tt.AssertEqual(t, ErrRecordNotFound, err)
 				})
 
 				t.Run("should return a user correctly", func(t *testing.T) {
@@ -557,16 +557,16 @@ func QueryOneTest(
 					ctx := context.Background()
 
 					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
-					assert.Equal(t, nil, err)
+					tt.AssertNoErr(t, err)
 
 					c := newTestDB(db, config.driver)
 					u := User{}
 					err = c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
 
-					assert.Equal(t, nil, err)
-					assert.NotEqual(t, uint(0), u.ID)
-					assert.Equal(t, "Bia", u.Name)
-					assert.Equal(t, Address{
+					tt.AssertNoErr(t, err)
+					tt.AssertNotEqual(t, uint(0), u.ID)
+					tt.AssertEqual(t, "Bia", u.Name)
+					tt.AssertEqual(t, Address{
 						Country: "BR",
 					}, u.Address)
 				})
@@ -578,19 +578,19 @@ func QueryOneTest(
 					ctx := context.Background()
 
 					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Andréa Sá', 0, '{"country":"US"}')`)
-					assert.Equal(t, nil, err)
+					tt.AssertNoErr(t, err)
 
 					_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Caio Sá', 0, '{"country":"BR"}')`)
-					assert.Equal(t, nil, err)
+					tt.AssertNoErr(t, err)
 
 					c := newTestDB(db, config.driver)
 
 					var u User
 					err = c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0)+` ORDER BY id ASC`, "% Sá")
-					assert.Equal(t, nil, err)
-					assert.Equal(t, "Andréa Sá", u.Name)
-					assert.Equal(t, 0, u.Age)
-					assert.Equal(t, Address{
+					tt.AssertNoErr(t, err)
+					tt.AssertEqual(t, "Andréa Sá", u.Name)
+					tt.AssertEqual(t, 0, u.Age)
+					tt.AssertEqual(t, Address{
 						Country: "US",
 					}, u.Address)
 				})
@@ -607,12 +607,12 @@ func QueryOneTest(
 					ctx := context.Background()
 
 					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
-					assert.Equal(t, nil, err)
+					tt.AssertNoErr(t, err)
 					var joao User
 					getUserByName(db, config.driver, &joao, "João Ribeiro")
 
 					_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
-					assert.Equal(t, nil, err)
+					tt.AssertNoErr(t, err)
 
 					c := newTestDB(db, config.driver)
 					var row struct {
@@ -625,10 +625,10 @@ func QueryOneTest(
 						` ORDER BY u.id, p.id`,
 					), "% Ribeiro")
 
-					assert.Equal(t, nil, err)
-					assert.Equal(t, joao.ID, row.User.ID)
-					assert.Equal(t, "João Ribeiro", row.User.Name)
-					assert.Equal(t, "João Post1", row.Post.Title)
+					tt.AssertNoErr(t, err)
+					tt.AssertEqual(t, joao.ID, row.User.ID)
+					tt.AssertEqual(t, "João Ribeiro", row.User.Name)
+					tt.AssertEqual(t, "João Post1", row.Post.Title)
 				})
 			})
 		}
@@ -640,18 +640,18 @@ func QueryOneTest(
 			ctx := context.Background()
 
 			_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Andréa Sá', 0, '{"country":"US"}')`)
-			assert.Equal(t, nil, err)
+			tt.AssertNoErr(t, err)
 
 			_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Caio Sá', 0, '{"country":"BR"}')`)
-			assert.Equal(t, nil, err)
+			tt.AssertNoErr(t, err)
 
 			c := newTestDB(db, config.driver)
 
 			err = c.QueryOne(ctx, &[]User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
-			assert.NotEqual(t, nil, err)
+			tt.AssertErrContains(t, err, "pointer to struct")
 
 			err = c.QueryOne(ctx, User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
-			assert.NotEqual(t, nil, err)
+			tt.AssertErrContains(t, err, "pointer to struct")
 		})
 
 		t.Run("should report error if it receives a nil pointer to a struct", func(t *testing.T) {
@@ -662,7 +662,7 @@ func QueryOneTest(
 			c := newTestDB(db, config.driver)
 			var user *User
 			err := c.QueryOne(ctx, user, `SELECT * FROM users`)
-			assert.NotEqual(t, nil, err)
+			tt.AssertErrContains(t, err, "expected a valid pointer", "received a nil pointer")
 		})
 
 		t.Run("should report error if the query is not valid", func(t *testing.T) {
@@ -673,7 +673,7 @@ func QueryOneTest(
 			c := newTestDB(db, config.driver)
 			var user User
 			err := c.QueryOne(ctx, &user, `SELECT * FROM not a valid query`)
-			assert.NotEqual(t, nil, err)
+			tt.AssertErrContains(t, err, "error running query")
 		})
 
 		t.Run("should report error if using nested struct and the query starts with SELECT", func(t *testing.T) {
@@ -687,9 +687,7 @@ func QueryOneTest(
 				Post Post `tablename:"posts"`
 			}
 			err := c.QueryOne(ctx, &row, `SELECT * FROM users u JOIN posts p ON u.id = p.user_id LIMIT 1`)
-			assert.NotEqual(t, nil, err)
-			assert.Equal(t, true, strings.Contains(err.Error(), "nested struct"), "unexpected error msg: "+err.Error())
-			assert.Equal(t, true, strings.Contains(err.Error(), "feature"), "unexpected error msg: "+err.Error())
+			tt.AssertErrContains(t, err, "nested struct", "feature")
 		})
 	})
 }

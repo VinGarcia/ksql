@@ -244,7 +244,7 @@ func (c DB) QueryOne(
 
 	rows, err := c.db.QueryContext(ctx, query, params...)
 	if err != nil {
-		return err
+		return fmt.Errorf("error running query: %s", err)
 	}
 	defer rows.Close()
 
