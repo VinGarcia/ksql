@@ -16,7 +16,7 @@ bench:
 lint: setup
 	@$(GOBIN)/golint -set_exit_status -min_confidence 0.9 $(path) $(args)
 	@go vet $(path) $(args)
-	@make -C benchmarks
+	@make --no-print-directory -C benchmarks
 	@echo "Golint & Go Vet found no problems on your code!"
 
 mock: setup
