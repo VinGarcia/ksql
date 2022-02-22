@@ -480,3 +480,47 @@ func TestMock(t *testing.T) {
 		tt.AssertErrContains(t, err, "called from TransactionFn")
 	})
 }
+
+func TestMockResult(t *testing.T) {
+	t.Run("LastInsertId", func(t *testing.T) {
+		t.Run("the constructor should work correctly", func(t *testing.T) {
+			result := ksql.NewMockResult(24, 42)
+			lastInsertID, err := result.LastInsertId()
+			tt.AssertNoErr(t, err)
+			tt.AssertEqual(t, lastInsertID, int64(24))
+		})
+
+		t.Run("should panic if no values are provided", func(t *testing.T) {
+			result := ksql.MockResult{}
+
+			panicPayload := tt.PanicHandler(func() {
+				result.LastInsertId()
+			})
+
+			err, ok := panicPayload.(error)
+			tt.AssertEqual(t, ok, true)
+			tt.AssertErrContains(t, err, "ksql.MockResult.LastInsertId(", "ksql.MockResult.LastInsertIdFn", "not set")
+		})
+	})
+
+	t.Run("RowsAffected", func(t *testing.T) {
+		t.Run("the constructor should work correctly", func(t *testing.T) {
+			result := ksql.NewMockResult(24, 42)
+			rowsAffected, err := result.RowsAffected()
+			tt.AssertNoErr(t, err)
+			tt.AssertEqual(t, rowsAffected, int64(42))
+		})
+
+		t.Run("should panic if no values are provided", func(t *testing.T) {
+			result := ksql.MockResult{}
+
+			panicPayload := tt.PanicHandler(func() {
+				result.RowsAffected()
+			})
+
+			err, ok := panicPayload.(error)
+			tt.AssertEqual(t, ok, true)
+			tt.AssertErrContains(t, err, "ksql.MockResult.RowsAffected(", "ksql.MockResult.RowsAffectedFn", "not set")
+		})
+	})
+}
