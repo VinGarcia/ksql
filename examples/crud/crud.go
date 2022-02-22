@@ -111,12 +111,12 @@ func main() {
 
 	// Updating all fields from Cristina:
 	cris.Name = "Cris"
-	err = db.Update(ctx, UsersTable, cris)
+	err = db.Patch(ctx, UsersTable, cris)
 
 	// Changing the age of Cristina but not touching any other fields:
 
 	// Partial update technique 1:
-	err = db.Update(ctx, UsersTable, struct {
+	err = db.Patch(ctx, UsersTable, struct {
 		ID  int `ksql:"id"`
 		Age int `ksql:"age"`
 	}{ID: cris.ID, Age: 28})
@@ -125,7 +125,7 @@ func main() {
 	}
 
 	// Partial update technique 2:
-	err = db.Update(ctx, UsersTable, PartialUpdateUser{
+	err = db.Patch(ctx, UsersTable, PartialUpdateUser{
 		ID:  cris.ID,
 		Age: nullable.Int(28),
 	})
@@ -157,7 +157,7 @@ func main() {
 			return err
 		}
 
-		err = db.Update(ctx, UsersTable, PartialUpdateUser{
+		err = db.Patch(ctx, UsersTable, PartialUpdateUser{
 			ID:  cris2.ID,
 			Age: nullable.Int(29),
 		})

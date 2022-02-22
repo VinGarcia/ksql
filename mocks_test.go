@@ -34,6 +34,22 @@ func TestMock(t *testing.T) {
 			tt.AssertErrContains(t, err, "ksql.Mock.Insert(", "ksql.Mock.InsertFn", "not set")
 		})
 
+		t.Run("Patch should panic", func(t *testing.T) {
+			ctx := context.Background()
+			mock := ksql.Mock{}
+			panicPayload := tt.PanicHandler(func() {
+				mock.Patch(ctx, UsersTable, &User{
+					ID:   4242,
+					Name: "fake-name",
+					Age:  42,
+				})
+			})
+
+			err, ok := panicPayload.(error)
+			tt.AssertEqual(t, ok, true)
+			tt.AssertErrContains(t, err, "ksql.Mock.Patch(", "ksql.Mock.PatchFn", "not set")
+		})
+
 		t.Run("Update should panic", func(t *testing.T) {
 			ctx := context.Background()
 			mock := ksql.Mock{}
@@ -169,6 +185,37 @@ func TestMock(t *testing.T) {
 			tt.AssertEqual(t, capturedArgs.ctx, ctx)
 			tt.AssertEqual(t, capturedArgs.table, UsersTable)
 			tt.AssertEqual(t, capturedArgs.record, &User{
+				Name: "fake-name",
+				Age:  42,
+			})
+		})
+
+		t.Run("Patch", func(t *testing.T) {
+			ctx := context.Background()
+			var capturedArgs struct {
+				ctx    context.Context
+				table  ksql.Table
+				record interface{}
+			}
+			mock := ksql.Mock{
+				PatchFn: func(ctx context.Context, table ksql.Table, record interface{}) error {
+					capturedArgs.ctx = ctx
+					capturedArgs.table = table
+					capturedArgs.record = record
+					return fmt.Errorf("fake-error")
+				},
+			}
+			err := mock.Patch(ctx, UsersTable, &User{
+				ID:   4242,
+				Name: "fake-name",
+				Age:  42,
+			})
+
+			tt.AssertErrContains(t, err, "fake-error")
+			tt.AssertEqual(t, capturedArgs.ctx, ctx)
+			tt.AssertEqual(t, capturedArgs.table, UsersTable)
+			tt.AssertEqual(t, capturedArgs.record, &User{
+				ID:   4242,
 				Name: "fake-name",
 				Age:  42,
 			})

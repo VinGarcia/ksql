@@ -50,8 +50,10 @@ var _ Provider = Mock{}
 //
 type Mock struct {
 	InsertFn func(ctx context.Context, table Table, record interface{}) error
-	UpdateFn func(ctx context.Context, table Table, record interface{}) error
+	PatchFn  func(ctx context.Context, table Table, record interface{}) error
 	DeleteFn func(ctx context.Context, table Table, idOrRecord interface{}) error
+
+	UpdateFn func(ctx context.Context, table Table, record interface{}) error
 
 	QueryFn       func(ctx context.Context, records interface{}, query string, params ...interface{}) error
 	QueryOneFn    func(ctx context.Context, record interface{}, query string, params ...interface{}) error
@@ -91,11 +93,15 @@ func (m Mock) SetFallbackDatabase(db Provider) Mock {
 	if m.InsertFn == nil {
 		m.InsertFn = db.Insert
 	}
-	if m.UpdateFn == nil {
-		m.UpdateFn = db.Update
+	if m.PatchFn == nil {
+		m.PatchFn = db.Patch
 	}
 	if m.DeleteFn == nil {
 		m.DeleteFn = db.Delete
+	}
+
+	if m.UpdateFn == nil {
+		m.UpdateFn = db.Update
 	}
 
 	if m.QueryFn == nil {
@@ -128,14 +134,14 @@ func (m Mock) Insert(ctx context.Context, table Table, record interface{}) error
 	return m.InsertFn(ctx, table, record)
 }
 
-// Update mocks the behavior of the Update method.
-// If UpdateFn is set it will just call it returning the same return values.
-// If UpdateFn is unset it will panic with an appropriate error message.
-func (m Mock) Update(ctx context.Context, table Table, record interface{}) error {
-	if m.UpdateFn == nil {
-		panic(fmt.Errorf("ksql.Mock.Update(ctx, %v, %v) called but the ksql.Mock.UpdateFn() is not set", table, record))
+// Patch mocks the behavior of the Patch method.
+// If PatchFn is set it will just call it returning the same return values.
+// If PatchFn is unset it will panic with an appropriate error message.
+func (m Mock) Patch(ctx context.Context, table Table, record interface{}) error {
+	if m.PatchFn == nil {
+		panic(fmt.Errorf("ksql.Mock.Patch(ctx, %v, %v) called but the ksql.Mock.PatchFn() is not set", table, record))
 	}
-	return m.UpdateFn(ctx, table, record)
+	return m.PatchFn(ctx, table, record)
 }
 
 // Delete mocks the behavior of the Delete method.
@@ -146,6 +152,16 @@ func (m Mock) Delete(ctx context.Context, table Table, idOrRecord interface{}) e
 		panic(fmt.Errorf("ksql.Mock.Delete(ctx, %v, %v) called but the ksql.Mock.DeleteFn() is not set", table, idOrRecord))
 	}
 	return m.DeleteFn(ctx, table, idOrRecord)
+}
+
+// Update mocks the behavior of the Update method.
+// If UpdateFn is set it will just call it returning the same return values.
+// If UpdateFn is unset it will panic with an appropriate error message.
+func (m Mock) Update(ctx context.Context, table Table, record interface{}) error {
+	if m.UpdateFn == nil {
+		panic(fmt.Errorf("ksql.Mock.Update(ctx, %v, %v) called but the ksql.Mock.UpdateFn() is not set", table, record))
+	}
+	return m.UpdateFn(ctx, table, record)
 }
 
 // Query mocks the behavior of the Query method.

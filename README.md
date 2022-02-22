@@ -166,11 +166,11 @@ it with as little functions as possible, so don't expect many additions:
 ```go
 // Provider describes the ksql public behavior
 //
-// The Insert, Update, Delete and QueryOne functions return ksql.ErrRecordNotFound
+// The Insert, Patch, Delete and QueryOne functions return ksql.ErrRecordNotFound
 // if no record was found or no rows were changed during the operation.
 type Provider interface {
 	Insert(ctx context.Context, table Table, record interface{}) error
-	Update(ctx context.Context, table Table, record interface{}) error
+	Patch(ctx context.Context, table Table, record interface{}) error
 	Delete(ctx context.Context, table Table, idOrRecord interface{}) error
 
 	Query(ctx context.Context, records interface{}, query string, params ...interface{}) error
@@ -301,12 +301,12 @@ func main() {
 
 	// Updating all fields from Cristina:
 	cris.Name = "Cris"
-	err = db.Update(ctx, UsersTable, cris)
+	err = db.Patch(ctx, UsersTable, cris)
 
 	// Changing the age of Cristina but not touching any other fields:
 
 	// Partial update technique 1:
-	err = db.Update(ctx, UsersTable, struct {
+	err = db.Patch(ctx, UsersTable, struct {
 		ID  int `ksql:"id"`
 		Age int `ksql:"age"`
 	}{ID: cris.ID, Age: 28})
@@ -315,7 +315,7 @@ func main() {
 	}
 
 	// Partial update technique 2:
-	err = db.Update(ctx, UsersTable, PartialUpdateUser{
+	err = db.Patch(ctx, UsersTable, PartialUpdateUser{
 		ID:  cris.ID,
 		Age: nullable.Int(28),
 	})
@@ -347,7 +347,7 @@ func main() {
 			return err
 		}
 
-		err = db.Update(ctx, UsersTable, PartialUpdateUser{
+		err = db.Patch(ctx, UsersTable, PartialUpdateUser{
 			ID:  cris2.ID,
 			Age: nullable.Int(29),
 		})

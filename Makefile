@@ -19,6 +19,7 @@ lint: setup
 	@make --no-print-directory -C benchmarks
 	@echo "Golint & Go Vet found no problems on your code!"
 
+gen: mock
 mock: setup
 	$(GOBIN)/mockgen -package=exampleservice -source=contracts.go -destination=examples/example_service/mocks.go
 

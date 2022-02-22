@@ -78,7 +78,7 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestUpdateUserScore(t *testing.T) {
-	t.Run("should call ksql.QueryOne() & Update() correctly", func(t *testing.T) {
+	t.Run("should call ksql.QueryOne() & Patch() correctly", func(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 
@@ -102,7 +102,7 @@ func TestUpdateUserScore(t *testing.T) {
 						"score": 42,
 					})
 				}),
-			mockDB.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).
+			mockDB.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).
 				DoAndReturn(func(ctx context.Context, table ksql.Table, records ...interface{}) error {
 					users = append(users, records...)
 					return nil

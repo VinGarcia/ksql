@@ -68,7 +68,7 @@ func (s Service) UpdateUserScore(ctx context.Context, uID int, scoreChange int) 
 		return err
 	}
 
-	return s.db.Update(ctx, UsersTable, &UserEntity{
+	return s.db.Patch(ctx, UsersTable, &UserEntity{
 		ID:    uID,
 		Score: nullable.Int(scoreRow.Score + scoreChange),
 	})

@@ -83,6 +83,20 @@ func (mr *MockProviderMockRecorder) Insert(ctx, table, record interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Insert", reflect.TypeOf((*MockProvider)(nil).Insert), ctx, table, record)
 }
 
+// Patch mocks base method.
+func (m *MockProvider) Patch(ctx context.Context, table ksql.Table, record interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Patch", ctx, table, record)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Patch indicates an expected call of Patch.
+func (mr *MockProviderMockRecorder) Patch(ctx, table, record interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Patch", reflect.TypeOf((*MockProvider)(nil).Patch), ctx, table, record)
+}
+
 // Query mocks base method.
 func (m *MockProvider) Query(ctx context.Context, records interface{}, query string, params ...interface{}) error {
 	m.ctrl.T.Helper()

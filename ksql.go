@@ -626,7 +626,21 @@ func normalizeIDsAsMap(idNames []string, idOrMap interface{}) (idMap map[string]
 // Update updates the given instances on the database by id.
 //
 // Partial updates are supported, i.e. it will ignore nil pointer attributes
+//
+// Deprecated: Use the Patch method instead
 func (c DB) Update(
+	ctx context.Context,
+	table Table,
+	record interface{},
+) error {
+	return c.Patch(ctx, table, record)
+}
+
+// Patch applies a partial update (explained below) to the given instance on the database by id.
+//
+// Partial updates will ignore any nil pointer attributes from the struct, updating only
+// the non nil pointers and non pointer attributes.
+func (c DB) Patch(
 	ctx context.Context,
 	table Table,
 	record interface{},
