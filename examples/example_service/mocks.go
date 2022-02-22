@@ -50,14 +50,14 @@ func (mr *MockProviderMockRecorder) Delete(ctx, table, idOrRecord interface{}) *
 }
 
 // Exec mocks base method.
-func (m *MockProvider) Exec(ctx context.Context, query string, params ...interface{}) (int64, error) {
+func (m *MockProvider) Exec(ctx context.Context, query string, params ...interface{}) (ksql.Result, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, query}
 	for _, a := range params {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Exec", varargs...)
-	ret0, _ := ret[0].(int64)
+	ret0, _ := ret[0].(ksql.Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

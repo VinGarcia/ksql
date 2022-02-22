@@ -59,8 +59,20 @@ type Mock struct {
 	QueryOneFn    func(ctx context.Context, record interface{}, query string, params ...interface{}) error
 	QueryChunksFn func(ctx context.Context, parser ChunkParser) error
 
-	ExecFn        func(ctx context.Context, query string, params ...interface{}) (rowsAffected int64, _ error)
+	ExecFn        func(ctx context.Context, query string, params ...interface{}) (Result, error)
 	TransactionFn func(ctx context.Context, fn func(db Provider) error) error
+}
+
+// MockResult implements the Result interface returned by the Exec function
+//
+// Use the constructor `NewMockResult(42, 42)` for a simpler instantiation of this mock.
+//
+// But if you want one of the functions to return an error you'll need
+// to specify the desired behavior by overwriting one of the attributes
+// of the struct.
+type MockResult struct {
+	LastInsertIdFn func() (int64, error)
+	RowsAffectedFn func() (int64, error)
 }
 
 // SetFallbackDatabase will set all the Fn attributes to use
@@ -197,7 +209,7 @@ func (m Mock) QueryChunks(ctx context.Context, parser ChunkParser) error {
 // Exec mocks the behavior of the Exec method.
 // If ExecFn is set it will just call it returning the same return values.
 // If ExecFn is unset it will panic with an appropriate error message.
-func (m Mock) Exec(ctx context.Context, query string, params ...interface{}) (rowsAffected int64, _ error) {
+func (m Mock) Exec(ctx context.Context, query string, params ...interface{}) (Result, error) {
 	if m.ExecFn == nil {
 		panic(fmt.Errorf("ksql.Mock.Exec(ctx, %s, %v) called but the ksql.Mock.ExecFn() is not set", query, params))
 	}
@@ -213,4 +225,28 @@ func (m Mock) Transaction(ctx context.Context, fn func(db Provider) error) error
 		return fn(m)
 	}
 	return m.TransactionFn(ctx, fn)
+}
+
+// NewMockResult returns a simple implementation of the Result interface.
+func NewMockResult(lastInsertID int64, rowsAffected int64) Result {
+	return MockResult{
+		LastInsertIdFn: func() (int64, error) { return lastInsertID, nil },
+		RowsAffectedFn: func() (int64, error) { return rowsAffected, nil },
+	}
+}
+
+// LastInsertId implements the Result interface
+func (m MockResult) LastInsertId() (int64, error) {
+	if m.LastInsertIdFn == nil {
+		panic(fmt.Errorf("ksql.MockResult.LastInsertId() called but ksql.MockResult.LastInsertIdFn is not set"))
+	}
+	return m.LastInsertIdFn()
+}
+
+// RowsAffected implements the Result interface
+func (m MockResult) RowsAffected() (int64, error) {
+	if m.RowsAffectedFn == nil {
+		panic(fmt.Errorf("ksql.MockResult.RowsAffected() called but ksql.MockResult.RowsAffectedFn is not set"))
+	}
+	return m.RowsAffectedFn()
 }

@@ -383,17 +383,22 @@ func TestMock(t *testing.T) {
 				params []interface{}
 			}
 			mock := ksql.Mock{
-				ExecFn: func(ctx context.Context, query string, params ...interface{}) (rowsAffected int64, _ error) {
+				ExecFn: func(ctx context.Context, query string, params ...interface{}) (ksql.Result, error) {
 					capturedArgs.ctx = ctx
 					capturedArgs.query = query
 					capturedArgs.params = params
-					return 42, fmt.Errorf("fake-error")
+					return ksql.NewMockResult(42, 42), fmt.Errorf("fake-error")
 				},
 			}
-			rowsAffected, err := mock.Exec(ctx, "INSERT INTO users_permissions(user_id, permission_id) VALUES (?, ?)", 4242, 4)
+			r, err := mock.Exec(ctx, "INSERT INTO users_permissions(user_id, permission_id) VALUES (?, ?)", 4242, 4)
 
 			tt.AssertErrContains(t, err, "fake-error")
+			rowsAffected, err := r.RowsAffected()
+			tt.AssertNoErr(t, err)
 			tt.AssertEqual(t, rowsAffected, int64(42))
+			lastInsertID, err := r.LastInsertId()
+			tt.AssertNoErr(t, err)
+			tt.AssertEqual(t, lastInsertID, int64(42))
 			tt.AssertEqual(t, capturedArgs.ctx, ctx)
 			tt.AssertEqual(t, capturedArgs.query, "INSERT INTO users_permissions(user_id, permission_id) VALUES (?, ?)")
 			tt.AssertEqual(t, capturedArgs.params, []interface{}{4242, 4})
@@ -441,8 +446,8 @@ func TestMock(t *testing.T) {
 			QueryChunksFn: func(ctx context.Context, parser ksql.ChunkParser) error {
 				return fmt.Errorf("called from QueryChunksFn")
 			},
-			ExecFn: func(ctx context.Context, query string, params ...interface{}) (rowsAffected int64, _ error) {
-				return 0, fmt.Errorf("called from ExecFn")
+			ExecFn: func(ctx context.Context, query string, params ...interface{}) (ksql.Result, error) {
+				return nil, fmt.Errorf("called from ExecFn")
 			},
 			TransactionFn: func(ctx context.Context, fn func(db ksql.Provider) error) error {
 				return fmt.Errorf("called from TransactionFn")
