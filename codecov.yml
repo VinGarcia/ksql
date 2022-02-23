@@ -3,3 +3,4 @@ coverage:
     - "internal/**/*"
     - "examples/**/*"
     - "kbuilder/*"
+    - "kstructs/*"
