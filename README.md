@@ -81,29 +81,30 @@ but work on different databases, they are:
 
 > Note: If you want numbers see our [Benchmark section](https://github.com/vingarcia/ksql#benchmark-comparison) below
 
-ksql is meant to improve on the existing ecosystem by optimizing
-for the most interesting use-cases with as little extra baggage
-possible, offering among other things:
+ksql is meant to improve on the existing ecosystem by providing
+a well-designed database package that has:
 
-- An easier time setting up and learning it
+1. A small number of easy-to-use helper functions for common use cases
+2. Support for more complicated use-cases by allowing
+   the user to write SQL directly
+
+This strategy allows the API to be
+
+- Very simple with a small number of functions
+- Harness all the power of SQL, by just allowing the user to type SQL
 - Less opportunities for making mistakes, which makes code reviews easier
-- A succinct and idiomatic Go idiom reducing the cognitive
-  complexity of your code
-- Easy ways of mocking your database when you need to.
-- Support for all common databases
-- No DSL: Use SQL for your queries
+- A succinct and idiomatic Go idiom reducing the cognitive complexity of your code
+- Easy ways of mocking your database when you need to
+- Support for all common relational database: `mysql`, `sqlite`, `sqlserver` and `postgres`
 
-And for a few important use-cases that cannot follow these rules perfectly,
-we have carefully chosen a few powerful abstractions that might be
-slightly more complicated to learn, such as:
+Some special use-cases also have some special support:
 
-- The `QueryChunks()` function which is necessary for the few
-  situations when you might load big amounts of the data in a
-  single query.
-- And the possibility of omitting the `SELECT ...` part of the
-  query which causes ksql to write this part for you saving a
-  lot of work when working with big structs/tables.
-- Support for nesting structs when working with JOINs.
+- The `QueryChunks()` method helps you in the few situations when you might
+  need to load in a single query more data than would fit in memory.
+- For saving you time when you are selecting all fields from a struct you
+  can omit the `SELECT ...` part of the query which causes ksql to write
+  this part for you saving a lot of work when working with big structs/tables.
+- The Nested Structs feature will help you reuse existing structs/models when working with JOINs.
 
 **Supported Drivers:**
 
@@ -576,10 +577,10 @@ that we actually care about, so it's better not to use composite structs.
 
 This library has a few helper functions for helping your tests:
 
-- `kstructs.FillStructWith(struct interface{}, dbRow map[string]interface{}) error`
-- `kstructs.FillSliceWith(structSlice interface{}, dbRows []map[string]interface{}) error`
-- `kstructs.StructToMap(struct interface{}) (map[string]interface{}, error)`
-- `kstructs.CallFunctionWithRows(fn interface{}, rows []map[string]interface{}) (map[string]interface{}, error)`
+- `ksqltest.FillStructWith(struct interface{}, dbRow map[string]interface{}) error`
+- `ksqltest.FillSliceWith(structSlice interface{}, dbRows []map[string]interface{}) error`
+- `ksqltest.StructToMap(struct interface{}) (map[string]interface{}, error)`
+- `ksqltest.CallFunctionWithRows(fn interface{}, rows []map[string]interface{}) (map[string]interface{}, error)`
 
 If you want to see examples (we have examples for all the public functions) just
 read the example tests available on our [example service](./examples/example_service)
@@ -692,7 +693,7 @@ is configured to kill the containers after 20 seconds.
 
 - Add tests for tables using composite keys
 - Add support for serializing structs as other formats such as YAML
-- Update `kstructs.FillStructWith` to work with `ksql:"..,json"` tagged attributes
+- Update `ksqltest.FillStructWith` to work with `ksql:"..,json"` tagged attributes
 - Create a way for users to submit user defined dialects
 - Improve error messages
 - Add support for the update function to work with maps for partial updates
