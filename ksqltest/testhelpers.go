@@ -1,5 +1,4 @@
-// Package kstructs is deprecated: use ksqltest instead.
-package kstructs
+package ksqltest
 
 import (
 	"fmt"

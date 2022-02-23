@@ -7,7 +7,7 @@ import (
 	"github.com/ditointernet/go-assert"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/vingarcia/ksql"
-	"github.com/vingarcia/ksql/kstructs"
+	"github.com/vingarcia/ksql/ksqltest"
 	"github.com/vingarcia/ksql/nullable"
 )
 
@@ -58,7 +58,7 @@ func TestCreateUser(t *testing.T) {
 					//
 					// If you are inserting an anonymous struct (not usual) this function
 					// can make your tests shorter:
-					uMap, err := kstructs.StructToMap(record)
+					uMap, err := ksqltest.StructToMap(record)
 					if err != nil {
 						return err
 					}
@@ -95,7 +95,7 @@ func TestUpdateUserScore(t *testing.T) {
 				DoAndReturn(func(ctx context.Context, result interface{}, query string, params ...interface{}) error {
 					// This function will use reflection to fill the
 					// struct fields with the values from the map
-					return kstructs.FillStructWith(result, map[string]interface{}{
+					return ksqltest.FillStructWith(result, map[string]interface{}{
 						// Use int this map the keys you set on the ksql tags, e.g. `ksql:"score"`
 						// Each of these fields represent the database rows returned
 						// by the query.
@@ -138,7 +138,7 @@ func TestListUsers(t *testing.T) {
 				DoAndReturn(func(ctx context.Context, result interface{}, query string, params ...interface{}) error {
 					// This function will use reflection to fill the
 					// struct fields with the values from the map
-					return kstructs.FillStructWith(result, map[string]interface{}{
+					return ksqltest.FillStructWith(result, map[string]interface{}{
 						// Use int this map the keys you set on the ksql tags, e.g. `ksql:"score"`
 						// Each of these fields represent the database rows returned
 						// by the query.
@@ -147,7 +147,7 @@ func TestListUsers(t *testing.T) {
 				}),
 			mockDB.EXPECT().Query(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 				DoAndReturn(func(ctx context.Context, results interface{}, query string, params ...interface{}) error {
-					return kstructs.FillSliceWith(results, []map[string]interface{}{
+					return ksqltest.FillSliceWith(results, []map[string]interface{}{
 						{
 							"id":   1,
 							"name": "fake name",
@@ -198,7 +198,7 @@ func TestStreamAllUsers(t *testing.T) {
 		mockDB.EXPECT().QueryChunks(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(ctx context.Context, parser ksql.ChunkParser) error {
 				// Chunk 1:
-				err := kstructs.CallFunctionWithRows(parser.ForEachChunk, []map[string]interface{}{
+				err := ksqltest.CallFunctionWithRows(parser.ForEachChunk, []map[string]interface{}{
 					{
 						"id":   1,
 						"name": "fake name",
@@ -215,7 +215,7 @@ func TestStreamAllUsers(t *testing.T) {
 				}
 
 				// Chunk 2:
-				err = kstructs.CallFunctionWithRows(parser.ForEachChunk, []map[string]interface{}{
+				err = ksqltest.CallFunctionWithRows(parser.ForEachChunk, []map[string]interface{}{
 					{
 						"id":   3,
 						"name": "yet another fake name",

@@ -9,7 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/vingarcia/ksql/internal/structs"
-	"github.com/vingarcia/ksql/kstructs"
+	"github.com/vingarcia/ksql/ksqltest"
 )
 
 var selectQueryCache = map[string]map[reflect.Type]string{}
@@ -593,7 +593,7 @@ func normalizeIDsAsMap(idNames []string, idOrMap interface{}) (idMap map[string]
 
 	switch t.Kind() {
 	case reflect.Struct:
-		idMap, err = kstructs.StructToMap(idOrMap)
+		idMap, err = ksqltest.StructToMap(idOrMap)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not get ID(s) from input record")
 		}
@@ -691,7 +691,7 @@ func buildInsertQuery(
 	info structs.StructInfo,
 	record interface{},
 ) (query string, params []interface{}, scanValues []interface{}, err error) {
-	recordMap, err := kstructs.StructToMap(record)
+	recordMap, err := ksqltest.StructToMap(record)
 	if err != nil {
 		return "", nil, nil, err
 	}
@@ -785,7 +785,7 @@ func buildUpdateQuery(
 	record interface{},
 	idFieldNames ...string,
 ) (query string, args []interface{}, err error) {
-	recordMap, err := kstructs.StructToMap(record)
+	recordMap, err := ksqltest.StructToMap(record)
 	if err != nil {
 		return "", nil, err
 	}
@@ -927,7 +927,7 @@ func scanRowsFromType(
 	if info.IsNestedStruct {
 		// This version is positional meaning that it expect the arguments
 		// to follow an specific order. It's ok because we don't allow the
-		// user to type the "SELECT" part of the query for nested kstructs.
+		// user to type the "SELECT" part of the query for nested ksqltest.
 		scanArgs, err = getScanArgsForNestedStructs(dialect, rows, t, v, info)
 		if err != nil {
 			return err
