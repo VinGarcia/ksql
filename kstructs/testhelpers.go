@@ -19,6 +19,8 @@ import (
 // This function is efficient in the fact that it caches
 // the slower steps of the reflection required to perform
 // this task.
+//
+// deprecated: Use ksqltest.StructToMap() instead
 func StructToMap(obj interface{}) (map[string]interface{}, error) {
 	return structs.StructToMap(obj)
 }
@@ -29,6 +31,8 @@ func StructToMap(obj interface{}) (map[string]interface{}, error) {
 // The first argument is any struct you are passing to a ksql func,
 // and the second is a map representing a database row you want
 // to use to update this struct.
+//
+// deprecated: Use ksqltest.FillStructWith() instead
 func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
 	v := reflect.ValueOf(record)
 	t := v.Type()
@@ -83,6 +87,8 @@ func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
 // The first argument is any slice of structs you are passing to a ksql func,
 // and the second is a slice of maps representing the database rows you want
 // to use to update this struct.
+//
+// deprecated: Use ksqltest.FillSliceWith() instead
 func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error {
 	sliceRef := reflect.ValueOf(entities)
 	sliceType := sliceRef.Type()
@@ -121,6 +127,8 @@ func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error 
 }
 
 // CallFunctionWithRows was created for helping test the QueryChunks method
+//
+// deprecated: Use ksqltest.CallFunctionWithRows() instead
 func CallFunctionWithRows(fn interface{}, rows []map[string]interface{}) error {
 	fnValue := reflect.ValueOf(fn)
 	chunkType, err := structs.ParseInputFunc(fn)
