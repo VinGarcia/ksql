@@ -490,7 +490,7 @@ func (c DB) insertWithLastInsertID(
 
 	if !tID.ConvertibleTo(fieldType) {
 		return fmt.Errorf(
-			"Can't convert last insert id of type int64 into field `%s` of type %s",
+			"Can't convert last insert id of type int64 into field `%s` of type %v",
 			idName,
 			fieldType,
 		)
