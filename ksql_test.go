@@ -2305,7 +2305,9 @@ func TestConfigSetDefaultValues(t *testing.T) {
 	config := Config{}
 	config.SetDefaultValues()
 
-	assert.Equal(t, config.MaxOpenConns, 1)
+	tt.AssertEqual(t, config, Config{
+		MaxOpenConns: 1,
+	})
 }
 
 func TestNewAdapterWith(t *testing.T) {
