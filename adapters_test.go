@@ -82,16 +82,27 @@ var supportedConfigs = []testConfig{
 	},
 }
 
-func TestQuery(t *testing.T) {
+func TestAdapters(t *testing.T) {
 	for _, config := range supportedConfigs {
-		QueryTest(t,
-			config,
-			func(t *testing.T) (DBAdapter, io.Closer) {
-				db, close := connectDB(t, config)
-				return db, close
-			},
-		)
+		RunTestsForAdapter(t, config)
 	}
+}
+
+func RunTestsForAdapter(t *testing.T, config testConfig) {
+	newDBAdapter := func(t *testing.T) (DBAdapter, io.Closer) {
+		db, close := connectDB(t, config)
+		return db, close
+	}
+
+	QueryTest(t, config, newDBAdapter)
+	QueryOneTest(t, config, newDBAdapter)
+	QueryOneTest(t, config, newDBAdapter)
+	InsertTest(t, config, newDBAdapter)
+	DeleteTest(t, config, newDBAdapter)
+	UpdateTest(t, config, newDBAdapter)
+	QueryChunksTest(t, config, newDBAdapter)
+	TransactionTest(t, config, newDBAdapter)
+	ScanRowsTest(t, config, newDBAdapter)
 }
 
 func QueryTest(
@@ -490,18 +501,6 @@ func QueryTest(
 	})
 }
 
-func TestQueryOne(t *testing.T) {
-	for _, config := range supportedConfigs {
-		QueryOneTest(t,
-			config,
-			func(t *testing.T) (DBAdapter, io.Closer) {
-				db, close := connectDB(t, config)
-				return db, close
-			},
-		)
-	}
-}
-
 func QueryOneTest(
 	t *testing.T,
 	config testConfig,
@@ -681,18 +680,6 @@ func QueryOneTest(
 	})
 }
 
-func TestInsert(t *testing.T) {
-	for _, config := range supportedConfigs {
-		InsertTest(t,
-			config,
-			func(t *testing.T) (DBAdapter, io.Closer) {
-				db, close := connectDB(t, config)
-				return db, close
-			},
-		)
-	}
-}
-
 func InsertTest(
 	t *testing.T,
 	config testConfig,
@@ -732,7 +719,7 @@ func InsertTest(
 					assert.Equal(t, u.Address, result.Address)
 				})
 
-				t.Run("should insert ignoring the ID for sqlite and multiple ids", func(t *testing.T) {
+				t.Run("should insert ignoring the ID with multiple ids", func(t *testing.T) {
 					if supportedDialects[config.driver].InsertMethod() != insertWithLastInsertID {
 						return
 					}
@@ -1027,18 +1014,6 @@ func (brokenDialect) Placeholder(idx int) string {
 
 func (brokenDialect) DriverName() string {
 	return "fake-driver-name"
-}
-
-func TestDelete(t *testing.T) {
-	for _, config := range supportedConfigs {
-		DeleteTest(t,
-			config,
-			func(t *testing.T) (DBAdapter, io.Closer) {
-				db, close := connectDB(t, config)
-				return db, close
-			},
-		)
-	}
 }
 
 func DeleteTest(
@@ -1343,18 +1318,6 @@ func DeleteTest(
 	})
 }
 
-func TestUpdate(t *testing.T) {
-	for _, config := range supportedConfigs {
-		UpdateTest(t,
-			config,
-			func(t *testing.T) (DBAdapter, io.Closer) {
-				db, close := connectDB(t, config)
-				return db, close
-			},
-		)
-	}
-}
-
 func UpdateTest(
 	t *testing.T,
 	config testConfig,
@@ -1538,18 +1501,6 @@ func UpdateTest(
 			assert.NotEqual(t, nil, err)
 		})
 	})
-}
-
-func TestQueryChunks(t *testing.T) {
-	for _, config := range supportedConfigs {
-		QueryChunksTest(t,
-			config,
-			func(t *testing.T) (DBAdapter, io.Closer) {
-				db, close := connectDB(t, config)
-				return db, close
-			},
-		)
-	}
 }
 
 func QueryChunksTest(
@@ -2066,18 +2017,6 @@ func QueryChunksTest(
 	})
 }
 
-func TestTransaction(t *testing.T) {
-	for _, config := range supportedConfigs {
-		TransactionTest(t,
-			config,
-			func(t *testing.T) (DBAdapter, io.Closer) {
-				db, close := connectDB(t, config)
-				return db, close
-			},
-		)
-	}
-}
-
 func TransactionTest(
 	t *testing.T,
 	config testConfig,
@@ -2148,18 +2087,6 @@ func TransactionTest(
 			assert.Equal(t, []User{u1, u2}, users)
 		})
 	})
-}
-
-func TestScanRows(t *testing.T) {
-	for _, config := range supportedConfigs {
-		ScanRowsTest(t,
-			config,
-			func(t *testing.T) (DBAdapter, io.Closer) {
-				db, close := connectDB(t, config)
-				return db, close
-			},
-		)
-	}
 }
 
 func ScanRowsTest(
@@ -2245,7 +2172,7 @@ func ScanRowsTest(
 		})
 		defer closer.Close()
 
-		rows, err := db.QueryContext(ctx, "select * from users where name='User2'")
+		rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
 		assert.Equal(t, nil, err)
 
 		var u User
@@ -2291,7 +2218,7 @@ func ScanRowsTest(
 		})
 		defer closer.Close()
 
-		rows, err := db.QueryContext(ctx, "select * from users where name='User2'")
+		rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
 		assert.Equal(t, nil, err)
 
 		var u map[string]interface{}
