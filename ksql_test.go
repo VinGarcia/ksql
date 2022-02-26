@@ -2152,25 +2152,38 @@ func TransactionTest(
 }
 
 func TestScanRows(t *testing.T) {
+	for _, config := range supportedConfigs {
+		ScanRowsTest(t,
+			config,
+			func(t *testing.T) (DBAdapter, io.Closer) {
+				db, close := connectDB(t, config)
+				return db, close
+			},
+		)
+	}
+}
+
+func ScanRowsTest(
+	t *testing.T,
+	config testConfig,
+	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
+) {
 	t.Run("should scan users correctly", func(t *testing.T) {
-		err := createTables("sqlite3")
+		err := createTables(config.driver)
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
 
-		dialect := supportedDialects["sqlite3"]
+		dialect := supportedDialects[config.driver]
 		ctx := context.TODO()
-		db, closer := connectDB(t, testConfig{
-			driver:      "sqlite3",
-			adapterName: "sql",
-		})
+		db, closer := newDBAdapter(t)
 		defer closer.Close()
-		c := newTestDB(db, "sqlite3")
+		c := newTestDB(db, config.driver)
 		_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Age: 22})
 		_ = c.Insert(ctx, UsersTable, &User{Name: "User2", Age: 14})
 		_ = c.Insert(ctx, UsersTable, &User{Name: "User3", Age: 43})
 
-		rows, err := db.QueryContext(ctx, "select * from users where name='User2'")
+		rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
 		assert.Equal(t, nil, err)
 		defer rows.Close()
 
