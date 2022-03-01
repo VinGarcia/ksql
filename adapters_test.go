@@ -2192,11 +2192,7 @@ func ScanRowsTest(
 
 			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
 			tt.AssertNoErr(t, err)
-			// Some drivers will hang forever if Next() is not called:
-			defer func() {
-				for rows.Next() {
-				}
-			}()
+			defer rows.Close()
 
 			var u User
 			err = scanRows(dialect, rows, u)
@@ -2216,11 +2212,7 @@ func ScanRowsTest(
 
 			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
 			tt.AssertNoErr(t, err)
-			// Some drivers will hang forever if Next() is not called:
-			defer func() {
-				for rows.Next() {
-				}
-			}()
+			defer rows.Close()
 
 			var u map[string]interface{}
 			err = scanRows(dialect, rows, &u)
