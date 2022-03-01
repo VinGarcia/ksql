@@ -2124,19 +2124,16 @@ func ScanRowsTest(
 	})
 
 	t.Run("should ignore extra columns from query", func(t *testing.T) {
-		err := createTables("sqlite3")
+		err := createTables(config.driver)
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
 
-		dialect := supportedDialects["sqlite3"]
+		dialect := supportedDialects[config.driver]
 		ctx := context.TODO()
-		db, closer := connectDB(t, testConfig{
-			driver:      "sqlite3",
-			adapterName: "sql",
-		})
+		db, closer := newDBAdapter(t)
 		defer closer.Close()
-		c := newTestDB(db, "sqlite3")
+		c := newTestDB(db, config.driver)
 		_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Age: 22})
 
 		rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User1'")
@@ -2159,17 +2156,14 @@ func ScanRowsTest(
 	})
 
 	t.Run("should report error for closed rows", func(t *testing.T) {
-		err := createTables("sqlite3")
+		err := createTables(config.driver)
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
 
-		dialect := supportedDialects["sqlite3"]
+		dialect := supportedDialects[config.driver]
 		ctx := context.TODO()
-		db, closer := connectDB(t, testConfig{
-			driver:      "sqlite3",
-			adapterName: "sql",
-		})
+		db, closer := newDBAdapter(t)
 		defer closer.Close()
 
 		rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
@@ -2183,47 +2177,51 @@ func ScanRowsTest(
 	})
 
 	t.Run("should report if record is not a pointer", func(t *testing.T) {
-		err := createTables("sqlite3")
+		err := createTables(config.driver)
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
 
-		dialect := supportedDialects["sqlite3"]
+		dialect := supportedDialects[config.driver]
 		ctx := context.TODO()
-		db, closer := connectDB(t, testConfig{
-			driver:      "sqlite3",
-			adapterName: "sql",
-		})
-		defer closer.Close()
-
-		rows, err := db.QueryContext(ctx, "select * from users where name='User2'")
-		assert.Equal(t, nil, err)
-
-		var u User
-		err = scanRows(dialect, rows, u)
-		assert.NotEqual(t, nil, err)
-	})
-
-	t.Run("should report if record is not a pointer to struct", func(t *testing.T) {
-		err := createTables("sqlite3")
-		if err != nil {
-			t.Fatal("could not create test table!, reason:", err.Error())
-		}
-
-		dialect := supportedDialects["sqlite3"]
-		ctx := context.TODO()
-		db, closer := connectDB(t, testConfig{
-			driver:      "sqlite3",
-			adapterName: "sql",
-		})
+		db, closer := newDBAdapter(t)
 		defer closer.Close()
 
 		rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
-		assert.Equal(t, nil, err)
+		tt.AssertNoErr(t, err)
+		// Some drivers will hang forever if Next() is not called:
+		defer func() {
+			for rows.Next() {
+			}
+		}()
+
+		var u User
+		err = scanRows(dialect, rows, u)
+		tt.AssertErrContains(t, err, "ksql", "expected", "pointer to struct", "User")
+	})
+
+	t.Run("should report if record is not a pointer to struct", func(t *testing.T) {
+		err := createTables(config.driver)
+		if err != nil {
+			t.Fatal("could not create test table!, reason:", err.Error())
+		}
+
+		dialect := supportedDialects[config.driver]
+		ctx := context.TODO()
+		db, closer := newDBAdapter(t)
+		defer closer.Close()
+
+		rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
+		tt.AssertNoErr(t, err)
+		// Some drivers will hang forever if Next() is not called:
+		defer func() {
+			for rows.Next() {
+			}
+		}()
 
 		var u map[string]interface{}
 		err = scanRows(dialect, rows, &u)
-		assert.NotEqual(t, nil, err)
+		tt.AssertErrContains(t, err, "ksql", "expected", "pointer to struct", "map[string]interface")
 	})
 }
 

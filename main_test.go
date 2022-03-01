@@ -77,7 +77,7 @@ func startPostgresDB(dbName string) (databaseURL string, closer func()) {
 
 	fmt.Println("Connecting to postgres on url: ", databaseUrl)
 
-	resource.Expire(40) // Tell docker to hard kill the container in 20 seconds
+	resource.Expire(40) // Tell docker to hard kill the container in 40 seconds
 
 	var sqlDB *sql.DB
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
@@ -133,7 +133,7 @@ func startMySQLDB(dbName string) (databaseURL string, closer func()) {
 
 	fmt.Println("Connecting to mysql on url: ", databaseUrl)
 
-	resource.Expire(40) // Tell docker to hard kill the container in 20 seconds
+	resource.Expire(40) // Tell docker to hard kill the container in 40 seconds
 
 	var sqlDB *sql.DB
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
@@ -189,7 +189,7 @@ func startSQLServerDB(dbName string) (databaseURL string, closer func()) {
 
 	fmt.Println("Connecting to sqlserver on url: ", databaseUrl)
 
-	resource.Expire(40) // Tell docker to hard kill the container in 20 seconds
+	resource.Expire(40) // Tell docker to hard kill the container in 40 seconds
 
 	var sqlDB *sql.DB
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
