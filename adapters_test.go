@@ -94,15 +94,17 @@ func RunTestsForAdapter(t *testing.T, config testConfig) {
 		return db, close
 	}
 
-	QueryTest(t, config, newDBAdapter)
-	QueryOneTest(t, config, newDBAdapter)
-	QueryOneTest(t, config, newDBAdapter)
-	InsertTest(t, config, newDBAdapter)
-	DeleteTest(t, config, newDBAdapter)
-	UpdateTest(t, config, newDBAdapter)
-	QueryChunksTest(t, config, newDBAdapter)
-	TransactionTest(t, config, newDBAdapter)
-	ScanRowsTest(t, config, newDBAdapter)
+	t.Run(config.adapterName+"."+config.driver, func(t *testing.T) {
+		QueryTest(t, config, newDBAdapter)
+		QueryOneTest(t, config, newDBAdapter)
+		QueryOneTest(t, config, newDBAdapter)
+		InsertTest(t, config, newDBAdapter)
+		DeleteTest(t, config, newDBAdapter)
+		UpdateTest(t, config, newDBAdapter)
+		QueryChunksTest(t, config, newDBAdapter)
+		TransactionTest(t, config, newDBAdapter)
+		ScanRowsTest(t, config, newDBAdapter)
+	})
 }
 
 func QueryTest(
@@ -110,7 +112,7 @@ func QueryTest(
 	config testConfig,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
-	t.Run(config.driver, func(t *testing.T) {
+	t.Run("QueryTest", func(t *testing.T) {
 		variations := []struct {
 			desc        string
 			queryPrefix string
@@ -506,7 +508,7 @@ func QueryOneTest(
 	config testConfig,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
-	t.Run(config.driver, func(t *testing.T) {
+	t.Run("QueryOne", func(t *testing.T) {
 		variations := []struct {
 			desc        string
 			queryPrefix string
@@ -685,7 +687,7 @@ func InsertTest(
 	config testConfig,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
-	t.Run(config.driver, func(t *testing.T) {
+	t.Run("Insert", func(t *testing.T) {
 		t.Run("success cases", func(t *testing.T) {
 			t.Run("single primary key tables", func(t *testing.T) {
 				err := createTables(config.driver)
@@ -1021,7 +1023,7 @@ func DeleteTest(
 	config testConfig,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
-	t.Run(config.driver, func(t *testing.T) {
+	t.Run("Delete", func(t *testing.T) {
 		err := createTables(config.driver)
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
@@ -1323,7 +1325,7 @@ func UpdateTest(
 	config testConfig,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
-	t.Run(config.driver, func(t *testing.T) {
+	t.Run("Update", func(t *testing.T) {
 		err := createTables(config.driver)
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
@@ -1508,7 +1510,7 @@ func QueryChunksTest(
 	config testConfig,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
-	t.Run(config.driver, func(t *testing.T) {
+	t.Run("QueryChunks", func(t *testing.T) {
 		variations := []struct {
 			desc        string
 			queryPrefix string
@@ -2022,7 +2024,7 @@ func TransactionTest(
 	config testConfig,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
-	t.Run(config.driver, func(t *testing.T) {
+	t.Run("Transaction", func(t *testing.T) {
 		t.Run("should query a single row correctly", func(t *testing.T) {
 			err := createTables(config.driver)
 			if err != nil {
@@ -2094,134 +2096,136 @@ func ScanRowsTest(
 	config testConfig,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
-	t.Run("should scan users correctly", func(t *testing.T) {
-		err := createTables(config.driver)
-		if err != nil {
-			t.Fatal("could not create test table!, reason:", err.Error())
-		}
-
-		dialect := supportedDialects[config.driver]
-		ctx := context.TODO()
-		db, closer := newDBAdapter(t)
-		defer closer.Close()
-		c := newTestDB(db, config.driver)
-		_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Age: 22})
-		_ = c.Insert(ctx, UsersTable, &User{Name: "User2", Age: 14})
-		_ = c.Insert(ctx, UsersTable, &User{Name: "User3", Age: 43})
-
-		rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
-		assert.Equal(t, nil, err)
-		defer rows.Close()
-
-		assert.Equal(t, true, rows.Next())
-
-		var u User
-		err = scanRows(dialect, rows, &u)
-		assert.Equal(t, nil, err)
-
-		assert.Equal(t, "User2", u.Name)
-		assert.Equal(t, 14, u.Age)
-	})
-
-	t.Run("should ignore extra columns from query", func(t *testing.T) {
-		err := createTables(config.driver)
-		if err != nil {
-			t.Fatal("could not create test table!, reason:", err.Error())
-		}
-
-		dialect := supportedDialects[config.driver]
-		ctx := context.TODO()
-		db, closer := newDBAdapter(t)
-		defer closer.Close()
-		c := newTestDB(db, config.driver)
-		_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Age: 22})
-
-		rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User1'")
-		assert.Equal(t, nil, err)
-		defer rows.Close()
-
-		assert.Equal(t, true, rows.Next())
-
-		var user struct {
-			ID  int `ksql:"id"`
-			Age int `ksql:"age"`
-
-			// Omitted for testing purposes:
-			// Name string `ksql:"name"`
-		}
-		err = scanRows(dialect, rows, &user)
-		assert.Equal(t, nil, err)
-
-		assert.Equal(t, 22, user.Age)
-	})
-
-	t.Run("should report error for closed rows", func(t *testing.T) {
-		err := createTables(config.driver)
-		if err != nil {
-			t.Fatal("could not create test table!, reason:", err.Error())
-		}
-
-		dialect := supportedDialects[config.driver]
-		ctx := context.TODO()
-		db, closer := newDBAdapter(t)
-		defer closer.Close()
-
-		rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
-		assert.Equal(t, nil, err)
-
-		var u User
-		err = rows.Close()
-		assert.Equal(t, nil, err)
-		err = scanRows(dialect, rows, &u)
-		assert.NotEqual(t, nil, err)
-	})
-
-	t.Run("should report if record is not a pointer", func(t *testing.T) {
-		err := createTables(config.driver)
-		if err != nil {
-			t.Fatal("could not create test table!, reason:", err.Error())
-		}
-
-		dialect := supportedDialects[config.driver]
-		ctx := context.TODO()
-		db, closer := newDBAdapter(t)
-		defer closer.Close()
-
-		rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
-		tt.AssertNoErr(t, err)
-		// Some drivers will hang forever if Next() is not called:
-		defer func() {
-			for rows.Next() {
+	t.Run("ScanRows", func(t *testing.T) {
+		t.Run("should scan users correctly", func(t *testing.T) {
+			err := createTables(config.driver)
+			if err != nil {
+				t.Fatal("could not create test table!, reason:", err.Error())
 			}
-		}()
 
-		var u User
-		err = scanRows(dialect, rows, u)
-		tt.AssertErrContains(t, err, "ksql", "expected", "pointer to struct", "User")
-	})
+			dialect := supportedDialects[config.driver]
+			ctx := context.TODO()
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+			c := newTestDB(db, config.driver)
+			_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Age: 22})
+			_ = c.Insert(ctx, UsersTable, &User{Name: "User2", Age: 14})
+			_ = c.Insert(ctx, UsersTable, &User{Name: "User3", Age: 43})
 
-	t.Run("should report if record is not a pointer to struct", func(t *testing.T) {
-		err := createTables(config.driver)
-		if err != nil {
-			t.Fatal("could not create test table!, reason:", err.Error())
-		}
+			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
+			assert.Equal(t, nil, err)
+			defer rows.Close()
 
-		dialect := supportedDialects[config.driver]
-		ctx := context.TODO()
-		db, closer := newDBAdapter(t)
-		defer closer.Close()
+			assert.Equal(t, true, rows.Next())
 
-		rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
-		tt.AssertNoErr(t, err)
-		// Some drivers will hang forever if Next() is not called:
-		defer func() {
-			for rows.Next() {
+			var u User
+			err = scanRows(dialect, rows, &u)
+			assert.Equal(t, nil, err)
+
+			assert.Equal(t, "User2", u.Name)
+			assert.Equal(t, 14, u.Age)
+		})
+
+		t.Run("should ignore extra columns from query", func(t *testing.T) {
+			err := createTables(config.driver)
+			if err != nil {
+				t.Fatal("could not create test table!, reason:", err.Error())
 			}
-		}()
 
-		var u map[string]interface{}
-		err = scanRows(dialect, rows, &u)
-		tt.AssertErrContains(t, err, "ksql", "expected", "pointer to struct", "map[string]interface")
+			dialect := supportedDialects[config.driver]
+			ctx := context.TODO()
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+			c := newTestDB(db, config.driver)
+			_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Age: 22})
+
+			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User1'")
+			assert.Equal(t, nil, err)
+			defer rows.Close()
+
+			assert.Equal(t, true, rows.Next())
+
+			var user struct {
+				ID  int `ksql:"id"`
+				Age int `ksql:"age"`
+
+				// Omitted for testing purposes:
+				// Name string `ksql:"name"`
+			}
+			err = scanRows(dialect, rows, &user)
+			assert.Equal(t, nil, err)
+
+			assert.Equal(t, 22, user.Age)
+		})
+
+		t.Run("should report error for closed rows", func(t *testing.T) {
+			err := createTables(config.driver)
+			if err != nil {
+				t.Fatal("could not create test table!, reason:", err.Error())
+			}
+
+			dialect := supportedDialects[config.driver]
+			ctx := context.TODO()
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
+			assert.Equal(t, nil, err)
+
+			var u User
+			err = rows.Close()
+			assert.Equal(t, nil, err)
+			err = scanRows(dialect, rows, &u)
+			assert.NotEqual(t, nil, err)
+		})
+
+		t.Run("should report if record is not a pointer", func(t *testing.T) {
+			err := createTables(config.driver)
+			if err != nil {
+				t.Fatal("could not create test table!, reason:", err.Error())
+			}
+
+			dialect := supportedDialects[config.driver]
+			ctx := context.TODO()
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
+			tt.AssertNoErr(t, err)
+			// Some drivers will hang forever if Next() is not called:
+			defer func() {
+				for rows.Next() {
+				}
+			}()
+
+			var u User
+			err = scanRows(dialect, rows, u)
+			tt.AssertErrContains(t, err, "ksql", "expected", "pointer to struct", "User")
+		})
+
+		t.Run("should report if record is not a pointer to struct", func(t *testing.T) {
+			err := createTables(config.driver)
+			if err != nil {
+				t.Fatal("could not create test table!, reason:", err.Error())
+			}
+
+			dialect := supportedDialects[config.driver]
+			ctx := context.TODO()
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
+			tt.AssertNoErr(t, err)
+			// Some drivers will hang forever if Next() is not called:
+			defer func() {
+				for rows.Next() {
+				}
+			}()
+
+			var u map[string]interface{}
+			err = scanRows(dialect, rows, &u)
+			tt.AssertErrContains(t, err, "ksql", "expected", "pointer to struct", "map[string]interface")
+		})
 	})
 }
 
