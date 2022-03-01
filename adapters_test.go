@@ -84,26 +84,31 @@ var supportedConfigs = []testConfig{
 
 func TestAdapters(t *testing.T) {
 	for _, config := range supportedConfigs {
-		RunTestsForAdapter(t, config)
+		newDBAdapter := func(t *testing.T) (DBAdapter, io.Closer) {
+			db, close := connectDB(t, config)
+			return db, close
+		}
+
+		RunTestsForAdapter(t, config.adapterName, config.driver, newDBAdapter)
 	}
 }
 
-func RunTestsForAdapter(t *testing.T, config testConfig) {
-	newDBAdapter := func(t *testing.T) (DBAdapter, io.Closer) {
-		db, close := connectDB(t, config)
-		return db, close
-	}
-
-	t.Run(config.adapterName+"."+config.driver, func(t *testing.T) {
-		QueryTest(t, config.driver, newDBAdapter)
-		QueryOneTest(t, config.driver, newDBAdapter)
-		QueryOneTest(t, config.driver, newDBAdapter)
-		InsertTest(t, config.driver, newDBAdapter)
-		DeleteTest(t, config.driver, newDBAdapter)
-		UpdateTest(t, config.driver, newDBAdapter)
-		QueryChunksTest(t, config.driver, newDBAdapter)
-		TransactionTest(t, config.driver, newDBAdapter)
-		ScanRowsTest(t, config.driver, newDBAdapter)
+func RunTestsForAdapter(
+	t *testing.T,
+	adapterName string,
+	driver string,
+	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
+) {
+	t.Run(adapterName+"."+driver, func(t *testing.T) {
+		QueryTest(t, driver, newDBAdapter)
+		QueryOneTest(t, driver, newDBAdapter)
+		QueryOneTest(t, driver, newDBAdapter)
+		InsertTest(t, driver, newDBAdapter)
+		DeleteTest(t, driver, newDBAdapter)
+		UpdateTest(t, driver, newDBAdapter)
+		QueryChunksTest(t, driver, newDBAdapter)
+		TransactionTest(t, driver, newDBAdapter)
+		ScanRowsTest(t, driver, newDBAdapter)
 	})
 }
 
