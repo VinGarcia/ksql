@@ -95,21 +95,21 @@ func RunTestsForAdapter(t *testing.T, config testConfig) {
 	}
 
 	t.Run(config.adapterName+"."+config.driver, func(t *testing.T) {
-		QueryTest(t, config, newDBAdapter)
-		QueryOneTest(t, config, newDBAdapter)
-		QueryOneTest(t, config, newDBAdapter)
-		InsertTest(t, config, newDBAdapter)
-		DeleteTest(t, config, newDBAdapter)
-		UpdateTest(t, config, newDBAdapter)
-		QueryChunksTest(t, config, newDBAdapter)
-		TransactionTest(t, config, newDBAdapter)
-		ScanRowsTest(t, config, newDBAdapter)
+		QueryTest(t, config.driver, newDBAdapter)
+		QueryOneTest(t, config.driver, newDBAdapter)
+		QueryOneTest(t, config.driver, newDBAdapter)
+		InsertTest(t, config.driver, newDBAdapter)
+		DeleteTest(t, config.driver, newDBAdapter)
+		UpdateTest(t, config.driver, newDBAdapter)
+		QueryChunksTest(t, config.driver, newDBAdapter)
+		TransactionTest(t, config.driver, newDBAdapter)
+		ScanRowsTest(t, config.driver, newDBAdapter)
 	})
 }
 
 func QueryTest(
 	t *testing.T,
-	config testConfig,
+	driver string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
 	t.Run("QueryTest", func(t *testing.T) {
@@ -129,7 +129,7 @@ func QueryTest(
 		for _, variation := range variations {
 			t.Run(variation.desc, func(t *testing.T) {
 				t.Run("using slice of structs", func(t *testing.T) {
-					err := createTables(config.driver)
+					err := createTables(driver)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
@@ -139,7 +139,7 @@ func QueryTest(
 						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, config.driver)
+						c := newTestDB(db, driver)
 						var users []User
 						err := c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
 						tt.AssertNoErr(t, err)
@@ -159,7 +159,7 @@ func QueryTest(
 						tt.AssertNoErr(t, err)
 
 						ctx := context.Background()
-						c := newTestDB(db, config.driver)
+						c := newTestDB(db, driver)
 						var users []User
 						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
 
@@ -181,7 +181,7 @@ func QueryTest(
 						tt.AssertNoErr(t, err)
 
 						ctx := context.Background()
-						c := newTestDB(db, config.driver)
+						c := newTestDB(db, driver)
 						var users []User
 						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
 
@@ -209,13 +209,13 @@ func QueryTest(
 						_, err := db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
 						tt.AssertNoErr(t, err)
 						var joao User
-						getUserByName(db, config.driver, &joao, "João Ribeiro")
+						getUserByName(db, driver, &joao, "João Ribeiro")
 						tt.AssertNoErr(t, err)
 
 						_, err = db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
 						tt.AssertNoErr(t, err)
 						var bia User
-						getUserByName(db, config.driver, &bia, "Bia Ribeiro")
+						getUserByName(db, driver, &bia, "Bia Ribeiro")
 
 						_, err = db.ExecContext(context.TODO(), fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post1')`))
 						tt.AssertNoErr(t, err)
@@ -225,7 +225,7 @@ func QueryTest(
 						tt.AssertNoErr(t, err)
 
 						ctx := context.Background()
-						c := newTestDB(db, config.driver)
+						c := newTestDB(db, driver)
 						var rows []struct {
 							User User `tablename:"u"`
 							Post Post `tablename:"p"`
@@ -259,7 +259,7 @@ func QueryTest(
 				})
 
 				t.Run("using slice of pointers to structs", func(t *testing.T) {
-					err := createTables(config.driver)
+					err := createTables(driver)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
@@ -269,7 +269,7 @@ func QueryTest(
 						defer closer.Close()
 
 						ctx := context.Background()
-						c := newTestDB(db, config.driver)
+						c := newTestDB(db, driver)
 						var users []*User
 						err := c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
 						tt.AssertNoErr(t, err)
@@ -290,7 +290,7 @@ func QueryTest(
 						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
 						tt.AssertNoErr(t, err)
 
-						c := newTestDB(db, config.driver)
+						c := newTestDB(db, driver)
 						var users []*User
 						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
 
@@ -313,7 +313,7 @@ func QueryTest(
 						_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia Garcia', 0, '{"country":"BR"}')`)
 						tt.AssertNoErr(t, err)
 
-						c := newTestDB(db, config.driver)
+						c := newTestDB(db, driver)
 						var users []*User
 						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
 
@@ -343,12 +343,12 @@ func QueryTest(
 						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
 						tt.AssertNoErr(t, err)
 						var joao User
-						getUserByName(db, config.driver, &joao, "João Ribeiro")
+						getUserByName(db, driver, &joao, "João Ribeiro")
 
 						_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
 						assert.Equal(t, nil, err)
 						var bia User
-						getUserByName(db, config.driver, &bia, "Bia Ribeiro")
+						getUserByName(db, driver, &bia, "Bia Ribeiro")
 
 						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post1')`))
 						tt.AssertNoErr(t, err)
@@ -357,7 +357,7 @@ func QueryTest(
 						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
 						tt.AssertNoErr(t, err)
 
-						c := newTestDB(db, config.driver)
+						c := newTestDB(db, driver)
 						var rows []*struct {
 							User User `tablename:"u"`
 							Post Post `tablename:"p"`
@@ -388,7 +388,7 @@ func QueryTest(
 		}
 
 		t.Run("testing error cases", func(t *testing.T) {
-			err := createTables(config.driver)
+			err := createTables(driver)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
@@ -405,7 +405,7 @@ func QueryTest(
 				_, err = db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Caio Sá', 0)`)
 				tt.AssertNoErr(t, err)
 
-				c := newTestDB(db, config.driver)
+				c := newTestDB(db, driver)
 				err = c.Query(ctx, &User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
 				tt.AssertErrContains(t, err, "expected", "to be a slice", "User")
 
@@ -425,7 +425,7 @@ func QueryTest(
 				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, config.driver)
+				c := newTestDB(db, driver)
 				var users []User
 				err := c.Query(ctx, &users, `SELECT * FROM not a valid query`)
 				tt.AssertErrContains(t, err, "error running query")
@@ -436,7 +436,7 @@ func QueryTest(
 				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, config.driver)
+				c := newTestDB(db, driver)
 				var rows []struct {
 					User User `tablename:"users"`
 					Post Post `tablename:"posts"`
@@ -451,7 +451,7 @@ func QueryTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 					var rows []struct {
 						Foo int `tablename:"foo"`
 					}
@@ -469,7 +469,7 @@ func QueryTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 					var rows []struct {
 						Foo *User `tablename:"foo"`
 					}
@@ -488,7 +488,7 @@ func QueryTest(
 				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, config.driver)
+				c := newTestDB(db, driver)
 				var rows []struct {
 					User User `tablename:"users"`
 					Post struct {
@@ -505,7 +505,7 @@ func QueryTest(
 
 func QueryOneTest(
 	t *testing.T,
-	config testConfig,
+	driver string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
 	t.Run("QueryOne", func(t *testing.T) {
@@ -523,7 +523,7 @@ func QueryOneTest(
 			},
 		}
 		for _, variation := range variations {
-			err := createTables(config.driver)
+			err := createTables(driver)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
@@ -534,7 +534,7 @@ func QueryOneTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 					u := User{}
 					err := c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE id=1;`)
 					tt.AssertEqual(t, ErrRecordNotFound, err)
@@ -549,7 +549,7 @@ func QueryOneTest(
 					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
 					tt.AssertNoErr(t, err)
 
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 					u := User{}
 					err = c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
 
@@ -573,7 +573,7 @@ func QueryOneTest(
 					_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Caio Sá', 0, '{"country":"BR"}')`)
 					tt.AssertNoErr(t, err)
 
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					var u User
 					err = c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0)+` ORDER BY id ASC`, "% Sá")
@@ -599,12 +599,12 @@ func QueryOneTest(
 					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
 					tt.AssertNoErr(t, err)
 					var joao User
-					getUserByName(db, config.driver, &joao, "João Ribeiro")
+					getUserByName(db, driver, &joao, "João Ribeiro")
 
 					_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
 					tt.AssertNoErr(t, err)
 
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 					var row struct {
 						User User `tablename:"u"`
 						Post Post `tablename:"p"`
@@ -635,7 +635,7 @@ func QueryOneTest(
 			_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Caio Sá', 0, '{"country":"BR"}')`)
 			tt.AssertNoErr(t, err)
 
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 
 			err = c.QueryOne(ctx, &[]User{}, `SELECT * FROM users WHERE name like `+c.dialect.Placeholder(0), "% Sá")
 			tt.AssertErrContains(t, err, "pointer to struct")
@@ -649,7 +649,7 @@ func QueryOneTest(
 			defer closer.Close()
 
 			ctx := context.Background()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 			var user *User
 			err := c.QueryOne(ctx, user, `SELECT * FROM users`)
 			tt.AssertErrContains(t, err, "expected a valid pointer", "received a nil pointer")
@@ -660,7 +660,7 @@ func QueryOneTest(
 			defer closer.Close()
 
 			ctx := context.Background()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 			var user User
 			err := c.QueryOne(ctx, &user, `SELECT * FROM not a valid query`)
 			tt.AssertErrContains(t, err, "error running query")
@@ -671,7 +671,7 @@ func QueryOneTest(
 			defer closer.Close()
 
 			ctx := context.Background()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 			var row struct {
 				User User `tablename:"users"`
 				Post Post `tablename:"posts"`
@@ -684,13 +684,13 @@ func QueryOneTest(
 
 func InsertTest(
 	t *testing.T,
-	config testConfig,
+	driver string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
 	t.Run("Insert", func(t *testing.T) {
 		t.Run("success cases", func(t *testing.T) {
 			t.Run("single primary key tables", func(t *testing.T) {
-				err := createTables(config.driver)
+				err := createTables(driver)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
@@ -700,7 +700,7 @@ func InsertTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					u := User{
 						Name: "Fernanda",
@@ -722,7 +722,7 @@ func InsertTest(
 				})
 
 				t.Run("should insert ignoring the ID with multiple ids", func(t *testing.T) {
-					if supportedDialects[config.driver].InsertMethod() != insertWithLastInsertID {
+					if supportedDialects[driver].InsertMethod() != insertWithLastInsertID {
 						return
 					}
 
@@ -733,7 +733,7 @@ func InsertTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					u := User{
 						Name: "No ID returned",
@@ -749,7 +749,7 @@ func InsertTest(
 					assert.Equal(t, uint(0), u.ID)
 
 					result := User{}
-					err = getUserByName(c.db, config.driver, &result, "No ID returned")
+					err = getUserByName(c.db, driver, &result, "No ID returned")
 					assert.Equal(t, nil, err)
 
 					assert.Equal(t, u.Age, result.Age)
@@ -761,7 +761,7 @@ func InsertTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 					err = c.Insert(ctx, UsersTable, &struct {
 						ID      int                    `ksql:"id"`
 						Name    string                 `ksql:"name"`
@@ -775,7 +775,7 @@ func InsertTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					usersByName := NewTable("users", "name")
 
@@ -786,14 +786,14 @@ func InsertTest(
 					assert.Equal(t, nil, err)
 
 					var inserted User
-					err := getUserByName(db, config.driver, &inserted, "Preset Name")
+					err := getUserByName(db, driver, &inserted, "Preset Name")
 					assert.Equal(t, nil, err)
 					assert.Equal(t, 5455, inserted.Age)
 				})
 			})
 
 			t.Run("composite key tables", func(t *testing.T) {
-				err := createTables(config.driver)
+				err := createTables(driver)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
@@ -803,7 +803,7 @@ func InsertTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					table := NewTable("user_permissions", "id", "user_id", "perm_id")
 					err = c.Insert(ctx, table, &UserPermission{
@@ -812,7 +812,7 @@ func InsertTest(
 					})
 					tt.AssertNoErr(t, err)
 
-					userPerms, err := getUserPermissionsByUser(db, config.driver, 1)
+					userPerms, err := getUserPermissionsByUser(db, driver, 1)
 					tt.AssertNoErr(t, err)
 					tt.AssertEqual(t, len(userPerms), 1)
 					tt.AssertEqual(t, userPerms[0].UserID, 1)
@@ -824,7 +824,7 @@ func InsertTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					// Table defined with 3 values, but we'll provide only 2,
 					// the third will be generated for the purposes of this test:
@@ -836,7 +836,7 @@ func InsertTest(
 					err = c.Insert(ctx, table, &permission)
 					tt.AssertNoErr(t, err)
 
-					userPerms, err := getUserPermissionsByUser(db, config.driver, 2)
+					userPerms, err := getUserPermissionsByUser(db, driver, 2)
 					tt.AssertNoErr(t, err)
 
 					// Should retrieve the generated ID from the database,
@@ -859,7 +859,7 @@ func InsertTest(
 		})
 
 		t.Run("testing error cases", func(t *testing.T) {
-			err := createTables(config.driver)
+			err := createTables(driver)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
@@ -869,7 +869,7 @@ func InsertTest(
 				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, config.driver)
+				c := newTestDB(db, driver)
 
 				err = c.Insert(ctx, UsersTable, "foo")
 				assert.NotEqual(t, nil, err)
@@ -900,7 +900,7 @@ func InsertTest(
 				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, config.driver)
+				c := newTestDB(db, driver)
 
 				// This is an invalid value:
 				c.dialect = brokenDialect{}
@@ -914,7 +914,7 @@ func InsertTest(
 				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, config.driver)
+				c := newTestDB(db, driver)
 
 				var user *User
 				err := c.Insert(ctx, UsersTable, user)
@@ -926,7 +926,7 @@ func InsertTest(
 				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, config.driver)
+				c := newTestDB(db, driver)
 
 				err := c.Insert(ctx, NewTable("users", ""), &User{Name: "fake-name"})
 				tt.AssertErrContains(t, err, "ksql.Table", "ID", "empty string")
@@ -937,7 +937,7 @@ func InsertTest(
 				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, config.driver)
+				c := newTestDB(db, driver)
 
 				err := c.Insert(ctx, NewTable("", "id"), &User{Name: "fake-name"})
 				tt.AssertErrContains(t, err, "ksql.Table", "table name", "empty string")
@@ -948,7 +948,7 @@ func InsertTest(
 				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, config.driver)
+				c := newTestDB(db, driver)
 
 				err = c.Insert(ctx, UsersTable, &struct {
 					ID                string `ksql:"id"`
@@ -966,7 +966,7 @@ func InsertTest(
 				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, config.driver)
+				c := newTestDB(db, driver)
 
 				brokenTable := NewTable("users", "non_existing_id")
 
@@ -982,7 +982,7 @@ func InsertTest(
 				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, config.driver)
+				c := newTestDB(db, driver)
 
 				err = c.Insert(ctx, UsersTable, &struct {
 					Age  int    `ksql:"age"`
@@ -991,7 +991,7 @@ func InsertTest(
 				assert.Equal(t, nil, err)
 
 				var u User
-				err = getUserByName(db, config.driver, &u, "Inserted With no ID")
+				err = getUserByName(db, driver, &u, "Inserted With no ID")
 				assert.Equal(t, nil, err)
 				assert.NotEqual(t, uint(0), u.ID)
 				assert.Equal(t, 42, u.Age)
@@ -1020,11 +1020,11 @@ func (brokenDialect) DriverName() string {
 
 func DeleteTest(
 	t *testing.T,
-	config testConfig,
+	driver string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
 	t.Run("Delete", func(t *testing.T) {
-		err := createTables(config.driver)
+		err := createTables(driver)
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
@@ -1060,7 +1060,7 @@ func DeleteTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					u1 := User{
 						Name: "Fernanda",
@@ -1111,7 +1111,7 @@ func DeleteTest(
 				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, config.driver)
+				c := newTestDB(db, driver)
 
 				// This permission should not be deleted, we'll use the id to check it:
 				p0 := UserPermission{
@@ -1132,7 +1132,7 @@ func DeleteTest(
 				err = c.Delete(ctx, UserPermissionsTable, p1)
 				tt.AssertNoErr(t, err)
 
-				userPerms, err := getUserPermissionsByUser(db, config.driver, 1)
+				userPerms, err := getUserPermissionsByUser(db, driver, 1)
 				tt.AssertNoErr(t, err)
 				tt.AssertEqual(t, len(userPerms), 1)
 				tt.AssertEqual(t, userPerms[0].UserID, 1)
@@ -1144,7 +1144,7 @@ func DeleteTest(
 				defer closer.Close()
 
 				ctx := context.Background()
-				c := newTestDB(db, config.driver)
+				c := newTestDB(db, driver)
 
 				// This permission should not be deleted, we'll use the id to check it:
 				p0 := UserPermission{
@@ -1168,7 +1168,7 @@ func DeleteTest(
 				})
 				tt.AssertNoErr(t, err)
 
-				userPerms, err := getUserPermissionsByUser(db, config.driver, 2)
+				userPerms, err := getUserPermissionsByUser(db, driver, 2)
 				tt.AssertNoErr(t, err)
 				tt.AssertEqual(t, len(userPerms), 1)
 				tt.AssertEqual(t, userPerms[0].UserID, 2)
@@ -1181,7 +1181,7 @@ func DeleteTest(
 			defer closer.Close()
 
 			ctx := context.Background()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 
 			err = c.Delete(ctx, UsersTable, 4200)
 			assert.Equal(t, ErrRecordNotFound, err)
@@ -1192,7 +1192,7 @@ func DeleteTest(
 			defer closer.Close()
 
 			ctx := context.Background()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 
 			var user *User
 			err := c.Delete(ctx, UsersTable, user)
@@ -1206,7 +1206,7 @@ func DeleteTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					err := c.Delete(ctx, NewTable("users", "id"), &struct {
 						// Missing ID
@@ -1220,7 +1220,7 @@ func DeleteTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					err := c.Delete(ctx, NewTable("users", "id"), &struct {
 						// Null ID
@@ -1235,7 +1235,7 @@ func DeleteTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					err := c.Delete(ctx, NewTable("users", "id"), &struct {
 						// Uninitialized ID
@@ -1252,7 +1252,7 @@ func DeleteTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), map[string]interface{}{
 						// Missing PermID
@@ -1267,7 +1267,7 @@ func DeleteTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), map[string]interface{}{
 						// Null Perm ID
@@ -1283,7 +1283,7 @@ func DeleteTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), map[string]interface{}{
 						// Zero Perm ID
@@ -1301,7 +1301,7 @@ func DeleteTest(
 			defer closer.Close()
 
 			ctx := context.Background()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 
 			err := c.Delete(ctx, NewTable("users", ""), &User{ID: 42, Name: "fake-name"})
 			tt.AssertErrContains(t, err, "ksql.Table", "ID", "empty string")
@@ -1312,7 +1312,7 @@ func DeleteTest(
 			defer closer.Close()
 
 			ctx := context.Background()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 
 			err := c.Delete(ctx, NewTable("", "id"), &User{Name: "fake-name"})
 			tt.AssertErrContains(t, err, "ksql.Table", "table name", "empty string")
@@ -1322,11 +1322,11 @@ func DeleteTest(
 
 func UpdateTest(
 	t *testing.T,
-	config testConfig,
+	driver string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
 	t.Run("Update", func(t *testing.T) {
-		err := createTables(config.driver)
+		err := createTables(driver)
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
@@ -1336,7 +1336,7 @@ func UpdateTest(
 			defer closer.Close()
 
 			ctx := context.Background()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 
 			u := User{
 				Name: "Letícia",
@@ -1344,7 +1344,7 @@ func UpdateTest(
 			_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Letícia', 0)`)
 			assert.Equal(t, nil, err)
 
-			err = getUserByName(db, config.driver, &u, "Letícia")
+			err = getUserByName(db, driver, &u, "Letícia")
 			assert.Equal(t, nil, err)
 			assert.NotEqual(t, uint(0), u.ID)
 
@@ -1365,7 +1365,7 @@ func UpdateTest(
 			defer closer.Close()
 
 			ctx := context.Background()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 
 			u := User{
 				Name: "Letícia",
@@ -1373,7 +1373,7 @@ func UpdateTest(
 			_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Letícia', 0)`)
 			assert.Equal(t, nil, err)
 
-			err = getUserByName(db, config.driver, &u, "Letícia")
+			err = getUserByName(db, driver, &u, "Letícia")
 			assert.Equal(t, nil, err)
 			assert.NotEqual(t, uint(0), u.ID)
 
@@ -1394,7 +1394,7 @@ func UpdateTest(
 			defer closer.Close()
 
 			ctx := context.Background()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 
 			type partialUser struct {
 				ID   uint   `ksql:"id"`
@@ -1406,7 +1406,7 @@ func UpdateTest(
 			assert.Equal(t, nil, err)
 
 			var u User
-			err = getUserByName(db, config.driver, &u, "Letícia")
+			err = getUserByName(db, driver, &u, "Letícia")
 			assert.Equal(t, nil, err)
 			assert.NotEqual(t, uint(0), u.ID)
 
@@ -1431,7 +1431,7 @@ func UpdateTest(
 			defer closer.Close()
 
 			ctx := context.Background()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 
 			type partialUser struct {
 				ID   uint   `ksql:"id"`
@@ -1443,7 +1443,7 @@ func UpdateTest(
 			assert.Equal(t, nil, err)
 
 			var u User
-			err = getUserByName(db, config.driver, &u, "Letícia")
+			err = getUserByName(db, driver, &u, "Letícia")
 			assert.Equal(t, nil, err)
 			assert.NotEqual(t, uint(0), u.ID)
 
@@ -1468,7 +1468,7 @@ func UpdateTest(
 			defer closer.Close()
 
 			ctx := context.Background()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 
 			err = c.Update(ctx, UsersTable, User{
 				ID:   4200,
@@ -1482,7 +1482,7 @@ func UpdateTest(
 			defer closer.Close()
 
 			ctx := context.Background()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 
 			err = c.Update(ctx, NewTable("non_existing_table"), User{
 				ID:   1,
@@ -1496,7 +1496,7 @@ func UpdateTest(
 			defer closer.Close()
 
 			ctx := context.Background()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 
 			var user *User
 			err := c.Update(ctx, UsersTable, user)
@@ -1507,7 +1507,7 @@ func UpdateTest(
 
 func QueryChunksTest(
 	t *testing.T,
-	config testConfig,
+	driver string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
 	t.Run("QueryChunks", func(t *testing.T) {
@@ -1527,7 +1527,7 @@ func QueryChunksTest(
 		for _, variation := range variations {
 			t.Run(variation.desc, func(t *testing.T) {
 				t.Run("should query a single row correctly", func(t *testing.T) {
-					err := createTables(config.driver)
+					err := createTables(driver)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
@@ -1536,7 +1536,7 @@ func QueryChunksTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					_ = c.Insert(ctx, UsersTable, &User{
 						Name:    "User1",
@@ -1567,7 +1567,7 @@ func QueryChunksTest(
 				})
 
 				t.Run("should query one chunk correctly", func(t *testing.T) {
-					err := createTables(config.driver)
+					err := createTables(driver)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
@@ -1576,7 +1576,7 @@ func QueryChunksTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Address: Address{Country: "US"}})
 					_ = c.Insert(ctx, UsersTable, &User{Name: "User2", Address: Address{Country: "BR"}})
@@ -1609,7 +1609,7 @@ func QueryChunksTest(
 				})
 
 				t.Run("should query chunks of 1 correctly", func(t *testing.T) {
-					err := createTables(config.driver)
+					err := createTables(driver)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
@@ -1618,7 +1618,7 @@ func QueryChunksTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Address: Address{Country: "US"}})
 					_ = c.Insert(ctx, UsersTable, &User{Name: "User2", Address: Address{Country: "BR"}})
@@ -1651,7 +1651,7 @@ func QueryChunksTest(
 				})
 
 				t.Run("should load partially filled chunks correctly", func(t *testing.T) {
-					err := createTables(config.driver)
+					err := createTables(driver)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
@@ -1660,7 +1660,7 @@ func QueryChunksTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
 					_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
@@ -1711,7 +1711,7 @@ func QueryChunksTest(
 					}
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 					_ = c.Insert(ctx, UsersTable, &joao)
 					_ = c.Insert(ctx, UsersTable, &thatiana)
 
@@ -1764,7 +1764,7 @@ func QueryChunksTest(
 				})
 
 				t.Run("should abort the first iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
-					err := createTables(config.driver)
+					err := createTables(driver)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
@@ -1773,7 +1773,7 @@ func QueryChunksTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
 					_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
@@ -1803,7 +1803,7 @@ func QueryChunksTest(
 				})
 
 				t.Run("should abort the last iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
-					err := createTables(config.driver)
+					err := createTables(driver)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
@@ -1812,7 +1812,7 @@ func QueryChunksTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
 					_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
@@ -1846,7 +1846,7 @@ func QueryChunksTest(
 				})
 
 				t.Run("should return error if the callback returns an error in the first iteration", func(t *testing.T) {
-					err := createTables(config.driver)
+					err := createTables(driver)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
@@ -1855,7 +1855,7 @@ func QueryChunksTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
 					_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
@@ -1885,7 +1885,7 @@ func QueryChunksTest(
 				})
 
 				t.Run("should return error if the callback returns an error in the last iteration", func(t *testing.T) {
-					err := createTables(config.driver)
+					err := createTables(driver)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
@@ -1894,7 +1894,7 @@ func QueryChunksTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
 					_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
@@ -1932,7 +1932,7 @@ func QueryChunksTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					funcs := []interface{}{
 						nil,
@@ -1977,7 +1977,7 @@ func QueryChunksTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 					err := c.QueryChunks(ctx, ChunkParser{
 						Query:  `SELECT * FROM not a valid query`,
 						Params: []interface{}{},
@@ -1995,7 +1995,7 @@ func QueryChunksTest(
 					defer closer.Close()
 
 					ctx := context.Background()
-					c := newTestDB(db, config.driver)
+					c := newTestDB(db, driver)
 
 					err := c.QueryChunks(ctx, ChunkParser{
 						Query:  `SELECT * FROM users u JOIN posts p ON u.id = p.user_id`,
@@ -2021,21 +2021,21 @@ func QueryChunksTest(
 
 func TransactionTest(
 	t *testing.T,
-	config testConfig,
+	driver string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
 	t.Run("Transaction", func(t *testing.T) {
 		t.Run("should query a single row correctly", func(t *testing.T) {
-			err := createTables(config.driver)
+			err := createTables(driver)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
 
-			db, closer := connectDB(t, config)
+			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
 			ctx := context.Background()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 
 			_ = c.Insert(ctx, UsersTable, &User{Name: "User1"})
 			_ = c.Insert(ctx, UsersTable, &User{Name: "User2"})
@@ -2053,16 +2053,16 @@ func TransactionTest(
 		})
 
 		t.Run("should rollback when there are errors", func(t *testing.T) {
-			err := createTables(config.driver)
+			err := createTables(driver)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
 
-			db, closer := connectDB(t, config)
+			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
 			ctx := context.Background()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 
 			u1 := User{Name: "User1", Age: 42}
 			u2 := User{Name: "User2", Age: 42}
@@ -2093,21 +2093,21 @@ func TransactionTest(
 
 func ScanRowsTest(
 	t *testing.T,
-	config testConfig,
+	driver string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
 	t.Run("ScanRows", func(t *testing.T) {
 		t.Run("should scan users correctly", func(t *testing.T) {
-			err := createTables(config.driver)
+			err := createTables(driver)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
 
-			dialect := supportedDialects[config.driver]
+			dialect := supportedDialects[driver]
 			ctx := context.TODO()
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 			_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Age: 22})
 			_ = c.Insert(ctx, UsersTable, &User{Name: "User2", Age: 14})
 			_ = c.Insert(ctx, UsersTable, &User{Name: "User3", Age: 43})
@@ -2127,16 +2127,16 @@ func ScanRowsTest(
 		})
 
 		t.Run("should ignore extra columns from query", func(t *testing.T) {
-			err := createTables(config.driver)
+			err := createTables(driver)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
 
-			dialect := supportedDialects[config.driver]
+			dialect := supportedDialects[driver]
 			ctx := context.TODO()
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
-			c := newTestDB(db, config.driver)
+			c := newTestDB(db, driver)
 			_ = c.Insert(ctx, UsersTable, &User{Name: "User1", Age: 22})
 
 			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User1'")
@@ -2159,12 +2159,12 @@ func ScanRowsTest(
 		})
 
 		t.Run("should report error for closed rows", func(t *testing.T) {
-			err := createTables(config.driver)
+			err := createTables(driver)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
 
-			dialect := supportedDialects[config.driver]
+			dialect := supportedDialects[driver]
 			ctx := context.TODO()
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
@@ -2180,12 +2180,12 @@ func ScanRowsTest(
 		})
 
 		t.Run("should report if record is not a pointer", func(t *testing.T) {
-			err := createTables(config.driver)
+			err := createTables(driver)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
 
-			dialect := supportedDialects[config.driver]
+			dialect := supportedDialects[driver]
 			ctx := context.TODO()
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
@@ -2200,12 +2200,12 @@ func ScanRowsTest(
 		})
 
 		t.Run("should report if record is not a pointer to struct", func(t *testing.T) {
-			err := createTables(config.driver)
+			err := createTables(driver)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
 
-			dialect := supportedDialects[config.driver]
+			dialect := supportedDialects[driver]
 			ctx := context.TODO()
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
