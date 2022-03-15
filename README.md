@@ -696,15 +696,16 @@ is configured to kill the containers after 20 seconds.
 - Update `ksqltest.FillStructWith` to work with `ksql:"..,json"` tagged attributes
 - Create a way for users to submit user defined dialects
 - Improve error messages
-- Add support for the update function to work with maps for partial updates
-- Add support for the insert function to work with maps
+- Add support for the Patch function to work with maps for partial updates
+- Add support for the Insert function to work with maps
 - Add support for a `ksql.Array(params ...interface{})` for allowing queries like this:
   `db.Query(ctx, &user, "SELECT * FROM user WHERE id in (?)", ksql.Array(1,2,3))`
+- Improve docs about `ksql.Mock`
 
 ## Optimization Oportunities
 
 - Test if using a pointer on the field info is faster or not
 - Consider passing the cached structInfo as argument for all the functions that use it,
   so that we don't need to get it more than once in the same call.
-- Use a cache to store all queries after they are built
+- Use a cache to store often used queries (like pgx)
 - Preload the insert method for all dialects inside `ksql.NewTable()`
