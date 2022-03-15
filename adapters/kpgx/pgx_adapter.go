@@ -1,4 +1,4 @@
-package ksql
+package kpgx
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/vingarcia/ksql"
 )
 
 // PGXAdapter adapts the sql.DB type to be compatible with the `DBAdapter` interface
@@ -21,22 +22,22 @@ func NewPGXAdapter(db *pgxpool.Pool) PGXAdapter {
 	}
 }
 
-var _ DBAdapter = PGXAdapter{}
+var _ ksql.DBAdapter = PGXAdapter{}
 
 // ExecContext implements the DBAdapter interface
-func (p PGXAdapter) ExecContext(ctx context.Context, query string, args ...interface{}) (Result, error) {
+func (p PGXAdapter) ExecContext(ctx context.Context, query string, args ...interface{}) (ksql.Result, error) {
 	result, err := p.db.Exec(ctx, query, args...)
 	return PGXResult{result}, err
 }
 
 // QueryContext implements the DBAdapter interface
-func (p PGXAdapter) QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error) {
+func (p PGXAdapter) QueryContext(ctx context.Context, query string, args ...interface{}) (ksql.Rows, error) {
 	rows, err := p.db.Query(ctx, query, args...)
 	return PGXRows{rows}, err
 }
 
 // BeginTx implements the Tx interface
-func (p PGXAdapter) BeginTx(ctx context.Context) (Tx, error) {
+func (p PGXAdapter) BeginTx(ctx context.Context) (ksql.Tx, error) {
 	tx, err := p.db.Begin(ctx)
 	return PGXTx{tx}, err
 }
@@ -66,13 +67,13 @@ type PGXTx struct {
 }
 
 // ExecContext implements the Tx interface
-func (p PGXTx) ExecContext(ctx context.Context, query string, args ...interface{}) (Result, error) {
+func (p PGXTx) ExecContext(ctx context.Context, query string, args ...interface{}) (ksql.Result, error) {
 	result, err := p.tx.Exec(ctx, query, args...)
 	return PGXResult{result}, err
 }
 
 // QueryContext implements the Tx interface
-func (p PGXTx) QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error) {
+func (p PGXTx) QueryContext(ctx context.Context, query string, args ...interface{}) (ksql.Rows, error) {
 	rows, err := p.tx.Query(ctx, query, args...)
 	return PGXRows{rows}, err
 }
@@ -87,7 +88,7 @@ func (p PGXTx) Commit(ctx context.Context) error {
 	return p.tx.Commit(ctx)
 }
 
-var _ Tx = PGXTx{}
+var _ ksql.Tx = PGXTx{}
 
 // PGXRows implements the Rows interface and is used to help
 // the PGXAdapter to implement the DBAdapter interface.
@@ -95,7 +96,7 @@ type PGXRows struct {
 	pgx.Rows
 }
 
-var _ Rows = PGXRows{}
+var _ ksql.Rows = PGXRows{}
 
 // Columns implements the Rows interface
 func (p PGXRows) Columns() ([]string, error) {

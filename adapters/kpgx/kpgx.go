@@ -5,6 +5,8 @@ import (
 
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/vingarcia/ksql"
+
+	_ "github.com/lib/pq"
 )
 
 // New instantiates a new ksql.Client using pgx as the backend driver
@@ -30,6 +32,6 @@ func New(
 		return ksql.DB{}, err
 	}
 
-	db, err = ksql.NewWithAdapter(ksql.NewPGXAdapter(pool), "postgres")
+	db, err = ksql.NewWithAdapter(NewPGXAdapter(pool), "postgres")
 	return db, err
 }

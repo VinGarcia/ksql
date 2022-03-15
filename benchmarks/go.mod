@@ -1,6 +1,6 @@
 module github.com/vingarcia/ksql/benchmarks
 
-go 1.16
+go 1.14
 
 require (
 	github.com/jackc/pgx/v4 v4.13.0
