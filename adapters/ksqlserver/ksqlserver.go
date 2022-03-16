@@ -29,5 +29,5 @@ func New(
 
 	db.SetMaxOpenConns(config.MaxOpenConns)
 
-	return ksql.NewWithAdapter(ksql.NewSQLAdapter(db), "sqlserver")
+	return ksql.NewWithAdapter(NewSQLAdapter(db), "sqlserver")
 }

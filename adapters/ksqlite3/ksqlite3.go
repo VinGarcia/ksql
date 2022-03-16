@@ -29,5 +29,5 @@ func New(
 
 	db.SetMaxOpenConns(config.MaxOpenConns)
 
-	return ksql.NewWithAdapter(ksql.NewSQLAdapter(db), "sqlite3")
+	return ksql.NewWithAdapter(NewSQLAdapter(db), "sqlite3")
 }
