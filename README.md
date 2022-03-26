@@ -4,7 +4,7 @@
 
 # KissSQL
 
-KissSQL or the "Keep it Simple" SQL package was created to offer an
+KissSQL  or the "Keep it Simple" SQL package was created to offer an
 actually simple and satisfactory tool for interacting with SQL Databases.
 
 The core idea on `ksql` is to offer an easy to use interface,
