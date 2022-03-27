@@ -16,8 +16,6 @@ require (
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/opencontainers/runc v1.1.0 // indirect
 	github.com/ory/dockertest v3.3.5+incompatible
-	github.com/vingarcia/ksql v0.0.0-00010101000000-000000000000
+	github.com/vingarcia/ksql v1.4.2
 	gotest.tools v2.2.0+incompatible // indirect
 )
-
-replace github.com/vingarcia/ksql => ../../
