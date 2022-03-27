@@ -8,6 +8,9 @@ set -ueo pipefail
 # Run ksql root module tests:
 go test -coverprofile=coverage.txt -covermode=atomic -coverpkg=github.com/vingarcia/ksql ./...
 
+# Run the benchmarks
+( cd benchmarks ; go test -coverprofile=coverage.txt -covermode=atomic -coverpkg=github.com/vingarcia/ksql ./... )
+
 # Run the tests for the examples module:
 ( cd examples ; go test -coverprofile=coverage.txt -covermode=atomic -coverpkg=github.com/vingarcia/ksql ./... )
 
