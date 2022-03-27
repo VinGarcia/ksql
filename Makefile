@@ -7,6 +7,10 @@ TIME=1s
 
 test: setup
 	$(GOBIN)/richgo test $(path) $(args)
+	@( cd adapters/kpgx ; $(GOBIN)/richgo test $(path) $(args) )
+	@( cd adapters/kmysql ; $(GOBIN)/richgo test $(path) $(args) )
+	@( cd adapters/ksqlserver ; $(GOBIN)/richgo test $(path) $(args) )
+	@( cd adapters/ksqlite3 ; $(GOBIN)/richgo test $(path) $(args) )
 
 bench:
 	cd benchmarks && go test -bench=. -benchtime=$(TIME)
