@@ -684,8 +684,8 @@ docker pull mysql:8.0.27
 docker pull mcr.microsoft.com/mssql/server:2017-latest
 ```
 
-Otherwise the first attempt to run the tests
-will spend a long time downloading these images
+Otherwise the first attempt to run the tests will
+spend a long time downloading these images
 and then fail because the `TestMain()` function
 is configured to kill the containers after 20 seconds.
 
