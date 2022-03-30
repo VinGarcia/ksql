@@ -573,13 +573,80 @@ In the example above, since we are only interested in a couple of columns it
 is far simpler and more efficient for the database to only select the columns
 that we actually care about, so it's better not to use composite structs.
 
-## Testing Examples
+## Testing Examples & ksql.Mock
 
-This library has a few helper functions for helping your tests:
+`ksql.Mock` is a simple mock that is available out of the box for the `ksql.Provider` interface.
+
+For each of the methods available on the interface this Mock has a function attribute with the same
+function signature and with the same name but with an `Fn` in the end of the name.
+
+For instantiating this mock and at the same time mocking one of the functions all you need to do is
+this:
+
+```golang
+var capturedRecord interface{}
+var capturedQuery string
+var capturedParams []interface{}
+mockDB := ksql.Mock{
+  QueryOneFn: func(ctx context.Context, record interface{}, query string, params ...interface{}) error {
+    capturedRecord = record
+    capturedQuery = query
+    capturedParams = params
+
+    // For simulating an error you would do this:
+    return fmt.Errorf("some fake error")
+  },
+}
+
+var user User
+err := GetUser(db, &user, otherArgs)
+assert.NotNil(t, err)
+assert.Equal(t, user, capturedRecord)
+assert.Equal(t, `SELECT * FROM user WHERE other_args=$1`, capturedQuery)
+assert.Equal(t, []interface{}{otherArgs}, capturedParams)
+```
+
+For different types of functions you might need do some tricks with structs to make it easier
+to write the tests such as:
+
+Converting a struct to something that is more easy to assert like a `map[string]interface{}`
+or filling a struct with fake data from the database, for these situations the library provides
+the following functions:
 
 - `ksqltest.FillStructWith(struct interface{}, dbRow map[string]interface{}) error`
 - `ksqltest.FillSliceWith(structSlice interface{}, dbRows []map[string]interface{}) error`
 - `ksqltest.StructToMap(struct interface{}) (map[string]interface{}, error)`
+
+For example:
+
+```golang
+createdAt := time.Now().Add(10*time.Hour)
+mockDB := ksql.Mock{
+  QueryOneFn: func(ctx context.Context, record interface{}, query string, params ...interface{}) error {
+    // For simulating a succesful scenario you can just fillup the struct:
+    return ksqltest.FillStructWith(map[string]interface{}{
+      "id": 42,
+      "name": "fake-name",
+      "age": 32,
+      "created_at": createdAt,
+    })
+  },
+}
+
+var user User
+err := GetUser(db, &user, otherArgs)
+assert.Nil(t, err)
+assert.Equal(t, user, User{
+  ID: 42,
+  Name: "fake-name",
+  Age: 32,
+  CreatedAt: createdAt,
+})
+```
+
+And for running tests on the `QueryChunks` function which is a particularly complex function
+we also have this test helper:
+
 - `ksqltest.CallFunctionWithRows(fn interface{}, rows []map[string]interface{}) (map[string]interface{}, error)`
 
 If you want to see examples (we have examples for all the public functions) just
