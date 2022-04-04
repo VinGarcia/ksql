@@ -2,6 +2,7 @@ package ksql
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"reflect"
 	"strings"
@@ -73,6 +74,9 @@ type Tx interface {
 type Config struct {
 	// MaxOpenCons defaults to 1 if not set
 	MaxOpenConns int
+
+	// Used by some adapters (such as kpgx) where nil disables TLS
+	TLSConfig *tls.Config
 }
 
 // SetDefaultValues should be called by all adapters
