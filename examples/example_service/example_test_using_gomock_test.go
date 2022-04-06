@@ -11,7 +11,7 @@ import (
 	"github.com/vingarcia/ksql/nullable"
 )
 
-func TestCreateUser(t *testing.T) {
+func TestCreateUserWithGoMock(t *testing.T) {
 	t.Run("should call ksql.Insert correctly", func(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
@@ -25,8 +25,8 @@ func TestCreateUser(t *testing.T) {
 
 		var users []interface{}
 		mockDB.EXPECT().Insert(gomock.Any(), gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, table ksql.Table, records ...interface{}) error {
-				users = append(users, records...)
+			DoAndReturn(func(ctx context.Context, table ksql.Table, record interface{}) error {
+				users = append(users, record)
 				return nil
 			})
 
@@ -51,19 +51,18 @@ func TestCreateUser(t *testing.T) {
 
 		var users []map[string]interface{}
 		mockDB.EXPECT().Insert(gomock.Any(), gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, table ksql.Table, records ...interface{}) error {
-				for _, record := range records {
-					// The StructToMap function will convert a struct with `ksql` tags
-					// into a map using the ksql attr names as keys.
-					//
-					// If you are inserting an anonymous struct (not usual) this function
-					// can make your tests shorter:
-					uMap, err := ksqltest.StructToMap(record)
-					if err != nil {
-						return err
-					}
-					users = append(users, uMap)
+			DoAndReturn(func(ctx context.Context, table ksql.Table, record interface{}) error {
+				// The StructToMap function will convert a struct with `ksql` tags
+				// into a map using the ksql attr names as keys.
+				//
+				// If you are inserting an anonymous struct (not usual) this function
+				// can make your tests shorter:
+				uMap, err := ksqltest.StructToMap(record)
+				if err != nil {
+					return err
 				}
+				users = append(users, uMap)
+
 				return nil
 			})
 
@@ -77,7 +76,7 @@ func TestCreateUser(t *testing.T) {
 	})
 }
 
-func TestUpdateUserScore(t *testing.T) {
+func TestUpdateUserScoreWithGoMock(t *testing.T) {
 	t.Run("should call ksql.QueryOne() & Patch() correctly", func(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
@@ -121,7 +120,7 @@ func TestUpdateUserScore(t *testing.T) {
 	})
 }
 
-func TestListUsers(t *testing.T) {
+func TestListUsersWithGoMock(t *testing.T) {
 	t.Run("should call ksql.QueryOne() & Query() correctly", func(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
@@ -183,7 +182,7 @@ func TestListUsers(t *testing.T) {
 	})
 }
 
-func TestStreamAllUsers(t *testing.T) {
+func TestStreamAllUsersWithGoMock(t *testing.T) {
 	t.Run("should call ksql.QueryChunks correctly", func(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
@@ -255,7 +254,7 @@ func TestStreamAllUsers(t *testing.T) {
 	})
 }
 
-func TestDeleteUser(t *testing.T) {
+func TestDeleteUserWithGoMock(t *testing.T) {
 	t.Run("should call ksql.Delete correctly", func(t *testing.T) {
 		controller := gomock.NewController(t)
 		defer controller.Finish()
