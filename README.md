@@ -650,7 +650,11 @@ we also have this test helper:
 - `ksqltest.CallFunctionWithRows(fn interface{}, rows []map[string]interface{}) (map[string]interface{}, error)`
 
 If you want to see examples (we have examples for all the public functions) just
-read the example tests available on our [example service](./examples/example_service)
+read the example tests available on our [example service](./examples/example_service/).
+
+Please note that that in the example service above we have two sets
+of tests in two different files, exemplifying how to use `gomock` and
+then how to use `ksql.Mock{}`.
 
 ## Benchmark Comparison
 
