@@ -11,6 +11,11 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// NewFromSQLDB builds a ksql.DB from a *sql.DB instance
+func NewFromSQLDB(db *sql.DB) (ksql.DB, error) {
+	return ksql.NewWithAdapter(NewSQLAdapter(db), "sqlite3")
+}
+
 // New instantiates a new KissSQL client using the "sqlite3" driver
 func New(
 	_ context.Context,

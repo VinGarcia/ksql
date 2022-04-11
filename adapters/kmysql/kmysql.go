@@ -11,6 +11,11 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+// NewFromSQLDB builds a ksql.DB from a *sql.DB instance
+func NewFromSQLDB(db *sql.DB) (ksql.DB, error) {
+	return ksql.NewWithAdapter(NewSQLAdapter(db), "mysql")
+}
+
 // New instantiates a new KissSQL client using the "mysql" driver
 func New(
 	_ context.Context,

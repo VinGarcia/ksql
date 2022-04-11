@@ -11,7 +11,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
-// NewFromPgxPool builds a ksql.DB from a *pgxpool.Pool instance.
+// NewFromPgxPool builds a ksql.DB from a *pgxpool.Pool instance
 func NewFromPgxPool(pool *pgxpool.Pool) (db ksql.DB, err error) {
 	return ksql.NewWithAdapter(NewPGXAdapter(pool), "postgres")
 }

@@ -11,6 +11,11 @@ import (
 	_ "github.com/denisenkom/go-mssqldb"
 )
 
+// NewFromSQLDB builds a ksql.DB from a *sql.DB instance
+func NewFromSQLDB(db *sql.DB) (ksql.DB, error) {
+	return ksql.NewWithAdapter(NewSQLAdapter(db), "sqlserver")
+}
+
 // New instantiates a new KissSQL client using the "sqlserver" driver
 func New(
 	_ context.Context,
