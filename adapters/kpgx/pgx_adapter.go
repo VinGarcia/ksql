@@ -42,6 +42,12 @@ func (p PGXAdapter) BeginTx(ctx context.Context) (ksql.Tx, error) {
 	return PGXTx{tx}, err
 }
 
+// Close implements the io.Closer interface
+func (p PGXAdapter) Close() error {
+	p.db.Close()
+	return nil
+}
+
 // PGXResult is used to implement the DBAdapter interface and implements
 // the Result interface
 type PGXResult struct {

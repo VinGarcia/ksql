@@ -38,6 +38,11 @@ func (s SQLAdapter) BeginTx(ctx context.Context) (ksql.Tx, error) {
 	return SQLTx{Tx: tx}, err
 }
 
+// Close implements the io.Closer interface
+func (s SQLAdapter) Close() error {
+	return s.DB.Close()
+}
+
 // SQLTx is used to implement the DBAdapter interface and implements
 // the Tx interface
 type SQLTx struct {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"reflect"
 	"strings"
 	"unicode"
@@ -888,6 +889,14 @@ func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 	default:
 		return fmt.Errorf("can't start transaction: The DBAdapter doesn't implement the TxBegginner interface")
 	}
+}
+
+func (c DB) Close() error {
+	closer, ok := c.db.(io.Closer)
+	if ok {
+		return closer.Close()
+	}
+	return nil
 }
 
 type nopScanner struct{}
