@@ -2,7 +2,7 @@
 [![CI](https://github.com/VinGarcia/ksql/actions/workflows/ci.yml/badge.svg)](https://github.com/VinGarcia/ksql/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/VinGarcia/ksql/branch/master/graph/badge.svg?token=5CNJ867C66)](https://codecov.io/gh/VinGarcia/ksql)
 
-# Kiss SQL
+# KissSQL
 
 KissSQL or the "Keep it Simple" SQL package was created to offer an
 actually simple and satisfactory tool for interacting with SQL Databases.
