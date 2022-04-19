@@ -891,6 +891,7 @@ func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 	}
 }
 
+// Close implements the io.Closer interface
 func (c DB) Close() error {
 	closer, ok := c.db.(io.Closer)
 	if ok {
