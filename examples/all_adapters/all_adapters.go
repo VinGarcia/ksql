@@ -48,6 +48,8 @@ func main() {
 		if err != nil {
 			log.Fatalf("unable to open database, reason: %s", err)
 		}
+		defer db.Close()
+
 		_, err = db.Exec(ctx, `CREATE TABLE users (
 		  id serial PRIMARY KEY,
 			age INT,
@@ -64,6 +66,8 @@ func main() {
 		if err != nil {
 			log.Fatalf("unable to open database: %s", err)
 		}
+		defer db.Close()
+
 		_, err = db.Exec(ctx, `CREATE TABLE users (
 			id INT AUTO_INCREMENT PRIMARY KEY,
 			age INT,
@@ -80,6 +84,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("unable to open database: %s", err)
 		}
+		defer db.Close()
 
 		// In the example below NVARCHAR is the format
 		// we are using for storing JSON:
@@ -99,6 +104,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("unable to open database: %s", err)
 		}
+		defer db.Close()
 
 		// In the definition below, please note that BLOB is
 		// the only type we can use in sqlite for storing JSON.

@@ -56,6 +56,7 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
+	defer db.Close()
 
 	// In the definition below, please note that BLOB is
 	// the only type we can use in sqlite for storing JSON.

@@ -41,6 +41,10 @@ type User struct {
 func main() {
 	ctx := context.Background()
 	db, err := kpgx.New(ctx, os.Getenv("POSTGRES_URL"), ksql.Config{})
+	if err != nil {
+		log.Fatalf("unable connect to database: %s", err)
+	}
+	defer db.Close()
 
 	// For querying only some attributes you can
 	// create a custom struct like this:
@@ -247,6 +251,7 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
+	defer db.Close()
 
 	// In the definition below, please note that BLOB is
 	// the only type we can use in sqlite for storing JSON.
