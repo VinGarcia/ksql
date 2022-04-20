@@ -18,22 +18,22 @@ bench:
 	@echo "Benchmark executed on commit: $$(git rev-parse HEAD)"
 
 lint: setup
-	@$(GOBIN)/golint -set_exit_status -min_confidence 0.9 $(path) $(args)
+	@$(GOBIN)/staticcheck $(path) $(args)
 	@go vet $(path) $(args)
 	@make --no-print-directory -C benchmarks
-	@echo "Golint & Go Vet found no problems on your code!"
+	@echo "StaticCheck & Go Vet found no problems on your code!"
 
 gen: mock
 mock: setup
 	$(GOBIN)/mockgen -package=exampleservice -source=contracts.go -destination=examples/example_service/mocks.go
 
-setup: $(GOBIN)/richgo $(GOBIN)/golint $(GOBIN)/mockgen
+setup: $(GOBIN)/richgo $(GOBIN)/staticcheck $(GOBIN)/mockgen
 
 $(GOBIN)/richgo:
 	go get github.com/kyoh86/richgo
 
-$(GOBIN)/golint:
-	go get golang.org/x/lint
+$(GOBIN)/staticcheck:
+	go install honnef.co/go/tools/cmd/staticcheck@latest
 
 $(GOBIN)/mockgen:
 	@# (Gomock is used on examples/example_service)

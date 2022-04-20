@@ -17,8 +17,8 @@ jobs:
         run: go vet ./...
       - name: Check go version
         run: go version
-      - name: Run golint
-        run: go get golang.org/x/lint/golint && bash -c "$(go env GOPATH)/bin/golint -set_exit_status -min_confidence 0.9 ./..."
+      - name: Run linters
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest && bash -c "$(go env GOPATH)/bin/staticcheck ./..."
       - name: Run Tests
         run: ./scripts/run-all-tests.sh
       - name: Run Coverage

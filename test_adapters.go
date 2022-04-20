@@ -37,8 +37,6 @@ type address struct {
 	Country string `json:"country"`
 }
 
-var postsTable = NewTable("posts")
-
 type post struct {
 	ID     int    `ksql:"id"`
 	UserID uint   `ksql:"user_id"`
@@ -1936,7 +1934,6 @@ func QueryChunksTest(
 							return nil
 						},
 						func(missingReturnType []user) {
-							return
 						},
 						func(users []user) string {
 							return ""
@@ -2346,47 +2343,6 @@ func shiftErrSlice(errs *[]error) error {
 	err := (*errs)[0]
 	*errs = (*errs)[1:]
 	return err
-}
-
-func getUsersByID(db DBAdapter, dialect Dialect, resultsPtr *[]user, ids ...uint) error {
-	placeholders := make([]string, len(ids))
-	params := make([]interface{}, len(ids))
-	for i := range ids {
-		params[i] = ids[i]
-		placeholders[i] = dialect.Placeholder(i)
-	}
-
-	results := []user{}
-	rows, err := db.QueryContext(
-		context.TODO(),
-		fmt.Sprintf(
-			"SELECT id, name, age FROM users WHERE id IN (%s)",
-			strings.Join(placeholders, ", "),
-		),
-		params...,
-	)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var u user
-		err = rows.Scan(&u.ID, &u.Name, &u.Age)
-		if err != nil {
-			return err
-		}
-		results = append(results, u)
-	}
-	if rows.Err() != nil {
-		return rows.Err()
-	}
-	if err := rows.Close(); err != nil {
-		return err
-	}
-
-	*resultsPtr = results
-	return nil
 }
 
 func getUserByID(db DBAdapter, dialect Dialect, result *user, id uint) error {

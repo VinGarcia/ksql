@@ -381,11 +381,6 @@ func TestCallFunctionWithRows(t *testing.T) {
 	})
 
 	t.Run("should report error if the input function is invalid", func(t *testing.T) {
-		type User struct {
-			Name string `ksql:"name"`
-			Age  int    `ksql:"age"`
-		}
-
 		err := CallFunctionWithRows(func() {}, []map[string]interface{}{{
 			"name": "fake-name1",
 			"age":  42,
