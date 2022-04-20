@@ -5,23 +5,29 @@ GOBIN=$(shell go env GOPATH)/bin
 
 TIME=1s
 
-test: setup
+test: setup go-mod-tidy
 	$(GOBIN)/richgo test $(path) $(args)
+	@( cd benchmarks ; $(GOBIN)/richgo test $(path) $(args) )
+	@( cd examples ; $(GOBIN)/richgo test $(path) $(args) )
 	@( cd adapters/kpgx ; $(GOBIN)/richgo test $(path) $(args) )
 	@( cd adapters/kmysql ; $(GOBIN)/richgo test $(path) $(args) )
 	@( cd adapters/ksqlserver ; $(GOBIN)/richgo test $(path) $(args) )
 	@( cd adapters/ksqlite3 ; $(GOBIN)/richgo test $(path) $(args) )
 
-bench:
+bench: go-mod-tidy
 	cd benchmarks && go test -bench=. -benchtime=$(TIME)
 	@echo "Benchmark executed at: $$(date --iso)"
 	@echo "Benchmark executed on commit: $$(git rev-parse HEAD)"
 
-lint: setup
+lint: setup go-mod-tidy
 	@$(GOBIN)/staticcheck $(path) $(args)
 	@go vet $(path) $(args)
 	@make --no-print-directory -C benchmarks
 	@echo "StaticCheck & Go Vet found no problems on your code!"
+
+# Run go mod tidy for all submodules:
+go-mod-tidy:
+	@find -name go.mod -execdir go mod tidy \;
 
 gen: mock
 mock: setup
