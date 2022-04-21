@@ -13,12 +13,10 @@ jobs:
         run: docker pull mysql:8.0.27
       - name: Pull SQLServer
         run: docker pull mcr.microsoft.com/mssql/server:2017-latest
-      - name: Run go vet
-        run: go vet ./...
       - name: Check go version
         run: go version
       - name: Run linters
-        run: go install honnef.co/go/tools/cmd/staticcheck@latest && bash -c "$(go env GOPATH)/bin/staticcheck ./..."
+        run: go vet ./... && go install honnef.co/go/tools/cmd/staticcheck@latest && bash -c "$(go env GOPATH)/bin/staticcheck ./..."
       - name: Run Tests
         run: ./scripts/run-all-tests.sh
       - name: Run Coverage
