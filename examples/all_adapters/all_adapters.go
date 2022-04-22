@@ -36,7 +36,7 @@ var UsersTable = ksql.NewTable("users")
 func main() {
 	ctx := context.Background()
 
-	var db ksql.Provider
+	var db ksql.DB
 	var err error
 
 	// This switch lists all the supported adapters, and how to use them:
@@ -48,6 +48,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("unable to open database, reason: %s", err)
 		}
+		defer db.Close()
 
 		_, err = db.Exec(ctx, `CREATE TABLE users (
 		  id serial PRIMARY KEY,
@@ -65,6 +66,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("unable to open database: %s", err)
 		}
+		defer db.Close()
 
 		_, err = db.Exec(ctx, `CREATE TABLE users (
 			id INT AUTO_INCREMENT PRIMARY KEY,
@@ -82,6 +84,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("unable to open database: %s", err)
 		}
+		defer db.Close()
 
 		// In the example below NVARCHAR is the format
 		// we are using for storing JSON:
@@ -101,6 +104,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("unable to open database: %s", err)
 		}
+		defer db.Close()
 
 		// In the definition below, please note that BLOB is
 		// the only type we can use in sqlite for storing JSON.
