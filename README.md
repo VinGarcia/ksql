@@ -629,7 +629,7 @@ createdAt := time.Now().Add(10*time.Hour)
 mockDB := ksql.Mock{
   QueryOneFn: func(ctx context.Context, record interface{}, query string, params ...interface{}) error {
     // For simulating a succesful scenario you can just fillup the struct:
-    return ksqltest.FillStructWith(map[string]interface{}{
+    return ksqltest.FillStructWith(record, map[string]interface{}{
       "id": 42,
       "name": "fake-name",
       "age": 32,
@@ -671,12 +671,12 @@ To understand the benchmark below you must know
 that all tests are performed using Postgres 12.1 and
 that we are comparing the following tools:
 
-- ksql using the adapter that wraps database/sql
-- ksql using the adapter that wraps pgx
-- sql
-- sqlx
-- pgx (with pgxpool)
-- gorm
+- ksql using the adapter that wraps `database/sql`
+- ksql using the adapter that wraps `pgx`
+- `database/sql`
+- `sqlx`
+- `pgx` (with `pgxpool`)
+- `gorm`
 
 For each of these tools we are running 3 different queries:
 
@@ -692,9 +692,9 @@ The `multiple-rows` query looks like:
 
 `SELECT id, name, age FROM users OFFSET $1 LIMIT 10`
 
-Keep in mind that some of the tools tested actually build
-the query internally so the actual query might differ a little
-bit from the example ones above.
+Keep in mind that some of the tools tested (like GORM) actually build
+the queries internally so the actual code used for the benchmark
+might differ a little bit from the example ones above.
 
 Without further ado, here are the results:
 
