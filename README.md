@@ -767,11 +767,11 @@ is configured to kill the containers after 20 seconds.
 
 ## TODO List
 
-- Add tests for tables using composite keys
+- Add tests for tables using composite keys (ongoing)
 - Add support for serializing structs as other formats such as YAML
 - Update `ksqltest.FillStructWith` to work with `ksql:"..,json"` tagged attributes
 - Create a way for users to submit user defined dialects
-- Improve error messages
+- Improve error messages (ongoing)
 - Add support for the Patch function to work with maps for partial updates
 - Add support for the Insert function to work with maps
 - Add support for a `ksql.Array(params ...interface{})` for allowing queries like this:

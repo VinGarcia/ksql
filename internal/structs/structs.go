@@ -49,6 +49,12 @@ func (s StructInfo) add(field FieldInfo) {
 	field.Valid = true
 	s.byIndex[field.Index] = &field
 	s.byName[field.Name] = &field
+
+	// Make sure to save a lowercased version because
+	// some databases will set these keys to lowercase.
+	if _, found := s.byName[strings.ToLower(field.Name)]; !found {
+		s.byName[strings.ToLower(field.Name)] = &field
+	}
 }
 
 // NumFields ...

@@ -595,6 +595,24 @@ func QueryOneTest(
 					tt.AssertEqual(t, row.User.Name, "João Ribeiro")
 					tt.AssertEqual(t, row.Post.Title, "João Post1")
 				})
+
+				t.Run("should handle column tags as case-insensitive as SQL does", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Count Olivia', 0, '{"country":"US"}')`)
+					tt.AssertNoErr(t, err)
+
+					c := newTestDB(db, driver)
+
+					var row struct {
+						CountAttr int `ksql:"myCount"`
+					}
+					err = c.QueryOne(ctx, &row, `SELECT count(*) as myCount FROM users WHERE name='Count Olivia'`)
+					tt.AssertNoErr(t, err)
+					tt.AssertEqual(t, row.CountAttr, 1)
+				})
 			})
 		}
 
