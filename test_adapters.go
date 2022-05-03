@@ -607,11 +607,11 @@ func QueryOneTest(
 					c := newTestDB(db, driver)
 
 					var row struct {
-						CountAttr int `ksql:"myCount"`
+						Count int `ksql:"myCount"`
 					}
 					err = c.QueryOne(ctx, &row, `SELECT count(*) as myCount FROM users WHERE name='Count Olivia'`)
 					tt.AssertNoErr(t, err)
-					tt.AssertEqual(t, row.CountAttr, 1)
+					tt.AssertEqual(t, row.Count, 1)
 				})
 			})
 		}
@@ -671,6 +671,23 @@ func QueryOneTest(
 			}
 			err := c.QueryOne(ctx, &row, `SELECT * FROM users u JOIN posts p ON u.id = p.user_id LIMIT 1`)
 			tt.AssertErrContains(t, err, "nested struct", "feature")
+		})
+
+		t.Run("should report error if a private field has a ksql tag", func(t *testing.T) {
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx := context.Background()
+			_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Olivia', 0, '{"country":"US"}')`)
+			tt.AssertNoErr(t, err)
+
+			c := newTestDB(db, driver)
+
+			var row struct {
+				count int `ksql:"my_count"`
+			}
+			err = c.QueryOne(ctx, &row, `SELECT count(*) as my_count FROM users`)
+			tt.AssertErrContains(t, err, "unexported", "my_count")
 		})
 	})
 }
