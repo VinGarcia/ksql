@@ -13,14 +13,14 @@ var usersTable = ksql.NewTable("users", "id")
 // This function doesn't care if db is a transaction or not:
 func GetUser(ctx context.Context, db ksql.Provider, userId int) (User, error) {
 	var user User
-	err := db.QueryOne(ctx, &user, "FROM users WHERE id = ?", userId)
+	err := db.QueryOne(ctx, &user, "SELECT * FROM users WHERE id = ?", userId)
 	return user, err
 }
 
 // This function doesn't care if db is a transaction or not:
 func GetUserByEmail(ctx context.Context, db ksql.Provider, email string) (User, error) {
 	var user User
-	err := db.QueryOne(ctx, &user, "FROM users WHERE email = ?", email)
+	err := db.QueryOne(ctx, &user, "SELECT * FROM users WHERE email = ?", email)
 	return user, err
 }
 
