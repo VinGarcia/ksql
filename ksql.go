@@ -64,8 +64,8 @@ type Rows interface {
 
 // Tx represents a transaction and is expected to be returned by the DBAdapter.BeginTx function
 type Tx interface {
-	ExecContext(ctx context.Context, query string, args ...interface{}) (Result, error)
-	QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error)
+	DBAdapter
+
 	Rollback(ctx context.Context) error
 	Commit(ctx context.Context) error
 }
@@ -887,7 +887,7 @@ func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 		return tx.Commit(ctx)
 
 	default:
-		return fmt.Errorf("can't start transaction: The DBAdapter doesn't implement the TxBegginner interface")
+		return fmt.Errorf("can't start transaction: The DBAdapter doesn't implement the TxBeginner interface")
 	}
 }
 
