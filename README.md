@@ -786,3 +786,4 @@ is configured to kill the containers after 20 seconds.
 - Use a cache to store often used queries (like pgx)
 - Preload the insert method for all dialects inside `ksql.NewTable()`
 foo
+foo
