@@ -787,3 +787,4 @@ is configured to kill the containers after 20 seconds.
 - Preload the insert method for all dialects inside `ksql.NewTable()`
 foo
 foo
+foo
