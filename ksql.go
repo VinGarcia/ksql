@@ -14,12 +14,15 @@ import (
 	"github.com/vingarcia/ksql/ksqltest"
 )
 
-var selectQueryCache = map[string]map[reflect.Type]string{}
+var selectQueryCache = initializeQueryCache()
 
-func init() {
+func initializeQueryCache() map[string]map[reflect.Type]string {
+	cache := map[string]map[reflect.Type]string{}
 	for dname := range supportedDialects {
-		selectQueryCache[dname] = map[reflect.Type]string{}
+		cache[dname] = map[reflect.Type]string{}
 	}
+
+	return cache
 }
 
 // DB represents the ksql client responsible for
