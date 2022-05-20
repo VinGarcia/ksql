@@ -4,7 +4,7 @@ on: push
 
 jobs:
   tests:
-    runs-on: [self-hosted, single]
+    runs-on: single
     steps:
       - uses: actions/checkout@v2
       - name: Pull Postgres
