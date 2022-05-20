@@ -122,6 +122,16 @@ func (c DB) Query(
 	query string,
 	params ...interface{},
 ) error {
+	// Check if we the user wants to use the lazy chunked approach:
+	if chunksPtr, ok := records.(*Chunks); ok {
+		*chunksPtr = chunks{
+			db:     c,
+			query:  query,
+			params: params,
+		}
+		return nil
+	}
+
 	slicePtr := reflect.ValueOf(records)
 	slicePtrType := slicePtr.Type()
 	if slicePtrType.Kind() != reflect.Ptr {
@@ -269,6 +279,28 @@ func (c DB) QueryOne(
 	}
 
 	return rows.Close()
+}
+
+type Chunks interface {
+	ForEach(ctx context.Context, chunkSize int, fn interface{}) error
+}
+
+// chunks stores a query to be executed lazily afterwards.
+// the chunks ForEach function can be called any number of times and will
+// repeat the query each time it is called.
+type chunks struct {
+	db     Provider
+	query  string
+	params []interface{}
+}
+
+func (c chunks) ForEach(ctx context.Context, chunkSize int, fn interface{}) error {
+	return c.db.QueryChunks(ctx, ChunkParser{
+		ChunkSize:    chunkSize,
+		Query:        c.query,
+		Params:       c.params,
+		ForEachChunk: fn,
+	})
 }
 
 // QueryChunks is meant to perform queries that returns
