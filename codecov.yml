@@ -1,4 +1,5 @@
 coverage:
+  precision: 1
   ignore:
     - "internal/**/*"
     - "examples/**/*"
