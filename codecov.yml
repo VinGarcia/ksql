@@ -7,7 +7,6 @@ coverage:
   status:
     changes:
       default:
-        threshold: 2%
         # ignore errors from changes, this raises false negatives for
         # code refactors, and I do many refactors, so I don't want this.
-        #if_ci_failed: ignore
+        if_ci_failed: ignore
