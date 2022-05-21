@@ -5,8 +5,8 @@ coverage:
     - "kbuilder/*"
     - "kstructs/*"
   status:
-    changes:
+    project:
       default:
-        # ignore errors from changes, this raises false negatives for
-        # code refactors, and I do many refactors, so I don't want this.
+        # ignore errors from changes in coverage, this raises false negatives
+        # for code refactors, and I do many refactors, so I don't want this.
         if_ci_failed: ignore
