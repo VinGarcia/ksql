@@ -7,18 +7,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-        #- name: Pull Postgres
-        #  run: docker pull postgres:14.0
-        #- name: Pull MySQL
-        #  run: docker pull mysql:8.0.27
-        #- name: Pull SQLServer
-        #  run: docker pull mcr.microsoft.com/mssql/server:2017-latest
-        #- name: Check go version
-        #  run: go version
-        #- name: Run linters
-        #  run: go vet ./... && go install honnef.co/go/tools/cmd/staticcheck@latest && bash -c "$(go env GOPATH)/bin/staticcheck ./..."
-        #- name: Run Tests
-        #  run: ./scripts/run-all-tests.sh
+      - name: Pull Postgres
+        run: docker pull postgres:14.0
+      - name: Pull MySQL
+        run: docker pull mysql:8.0.27
+      - name: Pull SQLServer
+        run: docker pull mcr.microsoft.com/mssql/server:2017-latest
+      - name: Check go version
+        run: go version
+      - name: Run linters
+        run: go vet ./... && go install honnef.co/go/tools/cmd/staticcheck@latest && bash -c "$(go env GOPATH)/bin/staticcheck ./..."
+      - name: Run Tests
+        run: ./scripts/run-all-tests.sh
       - name: Run Coverage
         run: bash <(curl -s https://codecov.io/bash)
         env:
