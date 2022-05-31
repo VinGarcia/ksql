@@ -310,7 +310,7 @@ func BenchmarkQuery(b *testing.B) {
 		b.Run("single-row", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var user User
-				err := ksqlDB.QueryOne(ctx, &user, `SELECT id, name, age FROM users OFFSET $1 LIMIT 1`, i%100)
+				err := ksqlDB.QueryOne(ctx, &user, `FROM users OFFSET $1 LIMIT 1`, i%100)
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}
@@ -320,7 +320,7 @@ func BenchmarkQuery(b *testing.B) {
 		b.Run("multiple-rows", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var users []User
-				err := ksqlDB.Query(ctx, &users, `SELECT id, name, age FROM users OFFSET $1 LIMIT 10`, i%90)
+				err := ksqlDB.Query(ctx, &users, `FROM users OFFSET $1 LIMIT 10`, i%90)
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}
@@ -352,7 +352,7 @@ func BenchmarkQuery(b *testing.B) {
 		b.Run("single-row", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var user User
-				err := kpgxDB.QueryOne(ctx, &user, `SELECT id, name, age FROM users OFFSET $1 LIMIT 1`, i%100)
+				err := kpgxDB.QueryOne(ctx, &user, `FROM users OFFSET $1 LIMIT 1`, i%100)
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}
@@ -362,7 +362,7 @@ func BenchmarkQuery(b *testing.B) {
 		b.Run("multiple-rows", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var users []User
-				err := kpgxDB.Query(ctx, &users, `SELECT id, name, age FROM users OFFSET $1 LIMIT 10`, i%90)
+				err := kpgxDB.Query(ctx, &users, `FROM users OFFSET $1 LIMIT 10`, i%90)
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}
