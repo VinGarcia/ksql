@@ -2,10 +2,10 @@
 [![CI](https://github.com/VinGarcia/ksql/actions/workflows/ci.yml/badge.svg)](https://github.com/VinGarcia/ksql/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/VinGarcia/ksql/branch/master/graph/badge.svg?token=5CNJ867C66)](https://codecov.io/gh/VinGarcia/ksql)
 
-# KissSQL
+# KSQL the Keep it Simple SQL library
 
-KissSQL or the "Keep it Simple" SQL package was created to offer an
-actually simple and satisfactory tool for interacting with SQL Databases.
+KSQL was created to offer an actually simple and satisfactory
+tool for interacting with SQL Databases.
 
 The core idea on KSQL is to offer an easy to use interface,
 the actual comunication with the database is decoupled so we can use
@@ -16,9 +16,11 @@ useful in some situations.
 In this README you will find examples for "Getting Started" with the library,
 for more advanced use-cases [please read our Wiki](https://github.com/VinGarcia/ksql/wiki).
 
-## Using KSQL
+## Show me some code!
 
-This is a TLDR version of the more complete examples below.
+This short example below is a TLDR version for illustrating how easy it is to use KSQL.
+
+You will find more complete examples on the sections below.
 
 ```golang
 package main
@@ -84,7 +86,7 @@ but work on different databases, they are:
 - `ksqlserver.New(ctx, os.Getenv("POSTGRES_URL"), ksql.Config{})` for SQLServer, it works on top of `database/sql`
 - `ksqlite3.New(ctx, os.Getenv("POSTGRES_URL"), ksql.Config{})` for SQLite3, it works on top of `database/sql`
 
-## Kiss Interface
+## The KSQL Interface
 
 The current interface is as follows and we plan on keeping
 it with as little functions as possible, so don't expect many additions:
