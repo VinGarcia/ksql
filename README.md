@@ -13,6 +13,9 @@ KSQL on top of `pgx`, `database/sql` and possibly other tools.
 You can even create you own backend adapter for KSQL which is
 useful in some situations.
 
+In this README you will find examples for "Getting Started" with the library,
+for more advanced use-cases [please read our Wiki](https://github.com/VinGarcia/ksql/wiki).
+
 ## Using KSQL
 
 This is a TLDR version of the more complete examples below.
