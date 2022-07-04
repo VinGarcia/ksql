@@ -128,7 +128,7 @@ func main() {
 	// Partial update technique 2:
 	err = db.Patch(ctx, UsersTable, PartialUpdateUser{
 		ID:  cris.ID,
-		Age: nullable.Int(28),
+		Age: nullable.Int(28), // (just a pointer to an int, if null it won't be updated)
 	})
 	if err != nil {
 		panic(err.Error())
