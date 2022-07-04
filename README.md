@@ -88,8 +88,14 @@ but work on different databases, they are:
 
 ## The KSQL Interface
 
-The current interface is as follows and we plan on keeping
-it with as little functions as possible, so don't expect many additions:
+The current interface contains the methods the users are expected to use,
+and it is also used for making it easy to mock the whole library if needed.
+
+This interface is declared in the project as `ksql.Provider` and is displayed below.
+
+We plan on keeping it very simple with a small number
+of well thought functions that cover all use-cases,
+so don't expect many additions:
 
 ```go
 // Provider describes the KSQL public behavior
