@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 )
 
 // StructInfo stores metainformation of the struct
@@ -66,7 +67,7 @@ func (s StructInfo) NumFields() int {
 // because the total number of types on a program
 // should be finite. So keeping a single cache here
 // works fine.
-var tagInfoCache = map[reflect.Type]StructInfo{}
+var tagInfoCache = &sync.Map{}
 
 // GetTagInfo efficiently returns the type information
 // using a global private cache
@@ -78,9 +79,13 @@ func GetTagInfo(key reflect.Type) (StructInfo, error) {
 	return getCachedTagInfo(tagInfoCache, key)
 }
 
-func getCachedTagInfo(tagInfoCache map[reflect.Type]StructInfo, key reflect.Type) (StructInfo, error) {
-	if info, found := tagInfoCache[key]; found {
-		return info, nil
+func getCachedTagInfo(tagInfoCache *sync.Map, key reflect.Type) (StructInfo, error) {
+	if data, found := tagInfoCache.Load(key); found {
+		if info, ok := data.(StructInfo); !ok {
+			return StructInfo{}, fmt.Errorf("invalid cache entry, expected type StructInfo, found %T", data)
+		} else {
+			return info, nil
+		}
 	}
 
 	info, err := getTagNames(key)
@@ -88,7 +93,7 @@ func getCachedTagInfo(tagInfoCache map[reflect.Type]StructInfo, key reflect.Type
 		return StructInfo{}, err
 	}
 
-	tagInfoCache[key] = info
+	tagInfoCache.Store(key, info)
 	return info, nil
 }
 

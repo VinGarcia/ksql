@@ -7,6 +7,7 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/pkg/errors"
@@ -16,10 +17,10 @@ import (
 
 var selectQueryCache = initializeQueryCache()
 
-func initializeQueryCache() map[string]map[reflect.Type]string {
-	cache := map[string]map[reflect.Type]string{}
+func initializeQueryCache() map[string]*sync.Map {
+	cache := map[string]*sync.Map{}
 	for dname := range supportedDialects {
-		cache[dname] = map[reflect.Type]string{}
+		cache[dname] = &sync.Map{}
 	}
 
 	return cache
@@ -1062,10 +1063,14 @@ func buildSelectQuery(
 	dialect Dialect,
 	structType reflect.Type,
 	info structs.StructInfo,
-	selectQueryCache map[reflect.Type]string,
+	selectQueryCache *sync.Map,
 ) (query string, err error) {
-	if selectQuery, found := selectQueryCache[structType]; found {
-		return selectQuery, nil
+	if data, found := selectQueryCache.Load(structType); found {
+		if selectQuery, ok := data.(string); !ok {
+			return "", fmt.Errorf("invalid cache entry, expected type string, found %T", data)
+		} else {
+			return selectQuery, nil
+		}
 	}
 
 	if info.IsNestedStruct {
@@ -1077,7 +1082,7 @@ func buildSelectQuery(
 		query = buildSelectQueryForPlainStructs(dialect, structType, info)
 	}
 
-	selectQueryCache[structType] = query
+	selectQueryCache.Store(structType, query)
 	return query, nil
 }
 
