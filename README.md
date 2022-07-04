@@ -5,7 +5,7 @@
 # KSQL the Keep it Simple SQL library
 
 KSQL was created to offer an actually simple and satisfactory
-tool for interacting with SQL Databases.
+tool for interacting with SQL Databases in Golang.
 
 The core idea on KSQL is to offer an easy to use interface,
 the actual comunication with the database is decoupled so we can use
