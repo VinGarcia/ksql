@@ -16,7 +16,7 @@ useful in some situations.
 In this README you will find examples for "Getting Started" with the library,
 for more advanced use-cases [please read our Wiki](https://github.com/VinGarcia/ksql/wiki).
 
-## Show me some code!
+## Let's start with some Code:
 
 This short example below is a TLDR version for illustrating how easy it is to use KSQL.
 
