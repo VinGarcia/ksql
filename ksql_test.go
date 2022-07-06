@@ -25,9 +25,9 @@ func TestNewAdapterWith(t *testing.T) {
 				dialectName,
 			)
 
-			assert.Equal(t, nil, err)
-			assert.Equal(t, supportedDialects[dialectName], db.dialect)
-			assert.Equal(t, dialectName, db.driver)
+			tt.AssertEqual(t, err, nil)
+			tt.AssertEqual(t, db.dialect, supportedDialects[dialectName])
+			tt.AssertEqual(t, db.driver, dialectName)
 		}
 	})
 

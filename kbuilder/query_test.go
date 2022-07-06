@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ditointernet/go-assert"
 	"github.com/stretchr/testify/require"
+	tt "github.com/vingarcia/ksql/internal/testtools"
 	"github.com/vingarcia/ksql/kbuilder"
 )
 
@@ -124,13 +124,13 @@ func TestSelectQuery(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
 			b, err := kbuilder.New("postgres")
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 
 			query, params, err := b.Build(test.query)
 
 			expectError(t, test.expectedErr, err)
-			assert.Equal(t, test.expectedQuery, query)
-			assert.Equal(t, test.expectedParams, params)
+			tt.AssertEqual(t, query, test.expectedQuery)
+			tt.AssertEqual(t, params, test.expectedParams)
 		})
 	}
 }

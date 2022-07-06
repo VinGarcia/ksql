@@ -318,7 +318,7 @@ func QueryTest(
 						getUserByName(db, driver, &joao, "João Ribeiro")
 
 						_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
-						assert.Equal(t, nil, err)
+						tt.AssertEqual(t, err, nil)
 						var bia user
 						getUserByName(db, driver, &bia, "Bia Ribeiro")
 
@@ -723,15 +723,15 @@ func InsertTest(
 					}
 
 					err := c.Insert(ctx, usersTable, &u)
-					assert.Equal(t, nil, err)
+					tt.AssertEqual(t, err, nil)
 					assert.NotEqual(t, 0, u.ID)
 
 					result := user{}
 					err = getUserByID(c.db, c.dialect, &result, u.ID)
-					assert.Equal(t, nil, err)
+					tt.AssertEqual(t, err, nil)
 
-					assert.Equal(t, u.Name, result.Name)
-					assert.Equal(t, u.Address, result.Address)
+					tt.AssertEqual(t, result.Name, u.Name)
+					tt.AssertEqual(t, result.Address, u.Address)
 				})
 
 				t.Run("should insert ignoring the ID with multiple ids", func(t *testing.T) {
@@ -758,15 +758,15 @@ func InsertTest(
 					}
 
 					err = c.Insert(ctx, table, &u)
-					assert.Equal(t, nil, err)
-					assert.Equal(t, uint(0), u.ID)
+					tt.AssertEqual(t, err, nil)
+					tt.AssertEqual(t, u.ID, uint(0))
 
 					result := user{}
 					err = getUserByName(c.db, driver, &result, "No ID returned")
-					assert.Equal(t, nil, err)
+					tt.AssertEqual(t, err, nil)
 
-					assert.Equal(t, u.Age, result.Age)
-					assert.Equal(t, u.Address, result.Address)
+					tt.AssertEqual(t, result.Age, u.Age)
+					tt.AssertEqual(t, result.Address, u.Address)
 				})
 
 				t.Run("should work with anonymous structs", func(t *testing.T) {
@@ -780,7 +780,7 @@ func InsertTest(
 						Name    string                 `ksql:"name"`
 						Address map[string]interface{} `ksql:"address,json"`
 					}{Name: "fake-name", Address: map[string]interface{}{"city": "bar"}})
-					assert.Equal(t, nil, err)
+					tt.AssertEqual(t, err, nil)
 				})
 
 				t.Run("should work with preset IDs", func(t *testing.T) {
@@ -796,12 +796,12 @@ func InsertTest(
 						Name string `ksql:"name"`
 						Age  int    `ksql:"age"`
 					}{Name: "Preset Name", Age: 5455})
-					assert.Equal(t, nil, err)
+					tt.AssertEqual(t, err, nil)
 
 					var inserted user
 					err := getUserByName(db, driver, &inserted, "Preset Name")
-					assert.Equal(t, nil, err)
-					assert.Equal(t, 5455, inserted.Age)
+					tt.AssertEqual(t, err, nil)
+					tt.AssertEqual(t, inserted.Age, 5455)
 				})
 			})
 
@@ -970,8 +970,8 @@ func InsertTest(
 				}{NonExistingColumn: 42, Name: "fake-name"})
 				assert.NotEqual(t, nil, err)
 				msg := err.Error()
-				assert.Equal(t, true, strings.Contains(msg, "column"))
-				assert.Equal(t, true, strings.Contains(msg, "non_existing"))
+				tt.AssertEqual(t, strings.Contains(msg, "column"), true)
+				tt.AssertEqual(t, strings.Contains(msg, "non_existing"), true)
 			})
 
 			t.Run("should not panic if the ID column doesn't exist in the database", func(t *testing.T) {
@@ -1001,13 +1001,13 @@ func InsertTest(
 					Age  int    `ksql:"age"`
 					Name string `ksql:"name"`
 				}{Age: 42, Name: "Inserted With no ID"})
-				assert.Equal(t, nil, err)
+				tt.AssertEqual(t, err, nil)
 
 				var u user
 				err = getUserByName(db, driver, &u, "Inserted With no ID")
-				assert.Equal(t, nil, err)
+				tt.AssertEqual(t, err, nil)
 				assert.NotEqual(t, uint(0), u.ID)
-				assert.Equal(t, 42, u.Age)
+				tt.AssertEqual(t, u.Age, 42)
 			})
 		})
 	})
@@ -1083,40 +1083,40 @@ func DeleteTest(
 					}
 
 					err := c.Insert(ctx, usersTable, &u1)
-					assert.Equal(t, nil, err)
+					tt.AssertEqual(t, err, nil)
 					assert.NotEqual(t, uint(0), u1.ID)
 
 					result := user{}
 					err = getUserByID(c.db, c.dialect, &result, u1.ID)
-					assert.Equal(t, nil, err)
-					assert.Equal(t, u1.ID, result.ID)
+					tt.AssertEqual(t, err, nil)
+					tt.AssertEqual(t, result.ID, u1.ID)
 
 					u2 := user{
 						Name: "Won't be deleted",
 					}
 
 					err = c.Insert(ctx, usersTable, &u2)
-					assert.Equal(t, nil, err)
+					tt.AssertEqual(t, err, nil)
 					assert.NotEqual(t, uint(0), u2.ID)
 
 					result = user{}
 					err = getUserByID(c.db, c.dialect, &result, u2.ID)
-					assert.Equal(t, nil, err)
-					assert.Equal(t, u2.ID, result.ID)
+					tt.AssertEqual(t, err, nil)
+					tt.AssertEqual(t, result.ID, u2.ID)
 
 					err = c.Delete(ctx, usersTable, test.deletionKeyForUser(u1))
-					assert.Equal(t, nil, err)
+					tt.AssertEqual(t, err, nil)
 
 					result = user{}
 					err = getUserByID(c.db, c.dialect, &result, u1.ID)
-					assert.Equal(t, sql.ErrNoRows, err)
+					tt.AssertEqual(t, err, sql.ErrNoRows)
 
 					result = user{}
 					err = getUserByID(c.db, c.dialect, &result, u2.ID)
-					assert.Equal(t, nil, err)
+					tt.AssertEqual(t, err, nil)
 
 					assert.NotEqual(t, uint(0), result.ID)
-					assert.Equal(t, "Won't be deleted", result.Name)
+					tt.AssertEqual(t, result.Name, "Won't be deleted")
 				})
 			}
 		})
@@ -1200,7 +1200,7 @@ func DeleteTest(
 			c := newTestDB(db, driver)
 
 			err = c.Delete(ctx, usersTable, 4200)
-			assert.Equal(t, ErrRecordNotFound, err)
+			tt.AssertEqual(t, err, ErrRecordNotFound)
 		})
 
 		t.Run("should report error if it receives a nil pointer to a struct", func(t *testing.T) {
@@ -1361,22 +1361,22 @@ func UpdateTest(
 				Name: "Letícia",
 			}
 			_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Letícia', 0)`)
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 
 			err = getUserByName(db, driver, &u, "Letícia")
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 			assert.NotEqual(t, uint(0), u.ID)
 
 			err = c.Update(ctx, usersTable, user{
 				ID:   u.ID,
 				Name: "Thayane",
 			})
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 
 			var result user
 			err = getUserByID(c.db, c.dialect, &result, u.ID)
-			assert.Equal(t, nil, err)
-			assert.Equal(t, "Thayane", result.Name)
+			tt.AssertEqual(t, err, nil)
+			tt.AssertEqual(t, result.Name, "Thayane")
 		})
 
 		t.Run("should update one &user{} correctly", func(t *testing.T) {
@@ -1390,22 +1390,22 @@ func UpdateTest(
 				Name: "Letícia",
 			}
 			_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Letícia', 0)`)
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 
 			err = getUserByName(db, driver, &u, "Letícia")
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 			assert.NotEqual(t, uint(0), u.ID)
 
 			err = c.Update(ctx, usersTable, &user{
 				ID:   u.ID,
 				Name: "Thayane",
 			})
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 
 			var result user
 			err = getUserByID(c.db, c.dialect, &result, u.ID)
-			assert.Equal(t, nil, err)
-			assert.Equal(t, "Thayane", result.Name)
+			tt.AssertEqual(t, err, nil)
+			tt.AssertEqual(t, result.Name, "Thayane")
 		})
 
 		t.Run("should ignore null pointers on partial updates", func(t *testing.T) {
@@ -1422,11 +1422,11 @@ func UpdateTest(
 			}
 
 			_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Letícia', 22)`)
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 
 			var u user
 			err = getUserByName(db, driver, &u, "Letícia")
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 			assert.NotEqual(t, uint(0), u.ID)
 
 			err = c.Update(ctx, usersTable, partialUser{
@@ -1436,13 +1436,13 @@ func UpdateTest(
 				// Should not be updated because it is null:
 				Age: nil,
 			})
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 
 			var result user
 			err = getUserByID(c.db, c.dialect, &result, u.ID)
-			assert.Equal(t, nil, err)
-			assert.Equal(t, "", result.Name)
-			assert.Equal(t, 22, result.Age)
+			tt.AssertEqual(t, err, nil)
+			tt.AssertEqual(t, result.Name, "")
+			tt.AssertEqual(t, result.Age, 22)
 		})
 
 		t.Run("should update valid pointers on partial updates", func(t *testing.T) {
@@ -1459,11 +1459,11 @@ func UpdateTest(
 			}
 
 			_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Letícia', 22)`)
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 
 			var u user
 			err = getUserByName(db, driver, &u, "Letícia")
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 			assert.NotEqual(t, uint(0), u.ID)
 
 			// Should update all fields:
@@ -1472,14 +1472,14 @@ func UpdateTest(
 				Name: "Thay",
 				Age:  nullable.Int(42),
 			})
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 
 			var result user
 			err = getUserByID(c.db, c.dialect, &result, u.ID)
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 
-			assert.Equal(t, "Thay", result.Name)
-			assert.Equal(t, 42, result.Age)
+			tt.AssertEqual(t, result.Name, "Thay")
+			tt.AssertEqual(t, result.Age, 42)
 		})
 
 		t.Run("should return ErrRecordNotFound when asked to update an inexistent user", func(t *testing.T) {
@@ -1493,7 +1493,7 @@ func UpdateTest(
 				ID:   4200,
 				Name: "Thayane",
 			})
-			assert.Equal(t, ErrRecordNotFound, err)
+			tt.AssertEqual(t, err, ErrRecordNotFound)
 		})
 
 		t.Run("should report database errors correctly", func(t *testing.T) {
@@ -1581,11 +1581,11 @@ func QueryChunksTest(
 						},
 					})
 
-					assert.Equal(t, nil, err)
-					assert.Equal(t, 1, length)
+					tt.AssertEqual(t, err, nil)
+					tt.AssertEqual(t, length, 1)
 					assert.NotEqual(t, uint(0), u.ID)
-					assert.Equal(t, "User1", u.Name)
-					assert.Equal(t, "BR", u.Address.Country)
+					tt.AssertEqual(t, u.Name, "User1")
+					tt.AssertEqual(t, u.Address.Country, "BR")
 				})
 
 				t.Run("should query one chunk correctly", func(t *testing.T) {
@@ -1617,17 +1617,17 @@ func QueryChunksTest(
 						},
 					})
 
-					assert.Equal(t, nil, err)
-					assert.Equal(t, 1, len(lengths))
-					assert.Equal(t, 2, lengths[0])
+					tt.AssertEqual(t, err, nil)
+					tt.AssertEqual(t, len(lengths), 1)
+					tt.AssertEqual(t, lengths[0], 2)
 
 					assert.NotEqual(t, uint(0), users[0].ID)
-					assert.Equal(t, "User1", users[0].Name)
-					assert.Equal(t, "US", users[0].Address.Country)
+					tt.AssertEqual(t, users[0].Name, "User1")
+					tt.AssertEqual(t, users[0].Address.Country, "US")
 
 					assert.NotEqual(t, uint(0), users[1].ID)
-					assert.Equal(t, "User2", users[1].Name)
-					assert.Equal(t, "BR", users[1].Address.Country)
+					tt.AssertEqual(t, users[1].Name, "User2")
+					tt.AssertEqual(t, users[1].Address.Country, "BR")
 				})
 
 				t.Run("should query chunks of 1 correctly", func(t *testing.T) {
@@ -1659,17 +1659,17 @@ func QueryChunksTest(
 						},
 					})
 
-					assert.Equal(t, nil, err)
-					assert.Equal(t, 2, len(users))
-					assert.Equal(t, []int{1, 1}, lengths)
+					tt.AssertEqual(t, err, nil)
+					tt.AssertEqual(t, len(users), 2)
+					tt.AssertEqual(t, lengths, []int{1, 1})
 
 					assert.NotEqual(t, uint(0), users[0].ID)
-					assert.Equal(t, "User1", users[0].Name)
-					assert.Equal(t, "US", users[0].Address.Country)
+					tt.AssertEqual(t, users[0].Name, "User1")
+					tt.AssertEqual(t, users[0].Address.Country, "US")
 
 					assert.NotEqual(t, uint(0), users[1].ID)
-					assert.Equal(t, "User2", users[1].Name)
-					assert.Equal(t, "BR", users[1].Address.Country)
+					tt.AssertEqual(t, users[1].Name, "User2")
+					tt.AssertEqual(t, users[1].Address.Country, "BR")
 				})
 
 				t.Run("should load partially filled chunks correctly", func(t *testing.T) {
@@ -1702,15 +1702,15 @@ func QueryChunksTest(
 						},
 					})
 
-					assert.Equal(t, nil, err)
-					assert.Equal(t, 3, len(users))
+					tt.AssertEqual(t, err, nil)
+					tt.AssertEqual(t, len(users), 3)
 					assert.NotEqual(t, uint(0), users[0].ID)
-					assert.Equal(t, "User1", users[0].Name)
+					tt.AssertEqual(t, users[0].Name, "User1")
 					assert.NotEqual(t, uint(0), users[1].ID)
-					assert.Equal(t, "User2", users[1].Name)
+					tt.AssertEqual(t, users[1].Name, "User2")
 					assert.NotEqual(t, uint(0), users[2].ID)
-					assert.Equal(t, "User3", users[2].Name)
-					assert.Equal(t, []int{2, 1}, lengths)
+					tt.AssertEqual(t, users[2].Name, "User3")
+					tt.AssertEqual(t, lengths, []int{2, 1})
 				})
 
 				// xxx
@@ -1738,11 +1738,11 @@ func QueryChunksTest(
 					_ = c.Insert(ctx, usersTable, &thatiana)
 
 					_, err := db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, thatiana.ID, `, 'Thatiana Post1')`))
-					assert.Equal(t, nil, err)
+					tt.AssertEqual(t, err, nil)
 					_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, thatiana.ID, `, 'Thatiana Post2')`))
-					assert.Equal(t, nil, err)
+					tt.AssertEqual(t, err, nil)
 					_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'Thiago Post1')`))
-					assert.Equal(t, nil, err)
+					tt.AssertEqual(t, err, nil)
 
 					var lengths []int
 					var users []user
@@ -1769,20 +1769,20 @@ func QueryChunksTest(
 						},
 					})
 
-					assert.Equal(t, nil, err)
-					assert.Equal(t, 3, len(posts))
+					tt.AssertEqual(t, err, nil)
+					tt.AssertEqual(t, len(posts), 3)
 
-					assert.Equal(t, joao.ID, users[0].ID)
-					assert.Equal(t, "Thiago Ribeiro", users[0].Name)
-					assert.Equal(t, "Thiago Post1", posts[0].Title)
+					tt.AssertEqual(t, users[0].ID, joao.ID)
+					tt.AssertEqual(t, users[0].Name, "Thiago Ribeiro")
+					tt.AssertEqual(t, posts[0].Title, "Thiago Post1")
 
-					assert.Equal(t, thatiana.ID, users[1].ID)
-					assert.Equal(t, "Thatiana Ribeiro", users[1].Name)
-					assert.Equal(t, "Thatiana Post1", posts[1].Title)
+					tt.AssertEqual(t, users[1].ID, thatiana.ID)
+					tt.AssertEqual(t, users[1].Name, "Thatiana Ribeiro")
+					tt.AssertEqual(t, posts[1].Title, "Thatiana Post1")
 
-					assert.Equal(t, thatiana.ID, users[2].ID)
-					assert.Equal(t, "Thatiana Ribeiro", users[2].Name)
-					assert.Equal(t, "Thatiana Post2", posts[2].Title)
+					tt.AssertEqual(t, users[2].ID, thatiana.ID)
+					tt.AssertEqual(t, users[2].Name, "Thatiana Ribeiro")
+					tt.AssertEqual(t, posts[2].Title, "Thatiana Post2")
 				})
 
 				t.Run("should abort the first iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
@@ -1815,13 +1815,13 @@ func QueryChunksTest(
 						},
 					})
 
-					assert.Equal(t, nil, err)
-					assert.Equal(t, 2, len(users))
+					tt.AssertEqual(t, err, nil)
+					tt.AssertEqual(t, len(users), 2)
 					assert.NotEqual(t, uint(0), users[0].ID)
-					assert.Equal(t, "User1", users[0].Name)
+					tt.AssertEqual(t, users[0].Name, "User1")
 					assert.NotEqual(t, uint(0), users[1].ID)
-					assert.Equal(t, "User2", users[1].Name)
-					assert.Equal(t, []int{2}, lengths)
+					tt.AssertEqual(t, users[1].Name, "User2")
+					tt.AssertEqual(t, lengths, []int{2})
 				})
 
 				t.Run("should abort the last iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
@@ -1856,15 +1856,15 @@ func QueryChunksTest(
 						},
 					})
 
-					assert.Equal(t, nil, err)
-					assert.Equal(t, 3, len(users))
+					tt.AssertEqual(t, err, nil)
+					tt.AssertEqual(t, len(users), 3)
 					assert.NotEqual(t, uint(0), users[0].ID)
-					assert.Equal(t, "User1", users[0].Name)
+					tt.AssertEqual(t, users[0].Name, "User1")
 					assert.NotEqual(t, uint(0), users[1].ID)
-					assert.Equal(t, "User2", users[1].Name)
+					tt.AssertEqual(t, users[1].Name, "User2")
 					assert.NotEqual(t, uint(0), users[2].ID)
-					assert.Equal(t, "User3", users[2].Name)
-					assert.Equal(t, []int{2, 1}, lengths)
+					tt.AssertEqual(t, users[2].Name, "User3")
+					tt.AssertEqual(t, lengths, []int{2, 1})
 				})
 
 				t.Run("should return error if the callback returns an error in the first iteration", func(t *testing.T) {
@@ -1898,12 +1898,12 @@ func QueryChunksTest(
 					})
 
 					assert.NotEqual(t, nil, err)
-					assert.Equal(t, 2, len(users))
+					tt.AssertEqual(t, len(users), 2)
 					assert.NotEqual(t, uint(0), users[0].ID)
-					assert.Equal(t, "User1", users[0].Name)
+					tt.AssertEqual(t, users[0].Name, "User1")
 					assert.NotEqual(t, uint(0), users[1].ID)
-					assert.Equal(t, "User2", users[1].Name)
-					assert.Equal(t, []int{2}, lengths)
+					tt.AssertEqual(t, users[1].Name, "User2")
+					tt.AssertEqual(t, lengths, []int{2})
 				})
 
 				t.Run("should return error if the callback returns an error in the last iteration", func(t *testing.T) {
@@ -1939,14 +1939,14 @@ func QueryChunksTest(
 					})
 
 					assert.NotEqual(t, nil, err)
-					assert.Equal(t, 3, len(users))
+					tt.AssertEqual(t, len(users), 3)
 					assert.NotEqual(t, uint(0), users[0].ID)
-					assert.Equal(t, "User1", users[0].Name)
+					tt.AssertEqual(t, users[0].Name, "User1")
 					assert.NotEqual(t, uint(0), users[1].ID)
-					assert.Equal(t, "User2", users[1].Name)
+					tt.AssertEqual(t, users[1].Name, "User2")
 					assert.NotEqual(t, uint(0), users[2].ID)
-					assert.Equal(t, "User3", users[2].Name)
-					assert.Equal(t, []int{2, 1}, lengths)
+					tt.AssertEqual(t, users[2].Name, "User3")
+					tt.AssertEqual(t, lengths, []int{2, 1})
 				})
 
 				t.Run("should report error if the input function is invalid", func(t *testing.T) {
@@ -2032,8 +2032,8 @@ func QueryChunksTest(
 					})
 
 					assert.NotEqual(t, nil, err)
-					assert.Equal(t, true, strings.Contains(err.Error(), "nested struct"), "unexpected error msg: "+err.Error())
-					assert.Equal(t, true, strings.Contains(err.Error(), "feature"), "unexpected error msg: "+err.Error())
+					tt.AssertEqual(t, strings.Contains(err.Error(), "nested struct"), true, "unexpected error msg: "+err.Error())
+					tt.AssertEqual(t, strings.Contains(err.Error(), "feature"), true, "unexpected error msg: "+err.Error())
 				})
 			})
 		}
@@ -2069,11 +2069,11 @@ func TransactionTest(
 				db.Query(ctx, &users, "SELECT * FROM users ORDER BY id ASC")
 				return nil
 			})
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 
-			assert.Equal(t, 2, len(users))
-			assert.Equal(t, "User1", users[0].Name)
-			assert.Equal(t, "User2", users[1].Name)
+			tt.AssertEqual(t, len(users), 2)
+			tt.AssertEqual(t, users[0].Name, "User1")
+			tt.AssertEqual(t, users[1].Name, "User2")
 		})
 
 		t.Run("should rollback when there are errors", func(t *testing.T) {
@@ -2095,22 +2095,22 @@ func TransactionTest(
 
 			err = c.Transaction(ctx, func(db Provider) error {
 				err = db.Insert(ctx, usersTable, &user{Name: "User3"})
-				assert.Equal(t, nil, err)
+				tt.AssertEqual(t, err, nil)
 				err = db.Insert(ctx, usersTable, &user{Name: "User4"})
-				assert.Equal(t, nil, err)
+				tt.AssertEqual(t, err, nil)
 				_, err = db.Exec(ctx, "UPDATE users SET age = 22")
-				assert.Equal(t, nil, err)
+				tt.AssertEqual(t, err, nil)
 
 				return errors.New("fake-error")
 			})
 			assert.NotEqual(t, nil, err)
-			assert.Equal(t, "fake-error", err.Error())
+			tt.AssertEqual(t, err.Error(), "fake-error")
 
 			var users []user
 			err = c.Query(ctx, &users, "SELECT * FROM users ORDER BY id ASC")
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 
-			assert.Equal(t, []user{u1, u2}, users)
+			tt.AssertEqual(t, users, []user{u1, u2})
 		})
 	})
 }
@@ -2140,17 +2140,17 @@ func ScanRowsTest(
 			_ = c.Insert(ctx, usersTable, &user{Name: "User3", Age: 43})
 
 			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 			defer rows.Close()
 
-			assert.Equal(t, true, rows.Next())
+			tt.AssertEqual(t, rows.Next(), true)
 
 			var u user
 			err = scanRows(dialect, rows, &u)
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 
-			assert.Equal(t, "User2", u.Name)
-			assert.Equal(t, 14, u.Age)
+			tt.AssertEqual(t, u.Name, "User2")
+			tt.AssertEqual(t, u.Age, 14)
 		})
 
 		t.Run("should ignore extra columns from query", func(t *testing.T) {
@@ -2167,10 +2167,10 @@ func ScanRowsTest(
 			_ = c.Insert(ctx, usersTable, &user{Name: "User1", Age: 22})
 
 			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User1'")
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 			defer rows.Close()
 
-			assert.Equal(t, true, rows.Next())
+			tt.AssertEqual(t, rows.Next(), true)
 
 			var u struct {
 				ID  int `ksql:"id"`
@@ -2180,9 +2180,9 @@ func ScanRowsTest(
 				// Name string `ksql:"name"`
 			}
 			err = scanRows(dialect, rows, &u)
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 
-			assert.Equal(t, 22, u.Age)
+			tt.AssertEqual(t, u.Age, 22)
 		})
 
 		t.Run("should report error for closed rows", func(t *testing.T) {
@@ -2197,11 +2197,11 @@ func ScanRowsTest(
 			defer closer.Close()
 
 			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 
 			var u user
 			err = rows.Close()
-			assert.Equal(t, nil, err)
+			tt.AssertEqual(t, err, nil)
 			err = scanRows(dialect, rows, &u)
 			assert.NotEqual(t, nil, err)
 		})
