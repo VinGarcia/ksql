@@ -5,7 +5,6 @@ go 1.14
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/ditointernet/go-assert v0.0.0-20200120164340-9e13125a7018
-	github.com/golang/mock v1.6.0 // indirect
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.0
