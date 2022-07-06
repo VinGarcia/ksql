@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 	"github.com/vingarcia/ksql"
@@ -121,7 +122,7 @@ func (w WhereQueries) build(dialect ksql.Dialect) (query string, params []interf
 	return strings.Join(conds, " AND "), params
 }
 
-// Where adds a new bollean condition to an existing
+// Where adds a new boolean condition to an existing
 // WhereQueries helper.
 func (w WhereQueries) Where(cond string, params ...interface{}) WhereQueries {
 	return append(w, WhereQuery{
@@ -130,7 +131,7 @@ func (w WhereQueries) Where(cond string, params ...interface{}) WhereQueries {
 	})
 }
 
-// WhereIf condionally adds a new boolean expression to the WhereQueries helper.
+// WhereIf conditionally adds a new boolean expression to the WhereQueries helper.
 func (w WhereQueries) WhereIf(cond string, param interface{}) WhereQueries {
 	if param == nil || reflect.ValueOf(param).IsNil() {
 		return w
@@ -142,7 +143,7 @@ func (w WhereQueries) WhereIf(cond string, param interface{}) WhereQueries {
 	})
 }
 
-// Where adds a new bollean condition to an existing
+// Where adds a new boolean condition to an existing
 // WhereQueries helper.
 func Where(cond string, params ...interface{}) WhereQueries {
 	return WhereQueries{{
@@ -151,7 +152,7 @@ func Where(cond string, params ...interface{}) WhereQueries {
 	}}
 }
 
-// WhereIf condionally adds a new boolean expression to the WhereQueries helper
+// WhereIf conditionally adds a new boolean expression to the WhereQueries helper
 func WhereIf(cond string, param interface{}) WhereQueries {
 	if param == nil || reflect.ValueOf(param).IsNil() {
 		return WhereQueries{}
@@ -187,7 +188,7 @@ func OrderBy(fields string) OrderByQuery {
 	}
 }
 
-var cachedSelectQueries = map[reflect.Type]string{}
+var cachedSelectQueries = &sync.Map{}
 
 // Builds the select query using cached info so that its efficient
 func buildSelectQuery(obj interface{}, dialect ksql.Dialect) (string, error) {
@@ -200,8 +201,12 @@ func buildSelectQuery(obj interface{}, dialect ksql.Dialect) (string, error) {
 		return "", fmt.Errorf("expected to receive a pointer to struct, but got: %T", obj)
 	}
 
-	if query, found := cachedSelectQueries[t]; found {
-		return query, nil
+	if data, found := cachedSelectQueries.Load(t); found {
+		if query, ok := data.(string); !ok {
+			return "", fmt.Errorf("invalid cache entry, expected type string, found %T", data)
+		} else {
+			return query, nil
+		}
 	}
 
 	info, err := structs.GetTagInfo(t)
@@ -216,6 +221,6 @@ func buildSelectQuery(obj interface{}, dialect ksql.Dialect) (string, error) {
 	}
 
 	query := strings.Join(escapedNames, ", ")
-	cachedSelectQueries[t] = query
+	cachedSelectQueries.Store(t, query)
 	return query, nil
 }

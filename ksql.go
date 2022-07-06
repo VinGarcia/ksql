@@ -7,6 +7,7 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/pkg/errors"
@@ -16,18 +17,18 @@ import (
 
 var selectQueryCache = initializeQueryCache()
 
-func initializeQueryCache() map[string]map[reflect.Type]string {
-	cache := map[string]map[reflect.Type]string{}
+func initializeQueryCache() map[string]*sync.Map {
+	cache := map[string]*sync.Map{}
 	for dname := range supportedDialects {
-		cache[dname] = map[reflect.Type]string{}
+		cache[dname] = &sync.Map{}
 	}
 
 	return cache
 }
 
-// DB represents the ksql client responsible for
+// DB represents the KSQL client responsible for
 // interfacing with the "database/sql" package implementing
-// the KissSQL interface `ksql.Provider`.
+// the KSQL interface `ksql.Provider`.
 type DB struct {
 	driver  string
 	dialect Dialect
@@ -36,9 +37,9 @@ type DB struct {
 
 // DBAdapter is minimalistic interface to decouple our implementation
 // from database/sql, i.e. if any struct implements the functions below
-// with the exact same semantic as the sql package it will work with ksql.
+// with the exact same semantic as the sql package it will work with KSQL.
 //
-// To create a new client using this adapter use ksql.NewWithAdapter()
+// To create a new client using this adapter use `ksql.NewWithAdapter()`
 type DBAdapter interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (Result, error)
 	QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error)
@@ -74,7 +75,7 @@ type Tx interface {
 }
 
 // Config describes the optional arguments accepted
-// by the ksql.New() function.
+// by the `ksql.New()` function.
 type Config struct {
 	// MaxOpenCons defaults to 1 if not set
 	MaxOpenConns int
@@ -528,13 +529,13 @@ func assertStructPtr(t reflect.Type) error {
 }
 
 // Delete deletes one record from the database using the ID or IDs
-// defined on the ksql.Table passed as second argument.
+// defined on the `ksql.Table` passed as second argument.
 //
 // For tables with a single ID column you can pass the record
 // to be deleted as a struct, as a map or just pass the ID itself.
 //
 // For tables with composite keys you must pass the record
-// as a struct or a map so that ksql can read all the composite keys
+// as a struct or a map so that KSQL can read all the composite keys
 // from it.
 //
 // The examples below should work for both types of tables:
@@ -944,7 +945,7 @@ func scanRowsFromType(
 	if info.IsNestedStruct {
 		// This version is positional meaning that it expect the arguments
 		// to follow an specific order. It's ok because we don't allow the
-		// user to type the "SELECT" part of the query for nested ksqltest.
+		// user to type the "SELECT" part of the query for nested structs.
 		scanArgs, err = getScanArgsForNestedStructs(dialect, rows, t, v, info)
 		if err != nil {
 			return err
@@ -1062,10 +1063,14 @@ func buildSelectQuery(
 	dialect Dialect,
 	structType reflect.Type,
 	info structs.StructInfo,
-	selectQueryCache map[reflect.Type]string,
+	selectQueryCache *sync.Map,
 ) (query string, err error) {
-	if selectQuery, found := selectQueryCache[structType]; found {
-		return selectQuery, nil
+	if data, found := selectQueryCache.Load(structType); found {
+		if selectQuery, ok := data.(string); !ok {
+			return "", fmt.Errorf("invalid cache entry, expected type string, found %T", data)
+		} else {
+			return selectQuery, nil
+		}
 	}
 
 	if info.IsNestedStruct {
@@ -1077,7 +1082,7 @@ func buildSelectQuery(
 		query = buildSelectQueryForPlainStructs(dialect, structType, info)
 	}
 
-	selectQueryCache[structType] = query
+	selectQueryCache.Store(structType, query)
 	return query, nil
 }
 
