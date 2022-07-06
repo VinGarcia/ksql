@@ -9,8 +9,8 @@ jobs:
       - uses: actions/checkout@v2
       - name: Pull Postgres
         run: docker pull postgres:14.0
-      - name: Pull MySQL
-        run: docker pull mysql:8.0.27
+      - name: Pull MariaDB
+        run: docker pull mariadb:10.8
       - name: Pull SQLServer
         run: docker pull mcr.microsoft.com/mssql/server:2017-latest
       - name: Check go version
