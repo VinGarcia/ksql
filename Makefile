@@ -27,7 +27,7 @@ lint: setup go-mod-tidy
 
 # Run go mod tidy for all submodules:
 go-mod-tidy:
-	@find -name go.mod -execdir go mod tidy \;
+	find . -name go.mod -execdir go mod tidy \;
 
 gen: mock
 mock: setup
