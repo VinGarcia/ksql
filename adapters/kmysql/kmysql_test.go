@@ -36,11 +36,11 @@ func startMySQLDB(dbName string) (databaseURL string, closer func()) {
 	// pulls an image, creates a container based on it and runs it
 	resource, err := pool.RunWithOptions(
 		&dockertest.RunOptions{
-			Repository: "mysql",
-			Tag:        "8.0.27",
+			Repository: "mariadb",
+			Tag:        "10.8",
 			Env: []string{
-				"MYSQL_ROOT_PASSWORD=mysql",
-				"MYSQL_DATABASE=" + dbName,
+				"MARIADB_ROOT_PASSWORD=mysql",
+				"MARIADB_DATABASE=" + dbName,
 			},
 		},
 		func(config *docker.HostConfig) {
@@ -56,7 +56,7 @@ func startMySQLDB(dbName string) (databaseURL string, closer func()) {
 	hostAndPort := resource.GetHostPort("3306/tcp")
 	databaseUrl := fmt.Sprintf("root:mysql@(%s)/%s?timeout=30s", hostAndPort, dbName)
 
-	fmt.Println("Connecting to mysql on url: ", databaseUrl)
+	fmt.Println("Connecting to mariadb on url: ", databaseUrl)
 
 	resource.Expire(40) // Tell docker to hard kill the container in 40 seconds
 

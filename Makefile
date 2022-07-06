@@ -27,7 +27,7 @@ lint: setup go-mod-tidy
 
 # Run go mod tidy for all submodules:
 go-mod-tidy:
-	@find -name go.mod -execdir go mod tidy \;
+	find . -name go.mod -execdir go mod tidy \;
 
 gen: mock
 mock: setup
@@ -36,15 +36,14 @@ mock: setup
 setup: $(GOBIN)/richgo $(GOBIN)/staticcheck $(GOBIN)/mockgen
 
 $(GOBIN)/richgo:
-	go get github.com/kyoh86/richgo
+	go install github.com/kyoh86/richgo@latest
 
 $(GOBIN)/staticcheck:
 	go install honnef.co/go/tools/cmd/staticcheck@latest
 
 $(GOBIN)/mockgen:
 	@# (Gomock is used on examples/example_service)
-	go get github.com/golang/mock/gomock
-	go get github.com/golang/mock/mockgen
+	go install github.com/golang/mock/mockgen@latest
 
 # Running examples:
 exampleservice: mock
