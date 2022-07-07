@@ -37,7 +37,7 @@ func startSQLServerDB(dbName string) (databaseURL string, closer func()) {
 	resource, err := pool.RunWithOptions(
 		&dockertest.RunOptions{
 			Repository: "mcr.microsoft.com/mssql/server",
-			Tag:        "2017-latest",
+			Tag:        "2022-latest",
 			Env: []string{
 				"SA_PASSWORD=Sqls3rv3r",
 				"ACCEPT_EULA=Y",
