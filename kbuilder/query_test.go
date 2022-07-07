@@ -124,7 +124,7 @@ func TestSelectQuery(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
 			b, err := kbuilder.New("postgres")
-			tt.AssertEqual(t, err, nil)
+			tt.AssertNoErr(t, err)
 
 			query, params, err := b.Build(test.query)
 

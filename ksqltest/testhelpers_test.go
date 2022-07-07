@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ditointernet/go-assert"
 	tt "github.com/vingarcia/ksql/internal/testtools"
 	"github.com/vingarcia/ksql/nullable"
 )
@@ -20,7 +19,7 @@ func TestStructToMap(t *testing.T) {
 			Age:  22,
 		})
 
-		tt.AssertEqual(t, err, nil)
+		tt.AssertNoErr(t, err)
 		tt.AssertEqual(t, m, map[string]interface{}{
 			"name_attr": "my name",
 			"age_attr":  22,
@@ -33,7 +32,7 @@ func TestStructToMap(t *testing.T) {
 			Age:  0,
 		})
 
-		tt.AssertEqual(t, err, nil)
+		tt.AssertNoErr(t, err)
 		tt.AssertEqual(t, m, map[string]interface{}{
 			"name_attr": "",
 			"age_attr":  0,
@@ -53,7 +52,7 @@ func TestStructToMap(t *testing.T) {
 			Age:  &age,
 		})
 
-		tt.AssertEqual(t, err, nil)
+		tt.AssertNoErr(t, err)
 		tt.AssertEqual(t, m, map[string]interface{}{
 			"name": "",
 			"age":  0,
@@ -66,7 +65,7 @@ func TestStructToMap(t *testing.T) {
 			Age:  nil,
 		})
 
-		tt.AssertEqual(t, err, nil)
+		tt.AssertNoErr(t, err)
 		tt.AssertEqual(t, m, map[string]interface{}{})
 	})
 
@@ -81,7 +80,7 @@ func TestStructToMap(t *testing.T) {
 			NotPartOfTheQuery: 42,
 		})
 
-		tt.AssertEqual(t, err, nil)
+		tt.AssertNoErr(t, err)
 		tt.AssertEqual(t, m, map[string]interface{}{
 			"name_attr": "fake-name",
 			"age_attr":  42,
@@ -99,7 +98,7 @@ func TestStructToMap(t *testing.T) {
 			DuplicatedName: "fake-duplicated-name",
 		})
 
-		assert.NotEqual(t, nil, err)
+		tt.AssertNotEqual(t, err, nil)
 	})
 
 	t.Run("should return error for structs with no ksql tags", func(t *testing.T) {
@@ -111,7 +110,7 @@ func TestStructToMap(t *testing.T) {
 			Age:  42,
 		})
 
-		assert.NotEqual(t, nil, err)
+		tt.AssertNotEqual(t, err, nil)
 	})
 }
 
@@ -126,7 +125,7 @@ func TestFillStructWith(t *testing.T) {
 			"age":  22,
 		})
 
-		tt.AssertEqual(t, err, nil)
+		tt.AssertNoErr(t, err)
 		tt.AssertEqual(t, user.Name, "Breno")
 		tt.AssertEqual(t, user.Age, 22)
 	})
@@ -141,7 +140,7 @@ func TestFillStructWith(t *testing.T) {
 			"age":  nullable.Int(22),
 		})
 
-		tt.AssertEqual(t, err, nil)
+		tt.AssertNoErr(t, err)
 		tt.AssertEqual(t, user.Name, nullable.String("Breno"))
 		tt.AssertEqual(t, user.Age, nullable.Int(22))
 	})
@@ -156,7 +155,7 @@ func TestFillStructWith(t *testing.T) {
 			"age":  22,
 		})
 
-		tt.AssertEqual(t, err, nil)
+		tt.AssertNoErr(t, err)
 		tt.AssertEqual(t, user.Name, nullable.String("Breno"))
 		tt.AssertEqual(t, user.Age, nullable.Int(22))
 	})
@@ -171,7 +170,7 @@ func TestFillStructWith(t *testing.T) {
 			"age":  nullable.Int(22),
 		})
 
-		tt.AssertEqual(t, err, nil)
+		tt.AssertNoErr(t, err)
 		tt.AssertEqual(t, user.Name, "Breno")
 		tt.AssertEqual(t, user.Age, 22)
 	})
@@ -186,7 +185,7 @@ func TestFillStructWith(t *testing.T) {
 			"age":  nil,
 		})
 
-		tt.AssertEqual(t, err, nil)
+		tt.AssertNoErr(t, err)
 		tt.AssertEqual(t, user.Name, (*string)(nil))
 		tt.AssertEqual(t, user.Age, (*int)(nil))
 	})
@@ -204,7 +203,7 @@ func TestFillStructWith(t *testing.T) {
 			"age":  nil,
 		})
 
-		tt.AssertEqual(t, err, nil)
+		tt.AssertNoErr(t, err)
 		tt.AssertEqual(t, user.Name, "")
 		tt.AssertEqual(t, user.Age, 0)
 	})
@@ -295,7 +294,7 @@ func TestFillSliceWith(t *testing.T) {
 			},
 		})
 
-		tt.AssertEqual(t, err, nil)
+		tt.AssertNoErr(t, err)
 		tt.AssertEqual(t, len(users), 3)
 		tt.AssertEqual(t, users[0].Name, "Jorge")
 		tt.AssertEqual(t, users[1].Name, "Luciana")
