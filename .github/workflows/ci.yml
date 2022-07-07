@@ -12,7 +12,7 @@ jobs:
       - name: Pull MariaDB
         run: docker pull mariadb:10.8
       - name: Pull SQLServer
-        run: docker pull mcr.microsoft.com/mssql/server:2017-latest
+        run: docker pull mcr.microsoft.com/mssql/server:2022-latest
       - name: Check go version
         run: go version
       - name: Run linters
