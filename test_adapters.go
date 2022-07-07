@@ -8,7 +8,6 @@ import (
 	"io"
 	"testing"
 
-	"github.com/ditointernet/go-assert"
 	"github.com/pkg/errors"
 	tt "github.com/vingarcia/ksql/internal/testtools"
 	"github.com/vingarcia/ksql/nullable"
@@ -723,7 +722,7 @@ func InsertTest(
 
 					err := c.Insert(ctx, usersTable, &u)
 					tt.AssertNoErr(t, err)
-					assert.NotEqual(t, 0, u.ID)
+					tt.AssertNotEqual(t, u.ID, 0)
 
 					result := user{}
 					err = getUserByID(c.db, c.dialect, &result, u.ID)
@@ -1003,7 +1002,7 @@ func InsertTest(
 				var u user
 				err = getUserByName(db, driver, &u, "Inserted With no ID")
 				tt.AssertNoErr(t, err)
-				assert.NotEqual(t, uint(0), u.ID)
+				tt.AssertNotEqual(t, u.ID, uint(0))
 				tt.AssertEqual(t, u.Age, 42)
 			})
 		})
@@ -1081,7 +1080,7 @@ func DeleteTest(
 
 					err := c.Insert(ctx, usersTable, &u1)
 					tt.AssertNoErr(t, err)
-					assert.NotEqual(t, uint(0), u1.ID)
+					tt.AssertNotEqual(t, u1.ID, uint(0))
 
 					result := user{}
 					err = getUserByID(c.db, c.dialect, &result, u1.ID)
@@ -1094,7 +1093,7 @@ func DeleteTest(
 
 					err = c.Insert(ctx, usersTable, &u2)
 					tt.AssertNoErr(t, err)
-					assert.NotEqual(t, uint(0), u2.ID)
+					tt.AssertNotEqual(t, u2.ID, uint(0))
 
 					result = user{}
 					err = getUserByID(c.db, c.dialect, &result, u2.ID)
@@ -1112,7 +1111,7 @@ func DeleteTest(
 					err = getUserByID(c.db, c.dialect, &result, u2.ID)
 					tt.AssertNoErr(t, err)
 
-					assert.NotEqual(t, uint(0), result.ID)
+					tt.AssertNotEqual(t, result.ID, uint(0))
 					tt.AssertEqual(t, result.Name, "Won't be deleted")
 				})
 			}
@@ -1362,7 +1361,7 @@ func UpdateTest(
 
 			err = getUserByName(db, driver, &u, "Letícia")
 			tt.AssertNoErr(t, err)
-			assert.NotEqual(t, uint(0), u.ID)
+			tt.AssertNotEqual(t, u.ID, uint(0))
 
 			err = c.Update(ctx, usersTable, user{
 				ID:   u.ID,
@@ -1391,7 +1390,7 @@ func UpdateTest(
 
 			err = getUserByName(db, driver, &u, "Letícia")
 			tt.AssertNoErr(t, err)
-			assert.NotEqual(t, uint(0), u.ID)
+			tt.AssertNotEqual(t, u.ID, uint(0))
 
 			err = c.Update(ctx, usersTable, &user{
 				ID:   u.ID,
@@ -1424,7 +1423,7 @@ func UpdateTest(
 			var u user
 			err = getUserByName(db, driver, &u, "Letícia")
 			tt.AssertNoErr(t, err)
-			assert.NotEqual(t, uint(0), u.ID)
+			tt.AssertNotEqual(t, u.ID, uint(0))
 
 			err = c.Update(ctx, usersTable, partialUser{
 				ID: u.ID,
@@ -1461,7 +1460,7 @@ func UpdateTest(
 			var u user
 			err = getUserByName(db, driver, &u, "Letícia")
 			tt.AssertNoErr(t, err)
-			assert.NotEqual(t, uint(0), u.ID)
+			tt.AssertNotEqual(t, u.ID, uint(0))
 
 			// Should update all fields:
 			err = c.Update(ctx, usersTable, partialUser{
@@ -1580,7 +1579,7 @@ func QueryChunksTest(
 
 					tt.AssertNoErr(t, err)
 					tt.AssertEqual(t, length, 1)
-					assert.NotEqual(t, uint(0), u.ID)
+					tt.AssertNotEqual(t, u.ID, uint(0))
 					tt.AssertEqual(t, u.Name, "User1")
 					tt.AssertEqual(t, u.Address.Country, "BR")
 				})
@@ -1618,11 +1617,11 @@ func QueryChunksTest(
 					tt.AssertEqual(t, len(lengths), 1)
 					tt.AssertEqual(t, lengths[0], 2)
 
-					assert.NotEqual(t, uint(0), users[0].ID)
+					tt.AssertNotEqual(t, users[0].ID, uint(0))
 					tt.AssertEqual(t, users[0].Name, "User1")
 					tt.AssertEqual(t, users[0].Address.Country, "US")
 
-					assert.NotEqual(t, uint(0), users[1].ID)
+					tt.AssertNotEqual(t, users[1].ID, uint(0))
 					tt.AssertEqual(t, users[1].Name, "User2")
 					tt.AssertEqual(t, users[1].Address.Country, "BR")
 				})
@@ -1660,11 +1659,11 @@ func QueryChunksTest(
 					tt.AssertEqual(t, len(users), 2)
 					tt.AssertEqual(t, lengths, []int{1, 1})
 
-					assert.NotEqual(t, uint(0), users[0].ID)
+					tt.AssertNotEqual(t, users[0].ID, uint(0))
 					tt.AssertEqual(t, users[0].Name, "User1")
 					tt.AssertEqual(t, users[0].Address.Country, "US")
 
-					assert.NotEqual(t, uint(0), users[1].ID)
+					tt.AssertNotEqual(t, users[1].ID, uint(0))
 					tt.AssertEqual(t, users[1].Name, "User2")
 					tt.AssertEqual(t, users[1].Address.Country, "BR")
 				})
@@ -1701,11 +1700,11 @@ func QueryChunksTest(
 
 					tt.AssertNoErr(t, err)
 					tt.AssertEqual(t, len(users), 3)
-					assert.NotEqual(t, uint(0), users[0].ID)
+					tt.AssertNotEqual(t, users[0].ID, uint(0))
 					tt.AssertEqual(t, users[0].Name, "User1")
-					assert.NotEqual(t, uint(0), users[1].ID)
+					tt.AssertNotEqual(t, users[1].ID, uint(0))
 					tt.AssertEqual(t, users[1].Name, "User2")
-					assert.NotEqual(t, uint(0), users[2].ID)
+					tt.AssertNotEqual(t, users[2].ID, uint(0))
 					tt.AssertEqual(t, users[2].Name, "User3")
 					tt.AssertEqual(t, lengths, []int{2, 1})
 				})
@@ -1814,9 +1813,9 @@ func QueryChunksTest(
 
 					tt.AssertNoErr(t, err)
 					tt.AssertEqual(t, len(users), 2)
-					assert.NotEqual(t, uint(0), users[0].ID)
+					tt.AssertNotEqual(t, users[0].ID, uint(0))
 					tt.AssertEqual(t, users[0].Name, "User1")
-					assert.NotEqual(t, uint(0), users[1].ID)
+					tt.AssertNotEqual(t, users[1].ID, uint(0))
 					tt.AssertEqual(t, users[1].Name, "User2")
 					tt.AssertEqual(t, lengths, []int{2})
 				})
@@ -1855,11 +1854,11 @@ func QueryChunksTest(
 
 					tt.AssertNoErr(t, err)
 					tt.AssertEqual(t, len(users), 3)
-					assert.NotEqual(t, uint(0), users[0].ID)
+					tt.AssertNotEqual(t, users[0].ID, uint(0))
 					tt.AssertEqual(t, users[0].Name, "User1")
-					assert.NotEqual(t, uint(0), users[1].ID)
+					tt.AssertNotEqual(t, users[1].ID, uint(0))
 					tt.AssertEqual(t, users[1].Name, "User2")
-					assert.NotEqual(t, uint(0), users[2].ID)
+					tt.AssertNotEqual(t, users[2].ID, uint(0))
 					tt.AssertEqual(t, users[2].Name, "User3")
 					tt.AssertEqual(t, lengths, []int{2, 1})
 				})
@@ -1896,9 +1895,9 @@ func QueryChunksTest(
 
 					tt.AssertNotEqual(t, err, nil)
 					tt.AssertEqual(t, len(users), 2)
-					assert.NotEqual(t, uint(0), users[0].ID)
+					tt.AssertNotEqual(t, users[0].ID, uint(0))
 					tt.AssertEqual(t, users[0].Name, "User1")
-					assert.NotEqual(t, uint(0), users[1].ID)
+					tt.AssertNotEqual(t, users[1].ID, uint(0))
 					tt.AssertEqual(t, users[1].Name, "User2")
 					tt.AssertEqual(t, lengths, []int{2})
 				})
@@ -1937,11 +1936,11 @@ func QueryChunksTest(
 
 					tt.AssertNotEqual(t, err, nil)
 					tt.AssertEqual(t, len(users), 3)
-					assert.NotEqual(t, uint(0), users[0].ID)
+					tt.AssertNotEqual(t, users[0].ID, uint(0))
 					tt.AssertEqual(t, users[0].Name, "User1")
-					assert.NotEqual(t, uint(0), users[1].ID)
+					tt.AssertNotEqual(t, users[1].ID, uint(0))
 					tt.AssertEqual(t, users[1].Name, "User2")
-					assert.NotEqual(t, uint(0), users[2].ID)
+					tt.AssertNotEqual(t, users[2].ID, uint(0))
 					tt.AssertEqual(t, users[2].Name, "User3")
 					tt.AssertEqual(t, lengths, []int{2, 1})
 				})
