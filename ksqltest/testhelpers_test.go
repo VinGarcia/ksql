@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ditointernet/go-assert"
 	tt "github.com/vingarcia/ksql/internal/testtools"
 	"github.com/vingarcia/ksql/nullable"
 )
@@ -20,11 +19,11 @@ func TestStructToMap(t *testing.T) {
 			Age:  22,
 		})
 
-		assert.Equal(t, nil, err)
-		assert.Equal(t, map[string]interface{}{
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, m, map[string]interface{}{
 			"name_attr": "my name",
 			"age_attr":  22,
-		}, m)
+		})
 	})
 
 	t.Run("should not ignore zero value attrs, if they are not pointers", func(t *testing.T) {
@@ -33,11 +32,11 @@ func TestStructToMap(t *testing.T) {
 			Age:  0,
 		})
 
-		assert.Equal(t, nil, err)
-		assert.Equal(t, map[string]interface{}{
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, m, map[string]interface{}{
 			"name_attr": "",
 			"age_attr":  0,
-		}, m)
+		})
 	})
 
 	type S2 struct {
@@ -53,11 +52,11 @@ func TestStructToMap(t *testing.T) {
 			Age:  &age,
 		})
 
-		assert.Equal(t, nil, err)
-		assert.Equal(t, map[string]interface{}{
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, m, map[string]interface{}{
 			"name": "",
 			"age":  0,
-		}, m)
+		})
 	})
 
 	t.Run("should ignore nil pointers", func(t *testing.T) {
@@ -66,8 +65,8 @@ func TestStructToMap(t *testing.T) {
 			Age:  nil,
 		})
 
-		assert.Equal(t, nil, err)
-		assert.Equal(t, map[string]interface{}{}, m)
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, m, map[string]interface{}{})
 	})
 
 	t.Run("should ignore fields not tagged with ksql", func(t *testing.T) {
@@ -81,11 +80,11 @@ func TestStructToMap(t *testing.T) {
 			NotPartOfTheQuery: 42,
 		})
 
-		assert.Equal(t, nil, err)
-		assert.Equal(t, map[string]interface{}{
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, m, map[string]interface{}{
 			"name_attr": "fake-name",
 			"age_attr":  42,
-		}, m)
+		})
 	})
 
 	t.Run("should return error for duplicated ksql tag names", func(t *testing.T) {
@@ -99,7 +98,7 @@ func TestStructToMap(t *testing.T) {
 			DuplicatedName: "fake-duplicated-name",
 		})
 
-		assert.NotEqual(t, nil, err)
+		tt.AssertNotEqual(t, err, nil)
 	})
 
 	t.Run("should return error for structs with no ksql tags", func(t *testing.T) {
@@ -111,7 +110,7 @@ func TestStructToMap(t *testing.T) {
 			Age:  42,
 		})
 
-		assert.NotEqual(t, nil, err)
+		tt.AssertNotEqual(t, err, nil)
 	})
 }
 
@@ -126,9 +125,9 @@ func TestFillStructWith(t *testing.T) {
 			"age":  22,
 		})
 
-		assert.Equal(t, nil, err)
-		assert.Equal(t, "Breno", user.Name)
-		assert.Equal(t, 22, user.Age)
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, user.Name, "Breno")
+		tt.AssertEqual(t, user.Age, 22)
 	})
 
 	t.Run("should fill ptr fields with ptr values", func(t *testing.T) {
@@ -141,9 +140,9 @@ func TestFillStructWith(t *testing.T) {
 			"age":  nullable.Int(22),
 		})
 
-		assert.Equal(t, nil, err)
-		assert.Equal(t, nullable.String("Breno"), user.Name)
-		assert.Equal(t, nullable.Int(22), user.Age)
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, user.Name, nullable.String("Breno"))
+		tt.AssertEqual(t, user.Age, nullable.Int(22))
 	})
 
 	t.Run("should fill ptr fields with non-ptr values", func(t *testing.T) {
@@ -156,9 +155,9 @@ func TestFillStructWith(t *testing.T) {
 			"age":  22,
 		})
 
-		assert.Equal(t, nil, err)
-		assert.Equal(t, nullable.String("Breno"), user.Name)
-		assert.Equal(t, nullable.Int(22), user.Age)
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, user.Name, nullable.String("Breno"))
+		tt.AssertEqual(t, user.Age, nullable.Int(22))
 	})
 
 	t.Run("should fill non ptr fields with ptr values", func(t *testing.T) {
@@ -171,9 +170,9 @@ func TestFillStructWith(t *testing.T) {
 			"age":  nullable.Int(22),
 		})
 
-		assert.Equal(t, nil, err)
-		assert.Equal(t, "Breno", user.Name)
-		assert.Equal(t, 22, user.Age)
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, user.Name, "Breno")
+		tt.AssertEqual(t, user.Age, 22)
 	})
 
 	t.Run("should fill ptr fields with nil when necessary", func(t *testing.T) {
@@ -186,9 +185,9 @@ func TestFillStructWith(t *testing.T) {
 			"age":  nil,
 		})
 
-		assert.Equal(t, nil, err)
-		assert.Equal(t, (*string)(nil), user.Name)
-		assert.Equal(t, (*int)(nil), user.Age)
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, user.Name, (*string)(nil))
+		tt.AssertEqual(t, user.Age, (*int)(nil))
 	})
 
 	t.Run("should interpret nil fields as zero values when necessary", func(t *testing.T) {
@@ -204,9 +203,9 @@ func TestFillStructWith(t *testing.T) {
 			"age":  nil,
 		})
 
-		assert.Equal(t, nil, err)
-		assert.Equal(t, "", user.Name)
-		assert.Equal(t, 0, user.Age)
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, user.Name, "")
+		tt.AssertEqual(t, user.Age, 0)
 	})
 
 	t.Run("should ignore extra or missing fields", func(t *testing.T) {
@@ -295,7 +294,7 @@ func TestFillSliceWith(t *testing.T) {
 			},
 		})
 
-		tt.AssertEqual(t, err, nil)
+		tt.AssertNoErr(t, err)
 		tt.AssertEqual(t, len(users), 3)
 		tt.AssertEqual(t, users[0].Name, "Jorge")
 		tt.AssertEqual(t, users[1].Name, "Luciana")

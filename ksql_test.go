@@ -3,8 +3,6 @@ package ksql
 import (
 	"testing"
 
-	"github.com/ditointernet/go-assert"
-
 	tt "github.com/vingarcia/ksql/internal/testtools"
 )
 
@@ -25,9 +23,9 @@ func TestNewAdapterWith(t *testing.T) {
 				dialectName,
 			)
 
-			assert.Equal(t, nil, err)
-			assert.Equal(t, supportedDialects[dialectName], db.dialect)
-			assert.Equal(t, dialectName, db.driver)
+			tt.AssertNoErr(t, err)
+			tt.AssertEqual(t, db.dialect, supportedDialects[dialectName])
+			tt.AssertEqual(t, db.driver, dialectName)
 		}
 	})
 
@@ -37,6 +35,6 @@ func TestNewAdapterWith(t *testing.T) {
 			"fake-dialect-name",
 		)
 
-		assert.NotEqual(t, nil, err)
+		tt.AssertNotEqual(t, err, nil)
 	})
 }
