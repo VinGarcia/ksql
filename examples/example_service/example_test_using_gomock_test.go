@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ditointernet/go-assert"
 	gomock "github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"github.com/vingarcia/ksql"
 	"github.com/vingarcia/ksql/ksqltest"
 	"github.com/vingarcia/ksql/nullable"
