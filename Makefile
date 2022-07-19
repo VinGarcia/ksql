@@ -29,6 +29,11 @@ lint: setup go-mod-tidy
 go-mod-tidy:
 	find . -name go.mod -execdir go mod tidy \;
 
+# Update adapters to use a new ksql tag
+version=
+update:
+	find . -name go.mod -execdir go get github.com/vingarcia/ksql@$(version) \;
+
 gen: mock
 mock: setup
 	$(GOBIN)/mockgen -package=exampleservice -source=contracts.go -destination=examples/example_service/mocks.go
