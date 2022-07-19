@@ -32,7 +32,9 @@ go-mod-tidy:
 # Update adapters to use a new ksql tag
 version=
 update:
-	find . -name go.mod -execdir go get github.com/vingarcia/ksql@$(version) \;
+	find adapters -name go.mod -execdir go get github.com/vingarcia/ksql@$(version) \;
+	for dir in $$(ls adapters); do git tag adapters/$$dir/$(version); done
+	for dir in $$(ls adapters); do git push origin master adapters/$$dir/$(version); done
 
 gen: mock
 mock: setup
