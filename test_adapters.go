@@ -67,7 +67,7 @@ func RunTestsForAdapter(
 		QueryOneTest(t, driver, connStr, newDBAdapter)
 		InsertTest(t, driver, connStr, newDBAdapter)
 		DeleteTest(t, driver, connStr, newDBAdapter)
-		UpdateTest(t, driver, connStr, newDBAdapter)
+		PatchTest(t, driver, connStr, newDBAdapter)
 		QueryChunksTest(t, driver, connStr, newDBAdapter)
 		TransactionTest(t, driver, connStr, newDBAdapter)
 		ScanRowsTest(t, driver, connStr, newDBAdapter)
@@ -1266,6 +1266,24 @@ func DeleteTest(
 					ctx := context.Background()
 					c := newTestDB(db, driver)
 
+					err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), &struct {
+						// Missing PermID
+						UserID int    `ksql:"user_id"`
+						Name   string `ksql:"name"`
+					}{
+						UserID: 1,
+						Name:   "fake-name",
+					})
+					tt.AssertErrContains(t, err, "missing required", "perm_id")
+				})
+
+				t.Run("map with missing attr", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, driver)
+
 					err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), map[string]interface{}{
 						// Missing PermID
 						"user_id": 1,
@@ -1275,6 +1293,26 @@ func DeleteTest(
 				})
 
 				t.Run("struct with NULL attr", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, driver)
+
+					err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), &struct {
+						UserID int    `ksql:"user_id"`
+						PermID *int   `ksql:"perm_id"`
+						Name   string `ksql:"name"`
+					}{
+						// Null Perm ID
+						UserID: 1,
+						PermID: nil,
+						Name:   "fake-name",
+					})
+					tt.AssertErrContains(t, err, "missing required", "perm_id")
+				})
+
+				t.Run("map with NULL attr", func(t *testing.T) {
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
@@ -1291,6 +1329,26 @@ func DeleteTest(
 				})
 
 				t.Run("struct with zero attr", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, driver)
+
+					err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), &struct {
+						UserID int    `ksql:"user_id"`
+						PermID int    `ksql:"perm_id"`
+						Name   string `ksql:"name"`
+					}{
+						// Zero Perm ID
+						UserID: 1,
+						PermID: 0,
+						Name:   "fake-name",
+					})
+					tt.AssertErrContains(t, err, "invalid value", "0", "perm_id")
+				})
+
+				t.Run("map with zero attr", func(t *testing.T) {
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
@@ -1332,15 +1390,15 @@ func DeleteTest(
 	})
 }
 
-// UpdateTest runs all tests for making sure the Update function is
+// PatchTest runs all tests for making sure the Patch function is
 // working for a given adapter and driver.
-func UpdateTest(
+func PatchTest(
 	t *testing.T,
 	driver string,
 	connStr string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
-	t.Run("Update", func(t *testing.T) {
+	t.Run("Patch", func(t *testing.T) {
 		err := createTables(driver, connStr)
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
