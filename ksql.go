@@ -618,18 +618,7 @@ func normalizeIDsAsMap(idNames []string, idOrMap interface{}) (idMap map[string]
 		}
 	}
 
-	for _, idName := range idNames {
-		id, found := idMap[idName]
-		if !found {
-			return nil, fmt.Errorf("missing required id field `%s` on input record", idName)
-		}
-
-		if id == nil || reflect.ValueOf(id).IsZero() {
-			return nil, fmt.Errorf("invalid value '%v' received for id column: '%s'", id, idName)
-		}
-	}
-
-	return idMap, nil
+	return idMap, validateIfAllIdsArePresent(idNames, idMap)
 }
 
 // Update updates the given instances on the database by id.
@@ -803,6 +792,11 @@ func buildUpdateQuery(
 	numNonIDArgs := numAttrs - len(idFieldNames)
 	whereArgs := args[numNonIDArgs:]
 
+	err = validateIfAllIdsArePresent(idFieldNames, recordMap)
+	if err != nil {
+		return "", nil, err
+	}
+
 	whereQuery := make([]string, len(idFieldNames))
 	for i, fieldName := range idFieldNames {
 		whereArgs[i] = recordMap[fieldName]
@@ -845,6 +839,21 @@ func buildUpdateQuery(
 	)
 
 	return query, args, nil
+}
+
+func validateIfAllIdsArePresent(idNames []string, idMap map[string]interface{}) error {
+	for _, idName := range idNames {
+		id, found := idMap[idName]
+		if !found {
+			return fmt.Errorf("missing required id field `%s` on input record", idName)
+		}
+
+		if id == nil || reflect.ValueOf(id).IsZero() {
+			return fmt.Errorf("invalid value '%v' received for id column: '%s'", id, idName)
+		}
+	}
+
+	return nil
 }
 
 // Exec just runs an SQL command on the database returning no rows.

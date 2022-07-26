@@ -1619,6 +1619,37 @@ func PatchTest(
 			err := c.Update(ctx, usersTable, u)
 			tt.AssertNotEqual(t, err, nil)
 		})
+
+		t.Run("should report error if the id is missing", func(t *testing.T) {
+			t.Run("with a single primary key", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, driver)
+
+				err := c.Update(ctx, usersTable, &user{
+					// Missing ID
+					Name: "Jane",
+				})
+				tt.AssertErrContains(t, err, "invalid value", "0", "'id'")
+			})
+
+			t.Run("with composite keys", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, driver)
+
+				err := c.Update(ctx, NewTable("user_permissions", "id", "user_id", "perm_id"), &userPermission{
+					ID: 1,
+					// Missing UserID
+					PermID: 42,
+				})
+				tt.AssertErrContains(t, err, "invalid value", "0", "'user_id'")
+			})
+		})
 	})
 }
 
