@@ -425,7 +425,6 @@ is configured to kill the containers after 20 seconds.
 
 ## TODO List
 
-- Add tests for tables using composite keys (ongoing)
 - Add support for serializing structs as other formats such as YAML
 - Update `ksqltest.FillStructWith` to work with `ksql:"..,json"` tagged attributes
 - Create a way for users to submit user defined dialects
@@ -443,3 +442,4 @@ is configured to kill the containers after 20 seconds.
   so that we don't need to get it more than once in the same call.
 - Use a cache to store often used queries (like pgx)
 - Preload the insert method for all dialects inside `ksql.NewTable()`
+- Use prepared statements for the helper functions, `Update`, `Insert` and `Delete`.
