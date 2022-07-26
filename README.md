@@ -443,3 +443,9 @@ is configured to kill the containers after 20 seconds.
 - Use a cache to store often used queries (like pgx)
 - Preload the insert method for all dialects inside `ksql.NewTable()`
 - Use prepared statements for the helper functions, `Update`, `Insert` and `Delete`.
+
+## Features for a possible V2
+
+- Change the `.Transaction(db ksql.Provider)` to a `.Transaction(ctx context.Context)`
+- Make the `.Query()` method to return a `type Query interface { One(); All(); Chunks(); }`
+- Have an `Update()` method that updates without ignoring NULLs as `Patch()` does
