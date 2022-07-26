@@ -841,7 +841,7 @@ func buildUpdateQuery(
 		"UPDATE %s SET %s WHERE %s",
 		dialect.Escape(tableName),
 		strings.Join(setQuery, ", "),
-		strings.Join(whereQuery, ", "),
+		strings.Join(whereQuery, " AND "),
 	)
 
 	return query, args, nil
