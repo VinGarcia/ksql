@@ -1131,7 +1131,10 @@ func DeleteTest(
 					UserID: 1,
 					PermID: 44,
 				}
-				err = c.Insert(ctx, NewTable("user_permissions", "id"), &p0)
+				err = createUserPermission(db, c.dialect, p0)
+				tt.AssertNoErr(t, err)
+
+				p0, err = getUserPermissionBySecondaryKeys(db, c.dialect, 1, 44)
 				tt.AssertNoErr(t, err)
 				tt.AssertNotEqual(t, p0.ID, 0)
 
@@ -1139,7 +1142,7 @@ func DeleteTest(
 					UserID: 1,
 					PermID: 42,
 				}
-				err = c.Insert(ctx, NewTable("user_permissions", "id"), &p1)
+				err = createUserPermission(db, c.dialect, p1)
 				tt.AssertNoErr(t, err)
 
 				err = c.Delete(ctx, userPermissionsTable, p1)
@@ -1164,7 +1167,10 @@ func DeleteTest(
 					UserID: 2,
 					PermID: 44,
 				}
-				err = c.Insert(ctx, NewTable("user_permissions", "id"), &p0)
+				err = createUserPermission(db, c.dialect, p0)
+				tt.AssertNoErr(t, err)
+
+				p0, err = getUserPermissionBySecondaryKeys(db, c.dialect, 1, 44)
 				tt.AssertNoErr(t, err)
 				tt.AssertNotEqual(t, p0.ID, 0)
 
@@ -1172,7 +1178,7 @@ func DeleteTest(
 					UserID: 2,
 					PermID: 42,
 				}
-				err = c.Insert(ctx, NewTable("user_permissions", "id"), &p1)
+				err = createUserPermission(db, c.dialect, p1)
 				tt.AssertNoErr(t, err)
 
 				err = c.Delete(ctx, userPermissionsTable, map[string]interface{}{
@@ -1267,7 +1273,7 @@ func DeleteTest(
 					ctx := context.Background()
 					c := newTestDB(db, driver)
 
-					err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), &struct {
+					err := c.Delete(ctx, userPermissionsTable, &struct {
 						// Missing PermID
 						UserID int    `ksql:"user_id"`
 						Name   string `ksql:"name"`
@@ -1285,7 +1291,7 @@ func DeleteTest(
 					ctx := context.Background()
 					c := newTestDB(db, driver)
 
-					err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), map[string]interface{}{
+					err := c.Delete(ctx, userPermissionsTable, map[string]interface{}{
 						// Missing PermID
 						"user_id": 1,
 						"name":    "fake-name",
@@ -1300,7 +1306,7 @@ func DeleteTest(
 					ctx := context.Background()
 					c := newTestDB(db, driver)
 
-					err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), &struct {
+					err := c.Delete(ctx, userPermissionsTable, &struct {
 						UserID int    `ksql:"user_id"`
 						PermID *int   `ksql:"perm_id"`
 						Name   string `ksql:"name"`
@@ -1320,7 +1326,7 @@ func DeleteTest(
 					ctx := context.Background()
 					c := newTestDB(db, driver)
 
-					err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), map[string]interface{}{
+					err := c.Delete(ctx, userPermissionsTable, map[string]interface{}{
 						// Null Perm ID
 						"user_id": 1,
 						"perm_id": nil,
@@ -1336,7 +1342,7 @@ func DeleteTest(
 					ctx := context.Background()
 					c := newTestDB(db, driver)
 
-					err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), &struct {
+					err := c.Delete(ctx, userPermissionsTable, &struct {
 						UserID int    `ksql:"user_id"`
 						PermID int    `ksql:"perm_id"`
 						Name   string `ksql:"name"`
@@ -1356,7 +1362,7 @@ func DeleteTest(
 					ctx := context.Background()
 					c := newTestDB(db, driver)
 
-					err := c.Delete(ctx, NewTable("user_permissions", "user_id", "perm_id"), map[string]interface{}{
+					err := c.Delete(ctx, userPermissionsTable, map[string]interface{}{
 						// Zero Perm ID
 						"user_id": 1,
 						"perm_id": 0,
