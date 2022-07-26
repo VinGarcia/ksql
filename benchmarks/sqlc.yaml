@@ -1,0 +1,7 @@
+version: 1
+packages:
+  - path: "sqlcgen"
+    name: "sqlcgen"
+    engine: "postgresql"
+    schema: "sqlcgen/schema.sql"
+    queries: "sqlcgen/queries.sql"

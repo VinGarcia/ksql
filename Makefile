@@ -15,7 +15,7 @@ test: setup go-mod-tidy
 	@( cd adapters/ksqlite3 ; $(GOBIN)/richgo test $(path) $(args) )
 
 bench: go-mod-tidy
-	cd benchmarks && go test -bench=. -benchtime=$(TIME)
+	cd benchmarks && make bench TIME=$(TIME)
 	@echo "Benchmark executed at: $$(date --iso)"
 	@echo "Benchmark executed on commit: $$(git rev-parse HEAD)"
 

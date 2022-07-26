@@ -12,6 +12,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/vingarcia/ksql"
 	"github.com/vingarcia/ksql/adapters/kpgx"
+	"github.com/vingarcia/ksql/benchmarks/sqlcgen"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -268,6 +269,34 @@ func BenchmarkInsert(b *testing.B) {
 				}).Error
 				if err != nil {
 					b.Fatalf("insert error: %s", err)
+				}
+			}
+		})
+	})
+
+	b.Run("sqlc", func(b *testing.B) {
+		sqlDB, err := sql.Open(driver, connStr)
+		if err != nil {
+			b.Fatalf("error creating sql client: %s", err)
+		}
+		sqlDB.SetMaxOpenConns(1)
+
+		sqlcDB := sqlcgen.New(sqlDB)
+
+		err = recreateTable(connStr)
+		if err != nil {
+			b.Fatalf("error creating table: %s", err.Error())
+		}
+
+		b.Run("insert-one", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				user := sqlcgen.InsertUserParams{
+					Name: strconv.Itoa(i),
+					Age:  int32(i),
+				}
+				_, err := sqlcDB.InsertUser(ctx, user)
+				if err != nil {
+					b.Fatalf("insert error: %s", err.Error())
 				}
 			}
 		})
@@ -689,6 +718,44 @@ func BenchmarkQuery(b *testing.B) {
 				}
 				if len(users) < 10 {
 					b.Fatalf("expected 10 scanned users, but got: %d", len(users))
+				}
+			}
+		})
+	})
+
+	b.Run("sqlc", func(b *testing.B) {
+		sqlDB, err := sql.Open(driver, connStr)
+		if err != nil {
+			b.Fatalf("error creating sql client: %s", err)
+		}
+		sqlDB.SetMaxOpenConns(1)
+
+		sqlcDB := sqlcgen.New(sqlDB)
+
+		err = recreateTable(connStr)
+		if err != nil {
+			b.Fatalf("error creating table: %s", err.Error())
+		}
+
+		err = insertUsers(connStr, 100)
+		if err != nil {
+			b.Fatalf("error inserting users: %s", err.Error())
+		}
+
+		b.Run("single-row", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_, err := sqlcDB.GetUser(ctx, int32(i%100))
+				if err != nil {
+					b.Fatalf("query error: %s", err.Error())
+				}
+			}
+		})
+
+		b.Run("multiple-rows", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_, err := sqlcDB.List10Users(ctx, int32(i%90))
+				if err != nil {
+					b.Fatalf("query error: %s", err.Error())
 				}
 			}
 		})
