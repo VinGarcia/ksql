@@ -336,6 +336,7 @@ that we are comparing the following tools:
 - `pgx` (with `pgxpool`)
 - `gorm`
 - `sqlc`
+- `sqlboiler`
 
 For each of these tools we are running 3 different queries:
 
