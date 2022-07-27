@@ -3,6 +3,6 @@ packages:
   - path: "sqlcgen"
     name: "sqlcgen"
     engine: "postgresql"
-    schema: "sqlcgen/schema.sql"
+    schema: "schema.sql"
     queries: "sqlcgen/queries.sql"
     emit_prepared_queries: true
