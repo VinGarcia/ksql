@@ -7,7 +7,7 @@ package sqlcgen
 import ()
 
 type User struct {
-	ID   int64
+	ID   int32
 	Name string
 	Age  int32
 }

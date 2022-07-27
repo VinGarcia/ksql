@@ -1,6 +1,6 @@
 
 CREATE TABLE users (
-  id   BIGSERIAL PRIMARY KEY,
-  name text NOT NULL,
-  age  integer NOT NULL
+	id serial PRIMARY KEY,
+	name VARCHAR(50) NOT NULL,
+	age INT NOT NULL
 );

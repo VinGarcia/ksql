@@ -15,14 +15,14 @@ test: setup go-mod-tidy
 	@( cd adapters/ksqlite3 ; $(GOBIN)/richgo test $(path) $(args) )
 
 bench: go-mod-tidy
-	cd benchmarks && make bench TIME=$(TIME)
+	@make --no-print-directory -C benchmarks TIME=$(TIME)
 	@echo "Benchmark executed at: $$(date --iso)"
 	@echo "Benchmark executed on commit: $$(git rev-parse HEAD)"
 
 lint: setup go-mod-tidy
 	@$(GOBIN)/staticcheck $(path) $(args)
 	@go vet $(path) $(args)
-	@make --no-print-directory -C benchmarks
+	@make --no-print-directory -C benchmarks lint
 	@echo "StaticCheck & Go Vet found no problems on your code!"
 
 # Run go mod tidy for all submodules:

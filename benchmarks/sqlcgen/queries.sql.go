@@ -31,9 +31,9 @@ type InsertUserParams struct {
 	Age  int32
 }
 
-func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (int64, error) {
+func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (int32, error) {
 	row := q.queryRow(ctx, q.insertUserStmt, insertUser, arg.Name, arg.Age)
-	var id int64
+	var id int32
 	err := row.Scan(&id)
 	return id, err
 }

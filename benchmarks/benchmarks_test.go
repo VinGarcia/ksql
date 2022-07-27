@@ -7,12 +7,17 @@ import (
 	"strconv"
 	"testing"
 
+	_ "embed"
+
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/vingarcia/ksql"
 	"github.com/vingarcia/ksql/adapters/kpgx"
+	"github.com/vingarcia/ksql/benchmarks/sqlboilergen"
 	"github.com/vingarcia/ksql/benchmarks/sqlcgen"
+	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -326,6 +331,32 @@ func BenchmarkInsert(b *testing.B) {
 					Age:  int32(i),
 				}
 				_, err := sqlcDB.InsertUser(ctx, user)
+				if err != nil {
+					b.Fatalf("insert error: %s", err.Error())
+				}
+			}
+		})
+	})
+
+	b.Run("sqlboiler", func(b *testing.B) {
+		sqlDB, err := sql.Open(driver, connStr)
+		if err != nil {
+			b.Fatalf("error creating sql client: %s", err)
+		}
+		sqlDB.SetMaxOpenConns(1)
+
+		err = recreateTable(connStr)
+		if err != nil {
+			b.Fatalf("error creating table: %s", err.Error())
+		}
+
+		b.Run("insert-one", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				user := sqlboilergen.User{
+					Name: strconv.Itoa(i),
+					Age:  i,
+				}
+				err := user.Insert(ctx, sqlDB, boil.Infer())
 				if err != nil {
 					b.Fatalf("insert error: %s", err.Error())
 				}
@@ -832,7 +863,46 @@ func BenchmarkQuery(b *testing.B) {
 			}
 		})
 	})
+
+	b.Run("sqlboiler", func(b *testing.B) {
+		sqlDB, err := sql.Open(driver, connStr)
+		if err != nil {
+			b.Fatalf("error creating sql client: %s", err)
+		}
+		sqlDB.SetMaxOpenConns(1)
+
+		err = recreateTable(connStr)
+		if err != nil {
+			b.Fatalf("error creating table: %s", err.Error())
+		}
+
+		err = insertUsers(connStr, 100)
+		if err != nil {
+			b.Fatalf("error inserting users: %s", err.Error())
+		}
+
+		b.Run("single-row", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_, err := sqlboilergen.Users(qm.Select("id", "name", "age"), qm.Offset(i%100), qm.Limit(1)).One(ctx, sqlDB)
+				if err != nil {
+					b.Fatalf("query error: %s", err.Error())
+				}
+			}
+		})
+
+		b.Run("multiple-rows", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_, err := sqlboilergen.Users(qm.Select("id", "name", "age"), qm.Offset(i%90), qm.Limit(10)).One(ctx, sqlDB)
+				if err != nil {
+					b.Fatalf("query error: %s", err.Error())
+				}
+			}
+		})
+	})
 }
+
+//go:embed schema.sql
+var createTablesSQL string
 
 func recreateTable(connStr string) error {
 	db, err := sql.Open("postgres", connStr)
@@ -843,11 +913,7 @@ func recreateTable(connStr string) error {
 
 	db.Exec(`DROP TABLE users`)
 
-	_, err = db.Exec(`CREATE TABLE users (
-		  id serial PRIMARY KEY,
-			age INT,
-			name VARCHAR(50)
-		)`)
+	_, err = db.Exec(createTablesSQL)
 	if err != nil {
 		return fmt.Errorf("failed to create new users table: %s", err.Error())
 	}

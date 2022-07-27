@@ -1,0 +1,14 @@
+output   = "sqlboilergen"
+pkgname  = "sqlboilergen"
+wipe     = true
+no-tests = true
+add-enum-types = true
+
+[psql]
+  dbname = "ksql"
+  host   = "localhost"
+  port   = 5432
+  user   = "postgres"
+  pass   = "postgres"
+  blacklist = ["migrations", "other"]
+  sslmode = "disable"
