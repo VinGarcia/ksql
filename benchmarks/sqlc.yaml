@@ -5,3 +5,4 @@ packages:
     engine: "postgresql"
     schema: "sqlcgen/schema.sql"
     queries: "sqlcgen/queries.sql"
+    emit_prepared_queries: true

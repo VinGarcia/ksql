@@ -126,7 +126,7 @@ func BenchmarkInsert(b *testing.B) {
 		})
 	})
 
-	b.Run("sql/prep-statements", func(b *testing.B) {
+	b.Run("sql/prep-stmt", func(b *testing.B) {
 		sqlDB, err := sql.Open(driver, connStr)
 		if err != nil {
 			b.Fatalf("error creating sql client: %s", err)
@@ -282,6 +282,37 @@ func BenchmarkInsert(b *testing.B) {
 		sqlDB.SetMaxOpenConns(1)
 
 		sqlcDB := sqlcgen.New(sqlDB)
+
+		err = recreateTable(connStr)
+		if err != nil {
+			b.Fatalf("error creating table: %s", err.Error())
+		}
+
+		b.Run("insert-one", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				user := sqlcgen.InsertUserParams{
+					Name: strconv.Itoa(i),
+					Age:  int32(i),
+				}
+				_, err := sqlcDB.InsertUser(ctx, user)
+				if err != nil {
+					b.Fatalf("insert error: %s", err.Error())
+				}
+			}
+		})
+	})
+
+	b.Run("sqlc/prep-stmt", func(b *testing.B) {
+		sqlDB, err := sql.Open(driver, connStr)
+		if err != nil {
+			b.Fatalf("error creating sql client: %s", err)
+		}
+		sqlDB.SetMaxOpenConns(1)
+
+		sqlcDB, err := sqlcgen.Prepare(ctx, sqlDB)
+		if err != nil {
+			b.Fatalf("error preparing sqlc statements: %s", err)
+		}
 
 		err = recreateTable(connStr)
 		if err != nil {
@@ -470,7 +501,7 @@ func BenchmarkQuery(b *testing.B) {
 		})
 	})
 
-	b.Run("sql/prep-statements", func(b *testing.B) {
+	b.Run("sql/prep-stmt", func(b *testing.B) {
 		sqlDB, err := sql.Open(driver, connStr)
 		if err != nil {
 			b.Fatalf("error creating sql client: %s", err)
@@ -731,6 +762,47 @@ func BenchmarkQuery(b *testing.B) {
 		sqlDB.SetMaxOpenConns(1)
 
 		sqlcDB := sqlcgen.New(sqlDB)
+
+		err = recreateTable(connStr)
+		if err != nil {
+			b.Fatalf("error creating table: %s", err.Error())
+		}
+
+		err = insertUsers(connStr, 100)
+		if err != nil {
+			b.Fatalf("error inserting users: %s", err.Error())
+		}
+
+		b.Run("single-row", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_, err := sqlcDB.GetUser(ctx, int32(i%100))
+				if err != nil {
+					b.Fatalf("query error: %s", err.Error())
+				}
+			}
+		})
+
+		b.Run("multiple-rows", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_, err := sqlcDB.List10Users(ctx, int32(i%90))
+				if err != nil {
+					b.Fatalf("query error: %s", err.Error())
+				}
+			}
+		})
+	})
+
+	b.Run("sqlc/prep-stmt", func(b *testing.B) {
+		sqlDB, err := sql.Open(driver, connStr)
+		if err != nil {
+			b.Fatalf("error creating sql client: %s", err)
+		}
+		sqlDB.SetMaxOpenConns(1)
+
+		sqlcDB, err := sqlcgen.Prepare(ctx, sqlDB)
+		if err != nil {
+			b.Fatalf("error preparing sqlc statements: %s", err)
+		}
 
 		err = recreateTable(connStr)
 		if err != nil {

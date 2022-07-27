@@ -15,7 +15,7 @@ OFFSET $1 LIMIT 1
 `
 
 func (q *Queries) GetUser(ctx context.Context, offset int32) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUser, offset)
+	row := q.queryRow(ctx, q.getUserStmt, getUser, offset)
 	var i User
 	err := row.Scan(&i.ID, &i.Name, &i.Age)
 	return i, err
@@ -32,7 +32,7 @@ type InsertUserParams struct {
 }
 
 func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, insertUser, arg.Name, arg.Age)
+	row := q.queryRow(ctx, q.insertUserStmt, insertUser, arg.Name, arg.Age)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
@@ -44,7 +44,7 @@ OFFSET $1 LIMIT 10
 `
 
 func (q *Queries) List10Users(ctx context.Context, offset int32) ([]User, error) {
-	rows, err := q.db.QueryContext(ctx, list10Users, offset)
+	rows, err := q.query(ctx, q.list10UsersStmt, list10Users, offset)
 	if err != nil {
 		return nil, err
 	}
