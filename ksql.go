@@ -861,7 +861,15 @@ func (c DB) Exec(ctx context.Context, query string, params ...interface{}) (Resu
 	return c.db.ExecContext(ctx, query, params...)
 }
 
-// Transaction just runs an SQL command on the database returning no rows.
+// Transaction encapsulates several queries into a single transaction.
+// All these queries should be made inside the input callback `fn`
+// and they should use the input ksql.Provider.
+//
+// If the callback returns any errors the transaction will be rolled back,
+// otherwise the transaction will me committed.
+//
+// If it happens that a second transaction is started inside a transaction
+// callback the same transaction will be reused with no errors.
 func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 	switch txBeginner := c.db.(type) {
 	case Tx:
