@@ -4,3 +4,4 @@ coverage:
     - "examples/**/*"
     - "kbuilder/*"
     - "kstructs/*"
+    - "test_adapters.go"
