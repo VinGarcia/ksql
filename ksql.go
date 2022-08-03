@@ -877,14 +877,14 @@ func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 	case TxBeginner:
 		tx, err := txBeginner.BeginTx(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("KSQL: error starting transaction: %s", err)
 		}
 		defer func() {
 			if r := recover(); r != nil {
 				rollbackErr := tx.Rollback(ctx)
 				if rollbackErr != nil {
 					r = errors.Wrap(rollbackErr,
-						fmt.Sprintf("unable to rollback after panic with value: %v", r),
+						fmt.Sprintf("KSQL: unable to rollback after panic with value: %v", r),
 					)
 				}
 				panic(r)
@@ -899,7 +899,7 @@ func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 			rollbackErr := tx.Rollback(ctx)
 			if rollbackErr != nil {
 				err = errors.Wrap(rollbackErr,
-					fmt.Sprintf("unable to rollback after error: %s", err.Error()),
+					fmt.Sprintf("KSQL: unable to rollback after error: %s", err.Error()),
 				)
 			}
 			return err
@@ -908,7 +908,7 @@ func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 		return tx.Commit(ctx)
 
 	default:
-		return fmt.Errorf("can't start transaction: The DBAdapter doesn't implement the TxBeginner interface")
+		return fmt.Errorf("KSQL: can't start transaction: The DBAdapter doesn't implement the TxBeginner interface")
 	}
 }
 

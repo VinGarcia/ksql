@@ -2167,6 +2167,15 @@ func QueryChunksTest(
 	})
 }
 
+type MockTxBeginner struct {
+	DBAdapter
+	BeginTxFn func(ctx context.Context) (Tx, error)
+}
+
+func (b MockTxBeginner) BeginTx(ctx context.Context) (Tx, error) {
+	return b.BeginTxFn(ctx)
+}
+
 // TransactionTest runs all tests for making sure the Transaction function is
 // working for a given adapter and driver.
 func TransactionTest(
@@ -2201,6 +2210,43 @@ func TransactionTest(
 			tt.AssertEqual(t, len(users), 2)
 			tt.AssertEqual(t, users[0].Name, "User1")
 			tt.AssertEqual(t, users[1].Name, "User2")
+		})
+
+		t.Run("should work normally in nested transactions", func(t *testing.T) {
+			err := createTables(driver, connStr)
+			if err != nil {
+				t.Fatal("could not create test table!, reason:", err.Error())
+			}
+
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx := context.Background()
+			c := newTestDB(db, driver)
+
+			u := user{
+				Name: "User1",
+			}
+			err = c.Insert(ctx, usersTable, &u)
+			tt.AssertNoErr(t, err)
+			tt.AssertNotEqual(t, u.ID, 0)
+
+			var updatedUser user
+			err = c.Transaction(ctx, func(db Provider) error {
+				u.Age = 42
+				err = db.Patch(ctx, usersTable, &u)
+				if err != nil {
+					return err
+				}
+
+				return db.Transaction(ctx, func(db Provider) error {
+					return db.QueryOne(ctx, &updatedUser, "FROM users WHERE id = "+c.dialect.Placeholder(0), u.ID)
+				})
+			})
+			tt.AssertNoErr(t, err)
+
+			tt.AssertEqual(t, updatedUser.ID, u.ID)
+			tt.AssertEqual(t, updatedUser.Age, 42)
 		})
 
 		t.Run("should rollback when there are errors", func(t *testing.T) {
@@ -2238,6 +2284,27 @@ func TransactionTest(
 			tt.AssertNoErr(t, err)
 
 			tt.AssertEqual(t, users, []user{u1, u2})
+		})
+
+		t.Run("should report error when BeginTx() fails", func(t *testing.T) {
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx := context.Background()
+			c := newTestDB(db, driver)
+
+			cMock := MockTxBeginner{
+				DBAdapter: c.db,
+				BeginTxFn: func(ctx context.Context) (Tx, error) {
+					return nil, fmt.Errorf("fakeErrMsg")
+				},
+			}
+			c.db = cMock
+
+			err := c.Transaction(ctx, func(db Provider) error {
+				return nil
+			})
+			tt.AssertErrContains(t, err, "KSQL", "fakeErrMsg")
 		})
 	})
 }
