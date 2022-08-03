@@ -12,6 +12,20 @@ func (b mockTxBeginner) BeginTx(ctx context.Context) (Tx, error) {
 	return b.BeginTxFn(ctx)
 }
 
+// mockDBAdapter mocks the ksql.DBAdapter interface
+type mockDBAdapter struct {
+	ExecContextFn  func(ctx context.Context, query string, args ...interface{}) (Result, error)
+	QueryContextFn func(ctx context.Context, query string, args ...interface{}) (Rows, error)
+}
+
+func (m mockDBAdapter) ExecContext(ctx context.Context, query string, args ...interface{}) (Result, error) {
+	return m.ExecContextFn(ctx, query, args...)
+}
+
+func (m mockDBAdapter) QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error) {
+	return m.QueryContextFn(ctx, query, args...)
+}
+
 // mockTx mocks the ksql.Tx interface
 type mockTx struct {
 	DBAdapter

@@ -2370,6 +2370,26 @@ func TransactionTest(
 			})
 			tt.AssertErrContains(t, err, "KSQL", "fakeErrMsg")
 		})
+
+		t.Run("should report error if DBAdapter can't create transactions", func(t *testing.T) {
+			err := createTables(driver, connStr)
+			if err != nil {
+				t.Fatal("could not create test table!, reason:", err.Error())
+			}
+
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx := context.Background()
+			c := newTestDB(db, driver)
+
+			c.db = mockDBAdapter{}
+
+			err = c.Transaction(ctx, func(db Provider) error {
+				return nil
+			})
+			tt.AssertErrContains(t, err, "KSQL", "can't start transaction", "DBAdapter", "TxBeginner")
+		})
 	})
 }
 
