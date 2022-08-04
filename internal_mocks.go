@@ -40,3 +40,12 @@ func (m mockTx) Rollback(ctx context.Context) error {
 func (m mockTx) Commit(ctx context.Context) error {
 	return m.CommitFn(ctx)
 }
+
+// mockCloser mocks the io.Closer interface
+type mockCloser struct {
+	CloseFn func() error
+}
+
+func (m mockCloser) Close() error {
+	return m.CloseFn()
+}

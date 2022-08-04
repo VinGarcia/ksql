@@ -1,6 +1,8 @@
 package ksql
 
 import (
+	"fmt"
+	"io"
 	"testing"
 
 	tt "github.com/vingarcia/ksql/internal/testtools"
@@ -36,5 +38,54 @@ func TestNewAdapterWith(t *testing.T) {
 		)
 
 		tt.AssertNotEqual(t, err, nil)
+	})
+}
+
+func TestClose(t *testing.T) {
+	t.Run("should close the adapter if it implements the io.Closer interface", func(t *testing.T) {
+		c := DB{
+			db: struct {
+				DBAdapter
+				io.Closer
+			}{
+				DBAdapter: mockDBAdapter{},
+				Closer: mockCloser{
+					CloseFn: func() error {
+						return nil
+					},
+				},
+			},
+		}
+
+		err := c.Close()
+		tt.AssertNoErr(t, err)
+	})
+
+	t.Run("should exit normally if the adapter does not implement the io.Closer interface", func(t *testing.T) {
+		c := DB{
+			db: mockDBAdapter{},
+		}
+
+		err := c.Close()
+		tt.AssertNoErr(t, err)
+	})
+
+	t.Run("should report an error if the adapter.Close() returns one", func(t *testing.T) {
+		c := DB{
+			db: struct {
+				DBAdapter
+				io.Closer
+			}{
+				DBAdapter: mockDBAdapter{},
+				Closer: mockCloser{
+					CloseFn: func() error {
+						return fmt.Errorf("fakeCloseErrMsg")
+					},
+				},
+			},
+		}
+
+		err := c.Close()
+		tt.AssertErrContains(t, err, "fakeCloseErrMsg")
 	})
 }
