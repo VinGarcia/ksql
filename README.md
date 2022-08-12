@@ -465,4 +465,4 @@ is configured to kill the containers after 20 seconds.
 - Change the `.Transaction(db ksql.Provider)` to a `.Transaction(ctx context.Context)`
 - Make the `.Query()` method to return a `type Query interface { One(); All(); Chunks(); }`
 - Have an `Update()` method that updates without ignoring NULLs as `Patch()` does
-- Rename `NewTable()` to just `Table()` so it feels right to declare it inline when convenient.
+- Rename `NewTable()` to just `Table()` so it feels right to declare it inline when convenient
