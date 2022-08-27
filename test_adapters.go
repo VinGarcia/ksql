@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"github.com/vingarcia/ksql/internal/structs"
 	tt "github.com/vingarcia/ksql/internal/testtools"
 	"github.com/vingarcia/ksql/nullable"
 )
@@ -2548,7 +2547,7 @@ func ScanRowsTest(
 			tt.AssertEqual(t, rows.Next(), true)
 
 			var u user
-			err = c.scanRows(dialect, rows, &u)
+			err = scanRows(dialect, rows, &u)
 			tt.AssertNoErr(t, err)
 
 			tt.AssertEqual(t, u.Name, "User2")
@@ -2581,7 +2580,7 @@ func ScanRowsTest(
 				// Omitted for testing purposes:
 				// Name string `ksql:"name"`
 			}
-			err = c.scanRows(dialect, rows, &u)
+			err = scanRows(dialect, rows, &u)
 			tt.AssertNoErr(t, err)
 
 			tt.AssertEqual(t, u.Age, 22)
@@ -2597,7 +2596,6 @@ func ScanRowsTest(
 			ctx := context.TODO()
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
-			c := newTestDB(db, driver)
 
 			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
 			tt.AssertNoErr(t, err)
@@ -2605,7 +2603,7 @@ func ScanRowsTest(
 			var u user
 			err = rows.Close()
 			tt.AssertNoErr(t, err)
-			err = c.scanRows(dialect, rows, &u)
+			err = scanRows(dialect, rows, &u)
 			tt.AssertNotEqual(t, err, nil)
 		})
 
@@ -2619,14 +2617,13 @@ func ScanRowsTest(
 			ctx := context.TODO()
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
-			c := newTestDB(db, driver)
 
 			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
 			tt.AssertNoErr(t, err)
 			defer rows.Close()
 
 			var u user
-			err = c.scanRows(dialect, rows, u)
+			err = scanRows(dialect, rows, u)
 			tt.AssertErrContains(t, err, "ksql", "expected", "pointer to struct", "user")
 		})
 
@@ -2640,14 +2637,13 @@ func ScanRowsTest(
 			ctx := context.TODO()
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
-			c := newTestDB(db, driver)
 
 			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
 			tt.AssertNoErr(t, err)
 			defer rows.Close()
 
 			var u map[string]interface{}
-			err = c.scanRows(dialect, rows, &u)
+			err = scanRows(dialect, rows, &u)
 			tt.AssertErrContains(t, err, "ksql", "expected", "pointer to struct", "map[string]interface")
 		})
 	})
@@ -2780,8 +2776,6 @@ func newTestDB(db DBAdapter, driver string) DB {
 		driver:  driver,
 		dialect: supportedDialects[driver],
 		db:      db,
-
-		tagInfoCache: structs.TagInfoCache{},
 	}
 }
 

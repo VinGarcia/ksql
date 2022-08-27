@@ -69,24 +69,12 @@ func (s StructInfo) NumFields() int {
 // works fine.
 var tagInfoCache = &sync.Map{}
 
-// TagInfoCache implements the ksql.TagInfoCache interface
-// this abstraction was created for allowing the use of
-// mocks during tests.
-type TagInfoCache struct{}
-
 // GetTagInfo efficiently returns the type information
 // using a global private cache
 //
 // In the future we might move this cache inside
 // a struct, but for now this accessor is the one
 // we are using
-func (t TagInfoCache) GetTagInfo(key reflect.Type) (StructInfo, error) {
-	return getCachedTagInfo(tagInfoCache, key)
-}
-
-// GetTagInfo is the static version of the method above
-// created for convenience when the extra abstraction
-// is unnecessary.
 func GetTagInfo(key reflect.Type) (StructInfo, error) {
 	return getCachedTagInfo(tagInfoCache, key)
 }

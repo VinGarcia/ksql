@@ -33,8 +33,6 @@ type DB struct {
 	driver  string
 	dialect Dialect
 	db      DBAdapter
-
-	tagInfoCache TagInfoCache
 }
 
 // DBAdapter is minimalistic interface to decouple our implementation
@@ -45,10 +43,6 @@ type DB struct {
 type DBAdapter interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (Result, error)
 	QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error)
-}
-
-type TagInfoCache interface {
-	GetTagInfo(key reflect.Type) (structs.StructInfo, error)
 }
 
 // TxBeginner needs to be implemented by the DBAdapter in order to make it possible
@@ -113,8 +107,6 @@ func NewWithAdapter(
 		dialect: dialect,
 		driver:  dialectName,
 		db:      db,
-
-		tagInfoCache: structs.TagInfoCache{},
 	}, nil
 }
 
@@ -150,7 +142,7 @@ func (c DB) Query(
 		slice = slice.Slice(0, 0)
 	}
 
-	info, err := c.tagInfoCache.GetTagInfo(structType)
+	info, err := structs.GetTagInfo(structType)
 	if err != nil {
 		return err
 	}
@@ -162,7 +154,7 @@ func (c DB) Query(
 	}
 
 	if firstToken == "FROM" {
-		selectPrefix, err := c.buildSelectQuery(c.dialect, structType, info, selectQueryCache[c.dialect.DriverName()])
+		selectPrefix, err := buildSelectQuery(c.dialect, structType, info, selectQueryCache[c.dialect.DriverName()])
 		if err != nil {
 			return err
 		}
@@ -193,7 +185,7 @@ func (c DB) Query(
 			elemPtr = elemPtr.Elem()
 		}
 
-		err = c.scanRows(c.dialect, rows, elemPtr.Interface())
+		err = scanRows(c.dialect, rows, elemPtr.Interface())
 		if err != nil {
 			return err
 		}
@@ -240,7 +232,7 @@ func (c DB) QueryOne(
 		return fmt.Errorf("ksql: expected to receive a pointer to struct, but got: %T", record)
 	}
 
-	info, err := c.tagInfoCache.GetTagInfo(tStruct)
+	info, err := structs.GetTagInfo(tStruct)
 	if err != nil {
 		return err
 	}
@@ -252,7 +244,7 @@ func (c DB) QueryOne(
 	}
 
 	if firstToken == "FROM" {
-		selectPrefix, err := c.buildSelectQuery(c.dialect, tStruct, info, selectQueryCache[c.dialect.DriverName()])
+		selectPrefix, err := buildSelectQuery(c.dialect, tStruct, info, selectQueryCache[c.dialect.DriverName()])
 		if err != nil {
 			return err
 		}
@@ -272,7 +264,7 @@ func (c DB) QueryOne(
 		return ErrRecordNotFound
 	}
 
-	err = c.scanRowsFromType(c.dialect, rows, record, t, v)
+	err = scanRowsFromType(c.dialect, rows, record, t, v)
 	if err != nil {
 		return err
 	}
@@ -313,7 +305,7 @@ func (c DB) QueryChunks(
 		return err
 	}
 
-	info, err := c.tagInfoCache.GetTagInfo(structType)
+	info, err := structs.GetTagInfo(structType)
 	if err != nil {
 		return err
 	}
@@ -325,7 +317,7 @@ func (c DB) QueryChunks(
 	}
 
 	if firstToken == "FROM" {
-		selectPrefix, err := c.buildSelectQuery(c.dialect, structType, info, selectQueryCache[c.dialect.DriverName()])
+		selectPrefix, err := buildSelectQuery(c.dialect, structType, info, selectQueryCache[c.dialect.DriverName()])
 		if err != nil {
 			return err
 		}
@@ -351,7 +343,7 @@ func (c DB) QueryChunks(
 			chunk = reflect.Append(chunk, elemValue)
 		}
 
-		err = c.scanRows(c.dialect, rows, chunk.Index(idx).Addr().Interface())
+		err = scanRows(c.dialect, rows, chunk.Index(idx).Addr().Interface())
 		if err != nil {
 			return err
 		}
@@ -423,7 +415,7 @@ func (c DB) Insert(
 		return fmt.Errorf("can't insert in ksql.Table: %s", err)
 	}
 
-	info, err := c.tagInfoCache.GetTagInfo(t.Elem())
+	info, err := structs.GetTagInfo(t.Elem())
 	if err != nil {
 		return err
 	}
@@ -660,7 +652,7 @@ func (c DB) Patch(
 		}
 		tStruct = t.Elem()
 	}
-	info, err := c.tagInfoCache.GetTagInfo(tStruct)
+	info, err := structs.GetTagInfo(tStruct)
 	if err != nil {
 		return err
 	}
@@ -937,13 +929,13 @@ func (nopScanner) Scan(value interface{}) error {
 	return nil
 }
 
-func (c DB) scanRows(dialect Dialect, rows Rows, record interface{}) error {
+func scanRows(dialect Dialect, rows Rows, record interface{}) error {
 	v := reflect.ValueOf(record)
 	t := v.Type()
-	return c.scanRowsFromType(dialect, rows, record, t, v)
+	return scanRowsFromType(dialect, rows, record, t, v)
 }
 
-func (c DB) scanRowsFromType(
+func scanRowsFromType(
 	dialect Dialect,
 	rows Rows,
 	record interface{},
@@ -961,7 +953,7 @@ func (c DB) scanRowsFromType(
 		return fmt.Errorf("ksql: expected record to be a pointer to struct, but got: %T", record)
 	}
 
-	info, err := c.tagInfoCache.GetTagInfo(t)
+	info, err := structs.GetTagInfo(t)
 	if err != nil {
 		return err
 	}
@@ -971,7 +963,7 @@ func (c DB) scanRowsFromType(
 		// This version is positional meaning that it expect the arguments
 		// to follow an specific order. It's ok because we don't allow the
 		// user to type the "SELECT" part of the query for nested structs.
-		scanArgs, err = c.getScanArgsForNestedStructs(dialect, rows, t, v, info)
+		scanArgs, err = getScanArgsForNestedStructs(dialect, rows, t, v, info)
 		if err != nil {
 			return err
 		}
@@ -988,7 +980,7 @@ func (c DB) scanRowsFromType(
 	return rows.Scan(scanArgs...)
 }
 
-func (c DB) getScanArgsForNestedStructs(dialect Dialect, rows Rows, t reflect.Type, v reflect.Value, info structs.StructInfo) ([]interface{}, error) {
+func getScanArgsForNestedStructs(dialect Dialect, rows Rows, t reflect.Type, v reflect.Value, info structs.StructInfo) ([]interface{}, error) {
 	scanArgs := []interface{}{}
 	for i := 0; i < v.NumField(); i++ {
 		if !info.ByIndex(i).Valid {
@@ -996,7 +988,7 @@ func (c DB) getScanArgsForNestedStructs(dialect Dialect, rows Rows, t reflect.Ty
 		}
 
 		// TODO(vingarcia00): Handle case where type is pointer
-		nestedStructInfo, err := c.tagInfoCache.GetTagInfo(t.Field(i).Type)
+		nestedStructInfo, err := structs.GetTagInfo(t.Field(i).Type)
 		if err != nil {
 			return nil, err
 		}
@@ -1084,7 +1076,7 @@ func getFirstToken(s string) string {
 	return token.String()
 }
 
-func (c DB) buildSelectQuery(
+func buildSelectQuery(
 	dialect Dialect,
 	structType reflect.Type,
 	info structs.StructInfo,
@@ -1099,7 +1091,7 @@ func (c DB) buildSelectQuery(
 	}
 
 	if info.IsNestedStruct {
-		query, err = c.buildSelectQueryForNestedStructs(dialect, structType, info)
+		query, err = buildSelectQueryForNestedStructs(dialect, structType, info)
 		if err != nil {
 			return "", err
 		}
@@ -1129,7 +1121,7 @@ func buildSelectQueryForPlainStructs(
 	return "SELECT " + strings.Join(fields, ", ") + " "
 }
 
-func (c DB) buildSelectQueryForNestedStructs(
+func buildSelectQueryForNestedStructs(
 	dialect Dialect,
 	structType reflect.Type,
 	info structs.StructInfo,
@@ -1150,7 +1142,7 @@ func (c DB) buildSelectQueryForNestedStructs(
 			)
 		}
 
-		nestedStructTagInfo, err := c.tagInfoCache.GetTagInfo(nestedStructType)
+		nestedStructTagInfo, err := structs.GetTagInfo(nestedStructType)
 		if err != nil {
 			return "", err
 		}
