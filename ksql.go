@@ -192,11 +192,11 @@ func (c DB) Query(
 	}
 
 	if rows.Err() != nil {
-		return rows.Err()
+		return fmt.Errorf("KSQL: unexpected error when parsing query result: %w", rows.Err())
 	}
 
 	if err := rows.Close(); err != nil {
-		return err
+		return fmt.Errorf("KSQL: unexpected error when closing query result rows: %w", err)
 	}
 
 	// Update the original slice passed by reference:

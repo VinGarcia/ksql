@@ -534,7 +534,7 @@ func QueryTest(
 
 				var users []user
 				err := c.Query(ctx, &users, `SELECT * FROM users`)
-				tt.AssertErrContains(t, err, "fakeErrMsg")
+				tt.AssertErrContains(t, err, "KSQL", "fakeErrMsg")
 			})
 
 			t.Run("should report error if DBAdapter.Close() returns an error", func(t *testing.T) {
@@ -560,7 +560,7 @@ func QueryTest(
 
 				var users []user
 				err := c.Query(ctx, &users, `SELECT * FROM users`)
-				tt.AssertErrContains(t, err, "fakeCloseErr")
+				tt.AssertErrContains(t, err, "KSQL", "fakeCloseErr")
 			})
 		})
 	})
