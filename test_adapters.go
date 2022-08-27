@@ -508,7 +508,7 @@ func QueryTest(
 
 				var users []user
 				err := c.Query(ctx, &users, `SELECT * FROM users`)
-				tt.AssertErrContains(t, err, "fakeScanErr")
+				tt.AssertErrContains(t, err, "KSQL", "scan error", "fakeScanErr")
 			})
 
 			t.Run("should report error if DBAdapter.Err() returns an error", func(t *testing.T) {
@@ -2644,7 +2644,7 @@ func ScanRowsTest(
 
 			var u map[string]interface{}
 			err = scanRows(dialect, rows, &u)
-			tt.AssertErrContains(t, err, "ksql", "expected", "pointer to struct", "map[string]interface")
+			tt.AssertErrContains(t, err, "KSQL", "expected", "pointer to struct", "map[string]interface")
 		})
 	})
 }

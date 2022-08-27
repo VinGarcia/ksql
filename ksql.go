@@ -126,7 +126,7 @@ func (c DB) Query(
 	slicePtr := reflect.ValueOf(records)
 	slicePtrType := slicePtr.Type()
 	if slicePtrType.Kind() != reflect.Ptr {
-		return fmt.Errorf("ksql: expected to receive a pointer to slice of structs, but got: %T", records)
+		return fmt.Errorf("KSQL: expected to receive a pointer to slice of structs, but got: %T", records)
 	}
 	sliceType := slicePtrType.Elem()
 	slice := slicePtr.Elem()
@@ -220,16 +220,16 @@ func (c DB) QueryOne(
 	v := reflect.ValueOf(record)
 	t := v.Type()
 	if t.Kind() != reflect.Ptr {
-		return fmt.Errorf("ksql: expected to receive a pointer to struct, but got: %T", record)
+		return fmt.Errorf("KSQL: expected to receive a pointer to struct, but got: %T", record)
 	}
 
 	if v.IsNil() {
-		return fmt.Errorf("ksql: expected a valid pointer to struct as argument but received a nil pointer: %v", record)
+		return fmt.Errorf("KSQL: expected a valid pointer to struct as argument but received a nil pointer: %v", record)
 	}
 
 	tStruct := t.Elem()
 	if tStruct.Kind() != reflect.Struct {
-		return fmt.Errorf("ksql: expected to receive a pointer to struct, but got: %T", record)
+		return fmt.Errorf("KSQL: expected to receive a pointer to struct, but got: %T", record)
 	}
 
 	info, err := structs.GetTagInfo(tStruct)
@@ -402,13 +402,13 @@ func (c DB) Insert(
 	t := v.Type()
 	if err := assertStructPtr(t); err != nil {
 		return fmt.Errorf(
-			"ksql: expected record to be a pointer to struct, but got: %T",
+			"KSQL: expected record to be a pointer to struct, but got: %T",
 			record,
 		)
 	}
 
 	if v.IsNil() {
-		return fmt.Errorf("ksql: expected a valid pointer to struct as argument but received a nil pointer: %v", record)
+		return fmt.Errorf("KSQL: expected a valid pointer to struct as argument but received a nil pointer: %v", record)
 	}
 
 	if err := table.validate(); err != nil {
@@ -595,7 +595,7 @@ func normalizeIDsAsMap(idNames []string, idOrMap interface{}) (idMap map[string]
 	if t.Kind() == reflect.Ptr {
 		v := reflect.ValueOf(idOrMap)
 		if v.IsNil() {
-			return nil, fmt.Errorf("ksql: expected a valid pointer to struct as argument but received a nil pointer: %v", idOrMap)
+			return nil, fmt.Errorf("KSQL: expected a valid pointer to struct as argument but received a nil pointer: %v", idOrMap)
 		}
 		t = t.Elem()
 	}
@@ -648,7 +648,7 @@ func (c DB) Patch(
 	tStruct := t
 	if t.Kind() == reflect.Ptr {
 		if v.IsNil() {
-			return fmt.Errorf("ksql: expected a valid pointer to struct as argument but received a nil pointer: %v", record)
+			return fmt.Errorf("KSQL: expected a valid pointer to struct as argument but received a nil pointer: %v", record)
 		}
 		tStruct = t.Elem()
 	}
@@ -943,14 +943,14 @@ func scanRowsFromType(
 	v reflect.Value,
 ) error {
 	if t.Kind() != reflect.Ptr {
-		return fmt.Errorf("ksql: expected record to be a pointer to struct, but got: %T", record)
+		return fmt.Errorf("KSQL: expected record to be a pointer to struct, but got: %T", record)
 	}
 
 	v = v.Elem()
 	t = t.Elem()
 
 	if t.Kind() != reflect.Struct {
-		return fmt.Errorf("ksql: expected record to be a pointer to struct, but got: %T", record)
+		return fmt.Errorf("KSQL: expected record to be a pointer to struct, but got: %T", record)
 	}
 
 	info, err := structs.GetTagInfo(t)
@@ -970,14 +970,18 @@ func scanRowsFromType(
 	} else {
 		names, err := rows.Columns()
 		if err != nil {
-			return err
+			return fmt.Errorf("KSQL: unable to read columns from returned rows: %w", err)
 		}
 		// Since this version uses the names of the columns it works
 		// with any order of attributes/columns.
 		scanArgs = getScanArgsFromNames(dialect, names, v, info)
 	}
 
-	return rows.Scan(scanArgs...)
+	err = rows.Scan(scanArgs...)
+	if err != nil {
+		return fmt.Errorf("KSQL: scan error: %w", err)
+	}
+	return nil
 }
 
 func getScanArgsForNestedStructs(dialect Dialect, rows Rows, t reflect.Type, v reflect.Value, info structs.StructInfo) ([]interface{}, error) {
