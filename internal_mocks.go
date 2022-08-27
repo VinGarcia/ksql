@@ -1,6 +1,8 @@
 package ksql
 
-import "context"
+import (
+	"context"
+)
 
 // mockTxBeginner mocks the ksql.TxBeginner interface
 type mockTxBeginner struct {
@@ -24,6 +26,40 @@ func (m mockDBAdapter) ExecContext(ctx context.Context, query string, args ...in
 
 func (m mockDBAdapter) QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error) {
 	return m.QueryContextFn(ctx, query, args...)
+}
+
+type mockRows struct {
+	ScanFn    func(...interface{}) error
+	CloseFn   func() error
+	NextFn    func() bool
+	ErrFn     func() error
+	ColumnsFn func() ([]string, error)
+}
+
+func (m mockRows) Scan(values ...interface{}) error {
+	return m.ScanFn(values...)
+}
+
+func (m mockRows) Close() error {
+	if m.CloseFn == nil {
+		return nil
+	}
+	return m.CloseFn()
+}
+
+func (m mockRows) Next() bool {
+	return m.NextFn()
+}
+
+func (m mockRows) Err() error {
+	if m.ErrFn == nil {
+		return nil
+	}
+	return m.ErrFn()
+}
+
+func (m mockRows) Columns() ([]string, error) {
+	return m.ColumnsFn()
 }
 
 // mockTx mocks the ksql.Tx interface

@@ -403,6 +403,23 @@ func QueryTest(
 				tt.AssertErrContains(t, err, "error running query")
 			})
 
+			t.Run("should report error if the TagInfoCache returns an error", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx := context.Background()
+				c := newTestDB(db, driver)
+
+				// Provoque an error by sending an invalid struct:
+				var users []struct {
+					ID int `ksql:"id"`
+					// Private names cannot have ksql tags:
+					badPrivateField string `ksql:"name"`
+				}
+				err := c.Query(ctx, &users, `SELECT * FROM users`)
+				tt.AssertErrContains(t, err, "badPrivateField")
+			})
+
 			t.Run("should report error if using nested struct and the query starts with SELECT", func(t *testing.T) {
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
@@ -470,6 +487,81 @@ func QueryTest(
 				}
 				err := c.Query(ctx, &rows, `FROM users u JOIN posts p ON u.id = p.user_id`)
 				tt.AssertErrContains(t, err, "same ksql tag name", "invalid_repeated_name")
+			})
+
+			t.Run("should report error if DBAdapter.Scan() returns an error", func(t *testing.T) {
+				db := mockDBAdapter{
+					QueryContextFn: func(ctx context.Context, query string, args ...interface{}) (Rows, error) {
+						return mockRows{
+							ColumnsFn: func() ([]string, error) {
+								return []string{"id", "name", "age", "address"}, nil
+							},
+							NextFn: func() bool { return true },
+							ScanFn: func(values ...interface{}) error {
+								return errors.New("fakeScanErr")
+							},
+						}, nil
+					},
+				}
+
+				ctx := context.Background()
+				c := newTestDB(db, driver)
+
+				var users []user
+				err := c.Query(ctx, &users, `SELECT * FROM users`)
+				tt.AssertErrContains(t, err, "fakeScanErr")
+			})
+
+			t.Run("should report error if DBAdapter.Err() returns an error", func(t *testing.T) {
+				db := mockDBAdapter{
+					QueryContextFn: func(ctx context.Context, query string, args ...interface{}) (Rows, error) {
+						return mockRows{
+							ColumnsFn: func() ([]string, error) {
+								return []string{"id", "name", "age", "address"}, nil
+							},
+							NextFn: func() bool { return false },
+							ScanFn: func(values ...interface{}) error {
+								return nil
+							},
+							ErrFn: func() error {
+								return errors.New("fakeErrMsg")
+							},
+						}, nil
+					},
+				}
+
+				ctx := context.Background()
+				c := newTestDB(db, driver)
+
+				var users []user
+				err := c.Query(ctx, &users, `SELECT * FROM users`)
+				tt.AssertErrContains(t, err, "fakeErrMsg")
+			})
+
+			t.Run("should report error if DBAdapter.Close() returns an error", func(t *testing.T) {
+				db := mockDBAdapter{
+					QueryContextFn: func(ctx context.Context, query string, args ...interface{}) (Rows, error) {
+						return mockRows{
+							ColumnsFn: func() ([]string, error) {
+								return []string{"id", "name", "age", "address"}, nil
+							},
+							NextFn: func() bool { return false },
+							ScanFn: func(values ...interface{}) error {
+								return nil
+							},
+							CloseFn: func() error {
+								return errors.New("fakeCloseErr")
+							},
+						}, nil
+					},
+				}
+
+				ctx := context.Background()
+				c := newTestDB(db, driver)
+
+				var users []user
+				err := c.Query(ctx, &users, `SELECT * FROM users`)
+				tt.AssertErrContains(t, err, "fakeCloseErr")
 			})
 		})
 	})

@@ -93,11 +93,11 @@ func GetTagInfo(key reflect.Type) (StructInfo, error) {
 
 func getCachedTagInfo(tagInfoCache *sync.Map, key reflect.Type) (StructInfo, error) {
 	if data, found := tagInfoCache.Load(key); found {
-		if info, ok := data.(StructInfo); !ok {
+		info, ok := data.(StructInfo)
+		if !ok {
 			return StructInfo{}, fmt.Errorf("invalid cache entry, expected type StructInfo, found %T", data)
-		} else {
-			return info, nil
 		}
+		return info, nil
 	}
 
 	info, err := getTagNames(key)
