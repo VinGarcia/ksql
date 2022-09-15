@@ -2547,7 +2547,7 @@ func ScanRowsTest(
 			tt.AssertEqual(t, rows.Next(), true)
 
 			var u user
-			err = scanRows(dialect, rows, &u)
+			err = scanRows(ctx, dialect, rows, &u)
 			tt.AssertNoErr(t, err)
 
 			tt.AssertEqual(t, u.Name, "User2")
@@ -2580,7 +2580,7 @@ func ScanRowsTest(
 				// Omitted for testing purposes:
 				// Name string `ksql:"name"`
 			}
-			err = scanRows(dialect, rows, &u)
+			err = scanRows(ctx, dialect, rows, &u)
 			tt.AssertNoErr(t, err)
 
 			tt.AssertEqual(t, u.Age, 22)
@@ -2603,7 +2603,7 @@ func ScanRowsTest(
 			var u user
 			err = rows.Close()
 			tt.AssertNoErr(t, err)
-			err = scanRows(dialect, rows, &u)
+			err = scanRows(ctx, dialect, rows, &u)
 			tt.AssertNotEqual(t, err, nil)
 		})
 
@@ -2623,7 +2623,7 @@ func ScanRowsTest(
 			defer rows.Close()
 
 			var u user
-			err = scanRows(dialect, rows, u)
+			err = scanRows(ctx, dialect, rows, u)
 			tt.AssertErrContains(t, err, "ksql", "expected", "pointer to struct", "user")
 		})
 
@@ -2643,7 +2643,7 @@ func ScanRowsTest(
 			defer rows.Close()
 
 			var u map[string]interface{}
-			err = scanRows(dialect, rows, &u)
+			err = scanRows(ctx, dialect, rows, &u)
 			tt.AssertErrContains(t, err, "KSQL", "expected", "pointer to struct", "map[string]interface")
 		})
 	})
@@ -2799,9 +2799,16 @@ func getUserByID(db DBAdapter, dialect Dialect, result *user, id uint) error {
 		return sql.ErrNoRows
 	}
 
-	value := jsonSerializable{
-		DriverName: dialect.DriverName(),
-		Attr:       &result.Address,
+	value := attrSerializer{
+		ctx:            context.TODO(),
+		attr:           &result.Address,
+		serializerName: "json",
+		opInfo: OpInfo{
+			DriverName: dialect.DriverName(),
+			// We will not differentiate between Query, QueryOne and QueryChunks
+			// if we did this could lead users to make very strange serializers
+			Method: "Query",
+		},
 	}
 
 	err = rows.Scan(&result.ID, &result.Name, &result.Age, &value)

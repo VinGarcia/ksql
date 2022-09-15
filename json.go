@@ -1,7 +1,7 @@
 package ksql
 
 import (
-	"database/sql/driver"
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -10,39 +10,36 @@ import (
 // This type was created to make it easier to adapt
 // input attributes to be convertible to and from JSON
 // before sending or receiving it from the database.
-type jsonSerializable struct {
-	DriverName string
-	Attr       interface{}
-}
+type jsonSerializer struct{}
 
 // Scan Implements the Scanner interface in order to load
 // this field from the JSON stored in the database
-func (j *jsonSerializable) Scan(value interface{}) error {
-	if value == nil {
-		v := reflect.ValueOf(j.Attr)
+func (j jsonSerializer) AttrScan(ctx context.Context, opInfo OpInfo, attrPtr interface{}, dbValue interface{}) error {
+	if dbValue == nil {
+		v := reflect.ValueOf(attrPtr)
 		// Set the struct to its 0 value just like json.Unmarshal
 		// does for nil attributes:
-		v.Elem().Set(reflect.Zero(reflect.TypeOf(j.Attr).Elem()))
+		v.Elem().Set(reflect.Zero(reflect.TypeOf(attrPtr).Elem()))
 		return nil
 	}
 
 	// Required since sqlite3 returns strings not bytes
-	if v, ok := value.(string); ok {
-		value = []byte(v)
+	if v, ok := dbValue.(string); ok {
+		dbValue = []byte(v)
 	}
 
-	rawJSON, ok := value.([]byte)
+	rawJSON, ok := dbValue.([]byte)
 	if !ok {
-		return fmt.Errorf("unexpected type received to Scan: %T", value)
+		return fmt.Errorf("unexpected type received to Scan: %T", dbValue)
 	}
-	return json.Unmarshal(rawJSON, j.Attr)
+	return json.Unmarshal(rawJSON, attrPtr)
 }
 
 // Value Implements the Valuer interface in order to save
 // this field as JSON on the database.
-func (j jsonSerializable) Value() (driver.Value, error) {
-	b, err := json.Marshal(j.Attr)
-	if j.DriverName == "sqlserver" {
+func (j jsonSerializer) AttrValue(ctx context.Context, opInfo OpInfo, inputValue interface{}) (outputValue interface{}, _ error) {
+	b, err := json.Marshal(inputValue)
+	if opInfo.DriverName == "sqlserver" {
 		return string(b), err
 	}
 	return b, err
