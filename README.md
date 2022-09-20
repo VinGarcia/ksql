@@ -84,10 +84,10 @@ one of them is illustrated above (`kpgx.New()`),
 the other ones have the exact same signature
 but work on different databases, they are:
 
-- `kpgx.New(ctx, os.Getenv("POSTGRES_URL"), ksql.Config{})` for Postgres, it works on top of `pgxpool`
-- `kmysql.New(ctx, os.Getenv("POSTGRES_URL"), ksql.Config{})` for MySQL, it works on top of `database/sql`
-- `ksqlserver.New(ctx, os.Getenv("POSTGRES_URL"), ksql.Config{})` for SQLServer, it works on top of `database/sql`
-- `ksqlite3.New(ctx, os.Getenv("POSTGRES_URL"), ksql.Config{})` for SQLite3, it works on top of `database/sql`
+- `kpgx.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for Postgres, it works on top of `pgxpool`
+- `kmysql.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for MySQL, it works on top of `database/sql`
+- `ksqlserver.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for SQLServer, it works on top of `database/sql`
+- `ksqlite3.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for SQLite3, it works on top of `database/sql`
 
 ## The KSQL Interface
 
