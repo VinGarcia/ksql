@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/vingarcia/ksql/internal/modifiers"
 	tt "github.com/vingarcia/ksql/internal/testtools"
 	"github.com/vingarcia/ksql/nullable"
 )
@@ -2799,11 +2800,13 @@ func getUserByID(db DBAdapter, dialect Dialect, result *user, id uint) error {
 		return sql.ErrNoRows
 	}
 
-	value := attrModifier{
-		ctx:          context.TODO(),
-		attr:         &result.Address,
-		modifierName: "json",
-		opInfo: OpInfo{
+	modifier, _ := modifiers.LoadGlobalModifier("json")
+
+	value := modifiers.AttrWrapper{
+		Ctx:      context.TODO(),
+		Attr:     &result.Address,
+		Modifier: modifier,
+		OpInfo: modifiers.OpInfo{
 			DriverName: dialect.DriverName(),
 			// We will not differentiate between Query, QueryOne and QueryChunks
 			// if we did this could lead users to make very strange modifiers

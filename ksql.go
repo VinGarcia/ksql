@@ -11,6 +11,7 @@ import (
 	"unicode"
 
 	"github.com/pkg/errors"
+	"github.com/vingarcia/ksql/internal/modifiers"
 	"github.com/vingarcia/ksql/internal/structs"
 	"github.com/vingarcia/ksql/ksqltest"
 )
@@ -718,13 +719,13 @@ func buildInsertQuery(
 		recordValue := recordMap[col]
 		params[i] = recordValue
 
-		modifierName := info.ByName(col).ModifierName
-		if modifierName != "" {
-			params[i] = attrModifier{
-				ctx:          ctx,
-				attr:         recordValue,
-				modifierName: modifierName,
-				opInfo: OpInfo{
+		modifier := info.ByName(col).Modifier
+		if modifier != nil {
+			params[i] = modifiers.AttrWrapper{
+				Ctx:      ctx,
+				Attr:     recordValue,
+				Modifier: modifier,
+				OpInfo: modifiers.OpInfo{
 					DriverName: dialect.DriverName(),
 					Method:     "Insert",
 				},
@@ -827,13 +828,13 @@ func buildUpdateQuery(
 	for i, k := range keys {
 		recordValue := recordMap[k]
 
-		modifierName := info.ByName(k).ModifierName
-		if modifierName != "" {
-			recordValue = attrModifier{
-				ctx:          ctx,
-				attr:         recordValue,
-				modifierName: modifierName,
-				opInfo: OpInfo{
+		modifier := info.ByName(k).Modifier
+		if modifier != nil {
+			recordValue = modifiers.AttrWrapper{
+				Ctx:      ctx,
+				Attr:     recordValue,
+				Modifier: modifier,
+				OpInfo: modifiers.OpInfo{
 					DriverName: dialect.DriverName(),
 					Method:     "Update",
 				},
@@ -1032,12 +1033,12 @@ func getScanArgsForNestedStructs(
 			if fieldInfo.Valid {
 				valueScanner = nestedStructValue.Field(fieldInfo.Index).Addr().Interface()
 
-				if fieldInfo.ModifierName != "" {
-					valueScanner = &attrModifier{
-						ctx:          ctx,
-						attr:         valueScanner,
-						modifierName: fieldInfo.ModifierName,
-						opInfo: OpInfo{
+				if fieldInfo.Modifier != nil {
+					valueScanner = &modifiers.AttrWrapper{
+						Ctx:      ctx,
+						Attr:     valueScanner,
+						Modifier: fieldInfo.Modifier,
+						OpInfo: modifiers.OpInfo{
 							DriverName: dialect.DriverName(),
 							// We will not differentiate between Query, QueryOne and QueryChunks
 							// if we did this could lead users to make very strange modifiers
@@ -1062,12 +1063,12 @@ func getScanArgsFromNames(ctx context.Context, dialect Dialect, names []string, 
 		valueScanner := nopScannerValue
 		if fieldInfo.Valid {
 			valueScanner = v.Field(fieldInfo.Index).Addr().Interface()
-			if fieldInfo.ModifierName != "" {
-				valueScanner = &attrModifier{
-					ctx:          ctx,
-					attr:         valueScanner,
-					modifierName: fieldInfo.ModifierName,
-					opInfo: OpInfo{
+			if fieldInfo.Modifier != nil {
+				valueScanner = &modifiers.AttrWrapper{
+					Ctx:      ctx,
+					Attr:     valueScanner,
+					Modifier: fieldInfo.Modifier,
+					OpInfo: modifiers.OpInfo{
 						DriverName: dialect.DriverName(),
 						// We will not differentiate between Query, QueryOne and QueryChunks
 						// if we did this could lead users to make very strange modifiers

@@ -1,4 +1,4 @@
-package ksql
+package modifiers
 
 import (
 	"context"
