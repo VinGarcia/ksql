@@ -718,12 +718,12 @@ func buildInsertQuery(
 		recordValue := recordMap[col]
 		params[i] = recordValue
 
-		serializerName := info.ByName(col).SerializerName
-		if serializerName != "" {
-			params[i] = attrSerializer{
-				ctx:            ctx,
-				attr:           recordValue,
-				serializerName: serializerName,
+		modifierName := info.ByName(col).ModifierName
+		if modifierName != "" {
+			params[i] = attrModifier{
+				ctx:          ctx,
+				attr:         recordValue,
+				modifierName: modifierName,
 				opInfo: OpInfo{
 					DriverName: dialect.DriverName(),
 					Method:     "Insert",
@@ -827,12 +827,12 @@ func buildUpdateQuery(
 	for i, k := range keys {
 		recordValue := recordMap[k]
 
-		serializerName := info.ByName(k).SerializerName
-		if serializerName != "" {
-			recordValue = attrSerializer{
-				ctx:            ctx,
-				attr:           recordValue,
-				serializerName: serializerName,
+		modifierName := info.ByName(k).ModifierName
+		if modifierName != "" {
+			recordValue = attrModifier{
+				ctx:          ctx,
+				attr:         recordValue,
+				modifierName: modifierName,
 				opInfo: OpInfo{
 					DriverName: dialect.DriverName(),
 					Method:     "Update",
@@ -1032,15 +1032,15 @@ func getScanArgsForNestedStructs(
 			if fieldInfo.Valid {
 				valueScanner = nestedStructValue.Field(fieldInfo.Index).Addr().Interface()
 
-				if fieldInfo.SerializerName != "" {
-					valueScanner = &attrSerializer{
-						ctx:            ctx,
-						attr:           valueScanner,
-						serializerName: fieldInfo.SerializerName,
+				if fieldInfo.ModifierName != "" {
+					valueScanner = &attrModifier{
+						ctx:          ctx,
+						attr:         valueScanner,
+						modifierName: fieldInfo.ModifierName,
 						opInfo: OpInfo{
 							DriverName: dialect.DriverName(),
 							// We will not differentiate between Query, QueryOne and QueryChunks
-							// if we did this could lead users to make very strange serializers
+							// if we did this could lead users to make very strange modifiers
 							Method: "Query",
 						},
 					}
@@ -1062,15 +1062,15 @@ func getScanArgsFromNames(ctx context.Context, dialect Dialect, names []string, 
 		valueScanner := nopScannerValue
 		if fieldInfo.Valid {
 			valueScanner = v.Field(fieldInfo.Index).Addr().Interface()
-			if fieldInfo.SerializerName != "" {
-				valueScanner = &attrSerializer{
-					ctx:            ctx,
-					attr:           valueScanner,
-					serializerName: fieldInfo.SerializerName,
+			if fieldInfo.ModifierName != "" {
+				valueScanner = &attrModifier{
+					ctx:          ctx,
+					attr:         valueScanner,
+					modifierName: fieldInfo.ModifierName,
 					opInfo: OpInfo{
 						DriverName: dialect.DriverName(),
 						// We will not differentiate between Query, QueryOne and QueryChunks
-						// if we did this could lead users to make very strange serializers
+						// if we did this could lead users to make very strange modifiers
 						Method: "Query",
 					},
 				}

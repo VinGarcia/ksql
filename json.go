@@ -10,11 +10,11 @@ import (
 // This type was created to make it easier to adapt
 // input attributes to be convertible to and from JSON
 // before sending or receiving it from the database.
-type jsonSerializer struct{}
+type jsonModifier struct{}
 
 // Scan Implements the Scanner interface in order to load
 // this field from the JSON stored in the database
-func (j jsonSerializer) AttrScan(ctx context.Context, opInfo OpInfo, attrPtr interface{}, dbValue interface{}) error {
+func (j jsonModifier) AttrScan(ctx context.Context, opInfo OpInfo, attrPtr interface{}, dbValue interface{}) error {
 	if dbValue == nil {
 		v := reflect.ValueOf(attrPtr)
 		// Set the struct to its 0 value just like json.Unmarshal
@@ -37,7 +37,7 @@ func (j jsonSerializer) AttrScan(ctx context.Context, opInfo OpInfo, attrPtr int
 
 // Value Implements the Valuer interface in order to save
 // this field as JSON on the database.
-func (j jsonSerializer) AttrValue(ctx context.Context, opInfo OpInfo, inputValue interface{}) (outputValue interface{}, _ error) {
+func (j jsonModifier) AttrValue(ctx context.Context, opInfo OpInfo, inputValue interface{}) (outputValue interface{}, _ error) {
 	b, err := json.Marshal(inputValue)
 	if opInfo.DriverName == "sqlserver" {
 		return string(b), err

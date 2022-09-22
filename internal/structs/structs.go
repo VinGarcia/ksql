@@ -20,10 +20,10 @@ type StructInfo struct {
 // information regarding a specific field
 // of a struct.
 type FieldInfo struct {
-	Name           string
-	Index          int
-	Valid          bool
-	SerializerName string
+	Name         string
+	Index        int
+	Valid        bool
+	ModifierName string
 }
 
 // ByIndex returns either the *FieldInfo of a valid
@@ -249,10 +249,10 @@ func getTagNames(t reflect.Type) (StructInfo, error) {
 		}
 
 		tags := strings.Split(name, ",")
-		var serializerName string
+		var modifierName string
 		if len(tags) > 1 {
 			name = tags[0]
-			serializerName = tags[1]
+			modifierName = tags[1]
 		}
 
 		if _, found := info.byName[name]; found {
@@ -263,9 +263,9 @@ func getTagNames(t reflect.Type) (StructInfo, error) {
 		}
 
 		info.add(FieldInfo{
-			Name:           name,
-			Index:          i,
-			SerializerName: serializerName,
+			Name:         name,
+			Index:        i,
+			ModifierName: modifierName,
 		})
 	}
 

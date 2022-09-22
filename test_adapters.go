@@ -2799,14 +2799,14 @@ func getUserByID(db DBAdapter, dialect Dialect, result *user, id uint) error {
 		return sql.ErrNoRows
 	}
 
-	value := attrSerializer{
-		ctx:            context.TODO(),
-		attr:           &result.Address,
-		serializerName: "json",
+	value := attrModifier{
+		ctx:          context.TODO(),
+		attr:         &result.Address,
+		modifierName: "json",
 		opInfo: OpInfo{
 			DriverName: dialect.DriverName(),
 			// We will not differentiate between Query, QueryOne and QueryChunks
-			// if we did this could lead users to make very strange serializers
+			// if we did this could lead users to make very strange modifiers
 			Method: "Query",
 		},
 	}
