@@ -20,9 +20,8 @@ jobs:
       - name: Run Tests
         run: ./scripts/run-all-tests.sh
       - name: Run Coverage
-        run: bash <(curl -s https://codecov.io/bash)
+        run: bash <(curl -s https://uploader.codecov.io/latest/linux/codecov)
         env:
           CODECOV_TOKEN: 36be8ba6-7ef1-4ec2-b607-67c1055a62ad
-
 
 
