@@ -1,6 +1,9 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push: {}
+  pull_request:
+    types: [opened, reopened]
 
 jobs:
   tests:
@@ -20,7 +23,10 @@ jobs:
       - name: Run Tests
         run: ./scripts/run-all-tests.sh
       - name: Run Coverage
-        run: bash <(curl -s https://uploader.codecov.io/latest/linux/codecov)
+        run: |
+          curl -Os https://uploader.codecov.io/latest/linux/codecov
+          chmod +x codecov
+          ./codecov -t $CODECOV_TOKEN
         env:
           CODECOV_TOKEN: 36be8ba6-7ef1-4ec2-b607-67c1055a62ad
 
