@@ -2802,10 +2802,10 @@ func getUserByID(db DBAdapter, dialect Dialect, result *user, id uint) error {
 
 	modifier, _ := modifiers.LoadGlobalModifier("json")
 
-	value := modifiers.AttrWrapper{
-		Ctx:      context.TODO(),
-		Attr:     &result.Address,
-		Modifier: modifier,
+	value := modifiers.AttrScanWrapper{
+		Ctx:     context.TODO(),
+		AttrPtr: &result.Address,
+		ScanFn:  modifier.Scan,
 		OpInfo: modifiers.OpInfo{
 			DriverName: dialect.DriverName(),
 			// We will not differentiate between Query, QueryOne and QueryChunks

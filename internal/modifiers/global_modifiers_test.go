@@ -8,28 +8,36 @@ import (
 
 func TestRegisterAttrModifier(t *testing.T) {
 	t.Run("should register new modifiers correctly", func(t *testing.T) {
-		modifier1 := AttrModifierMock{}
-		modifier2 := AttrModifierMock{}
+		modifier1 := AttrModifier{
+			SkipOnUpdate: true,
+		}
+		modifier2 := AttrModifier{
+			SkipOnInsert: true,
+		}
 
-		RegisterAttrModifier("fakeModifierName1", &modifier1)
-		RegisterAttrModifier("fakeModifierName2", &modifier2)
+		RegisterAttrModifier("fakeModifierName1", modifier1)
+		RegisterAttrModifier("fakeModifierName2", modifier2)
 
 		mod, err := LoadGlobalModifier("fakeModifierName1")
 		tt.AssertNoErr(t, err)
-		tt.AssertEqual(t, mod, &modifier1)
+		tt.AssertEqual(t, mod, modifier1)
 
 		mod, err = LoadGlobalModifier("fakeModifierName2")
 		tt.AssertNoErr(t, err)
-		tt.AssertEqual(t, mod, &modifier2)
+		tt.AssertEqual(t, mod, modifier2)
 	})
 
 	t.Run("should panic registering a modifier and the name already exists", func(t *testing.T) {
-		modifier1 := AttrModifierMock{}
-		modifier2 := AttrModifierMock{}
+		modifier1 := AttrModifier{
+			SkipOnUpdate: true,
+		}
+		modifier2 := AttrModifier{
+			SkipOnInsert: true,
+		}
 
-		RegisterAttrModifier("fakeModifierName", &modifier1)
+		RegisterAttrModifier("fakeModifierName", modifier1)
 		panicPayload := tt.PanicHandler(func() {
-			RegisterAttrModifier("fakeModifierName", &modifier2)
+			RegisterAttrModifier("fakeModifierName", modifier2)
 		})
 
 		err, ok := panicPayload.(error)
@@ -40,6 +48,6 @@ func TestRegisterAttrModifier(t *testing.T) {
 	t.Run("should return an error when loading an inexistent modifier", func(t *testing.T) {
 		mod, err := LoadGlobalModifier("nonExistentModifier")
 		tt.AssertErrContains(t, err, "nonExistentModifier")
-		tt.AssertEqual(t, mod, nil)
+		tt.AssertEqual(t, mod, AttrModifier{})
 	})
 }

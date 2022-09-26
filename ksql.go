@@ -719,12 +719,12 @@ func buildInsertQuery(
 		recordValue := recordMap[col]
 		params[i] = recordValue
 
-		modifier := info.ByName(col).Modifier
-		if modifier != nil {
-			params[i] = modifiers.AttrWrapper{
-				Ctx:      ctx,
-				Attr:     recordValue,
-				Modifier: modifier,
+		valueFn := info.ByName(col).Modifier.Value
+		if valueFn != nil {
+			params[i] = modifiers.AttrValueWrapper{
+				Ctx:     ctx,
+				Attr:    recordValue,
+				ValueFn: valueFn,
 				OpInfo: modifiers.OpInfo{
 					DriverName: dialect.DriverName(),
 					Method:     "Insert",
@@ -828,12 +828,12 @@ func buildUpdateQuery(
 	for i, k := range keys {
 		recordValue := recordMap[k]
 
-		modifier := info.ByName(k).Modifier
-		if modifier != nil {
-			recordValue = modifiers.AttrWrapper{
-				Ctx:      ctx,
-				Attr:     recordValue,
-				Modifier: modifier,
+		valueFn := info.ByName(k).Modifier.Value
+		if valueFn != nil {
+			recordValue = modifiers.AttrValueWrapper{
+				Ctx:     ctx,
+				Attr:    recordValue,
+				ValueFn: valueFn,
 				OpInfo: modifiers.OpInfo{
 					DriverName: dialect.DriverName(),
 					Method:     "Update",
@@ -1033,11 +1033,11 @@ func getScanArgsForNestedStructs(
 			if fieldInfo.Valid {
 				valueScanner = nestedStructValue.Field(fieldInfo.Index).Addr().Interface()
 
-				if fieldInfo.Modifier != nil {
-					valueScanner = &modifiers.AttrWrapper{
-						Ctx:      ctx,
-						Attr:     valueScanner,
-						Modifier: fieldInfo.Modifier,
+				if fieldInfo.Modifier.Scan != nil {
+					valueScanner = &modifiers.AttrScanWrapper{
+						Ctx:     ctx,
+						AttrPtr: valueScanner,
+						ScanFn:  fieldInfo.Modifier.Scan,
 						OpInfo: modifiers.OpInfo{
 							DriverName: dialect.DriverName(),
 							// We will not differentiate between Query, QueryOne and QueryChunks
@@ -1063,11 +1063,11 @@ func getScanArgsFromNames(ctx context.Context, dialect Dialect, names []string, 
 		valueScanner := nopScannerValue
 		if fieldInfo.Valid {
 			valueScanner = v.Field(fieldInfo.Index).Addr().Interface()
-			if fieldInfo.Modifier != nil {
-				valueScanner = &modifiers.AttrWrapper{
-					Ctx:      ctx,
-					Attr:     valueScanner,
-					Modifier: fieldInfo.Modifier,
+			if fieldInfo.Modifier.Scan != nil {
+				valueScanner = &modifiers.AttrScanWrapper{
+					Ctx:     ctx,
+					AttrPtr: valueScanner,
+					ScanFn:  fieldInfo.Modifier.Scan,
 					OpInfo: modifiers.OpInfo{
 						DriverName: dialect.DriverName(),
 						// We will not differentiate between Query, QueryOne and QueryChunks

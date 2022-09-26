@@ -51,7 +51,7 @@ func TestAttrScan(t *testing.T) {
 			fakeAttr := FakeAttr{
 				Foo: "notZeroValue",
 			}
-			err := jsonModifier{}.AttrScan(ctx, OpInfo{}, &fakeAttr, test.dbInput)
+			err := jsonModifier.Scan(ctx, OpInfo{}, &fakeAttr, test.dbInput)
 			if test.expectErrToContain != nil {
 				tt.AssertErrContains(t, err, test.expectErrToContain...)
 				t.Skip()
@@ -109,7 +109,7 @@ func TestAttrValue(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			output, err := jsonModifier{}.AttrValue(ctx, test.opInfoInput, test.attrValue)
+			output, err := jsonModifier.Value(ctx, test.opInfoInput, test.attrValue)
 			if test.expectErrToContain != nil {
 				tt.AssertErrContains(t, err, test.expectErrToContain...)
 				t.Skip()

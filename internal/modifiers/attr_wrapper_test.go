@@ -8,30 +8,20 @@ import (
 	tt "github.com/vingarcia/ksql/internal/testtools"
 )
 
-func TestAttrWrapper(t *testing.T) {
+func TestAttrScanWrapper(t *testing.T) {
 	ctx := context.Background()
 
 	var scanArgs map[string]interface{}
-	var valueArgs map[string]interface{}
-	wrapper := AttrWrapper{
-		Ctx:  ctx,
-		Attr: "fakeAttr",
-		Modifier: AttrModifierMock{
-			AttrScanFn: func(ctx context.Context, opInfo OpInfo, attrPtr interface{}, dbValue interface{}) error {
-				scanArgs = map[string]interface{}{
-					"opInfo":  opInfo,
-					"attrPtr": attrPtr,
-					"dbValue": dbValue,
-				}
-				return errors.New("fakeScanErrMsg")
-			},
-			AttrValueFn: func(ctx context.Context, opInfo OpInfo, inputValue interface{}) (outputValue interface{}, _ error) {
-				valueArgs = map[string]interface{}{
-					"opInfo":     opInfo,
-					"inputValue": inputValue,
-				}
-				return "fakeOutputValue", errors.New("fakeValueErrMsg")
-			},
+	wrapper := AttrScanWrapper{
+		Ctx:     ctx,
+		AttrPtr: "fakeAttrPtr",
+		ScanFn: func(ctx context.Context, opInfo OpInfo, attrPtr interface{}, dbValue interface{}) error {
+			scanArgs = map[string]interface{}{
+				"opInfo":  opInfo,
+				"attrPtr": attrPtr,
+				"dbValue": dbValue,
+			}
+			return errors.New("fakeScanErrMsg")
 		},
 		OpInfo: OpInfo{
 			Method:     "fakeMethod",
@@ -46,9 +36,30 @@ func TestAttrWrapper(t *testing.T) {
 			Method:     "fakeMethod",
 			DriverName: "fakeDriverName",
 		},
-		"attrPtr": "fakeAttr",
+		"attrPtr": "fakeAttrPtr",
 		"dbValue": "fakeDbValue",
 	})
+}
+
+func TestAttrWrapper(t *testing.T) {
+	ctx := context.Background()
+
+	var valueArgs map[string]interface{}
+	wrapper := AttrValueWrapper{
+		Ctx:  ctx,
+		Attr: "fakeAttr",
+		ValueFn: func(ctx context.Context, opInfo OpInfo, inputValue interface{}) (outputValue interface{}, _ error) {
+			valueArgs = map[string]interface{}{
+				"opInfo":     opInfo,
+				"inputValue": inputValue,
+			}
+			return "fakeOutputValue", errors.New("fakeValueErrMsg")
+		},
+		OpInfo: OpInfo{
+			Method:     "fakeMethod",
+			DriverName: "fakeDriverName",
+		},
+	}
 
 	value, err := wrapper.Value()
 	tt.AssertErrContains(t, err, "fakeValueErrMsg")

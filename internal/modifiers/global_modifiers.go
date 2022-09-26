@@ -10,7 +10,7 @@ var modifiers sync.Map
 
 func init() {
 	// These are the builtin modifiers
-	modifiers.Store("json", jsonModifier{})
+	modifiers.Store("json", jsonModifier)
 }
 
 // RegisterAttrModifier allow users to add custom modifiers on startup
@@ -28,7 +28,7 @@ func LoadGlobalModifier(key string) (AttrModifier, error) {
 	rawModifier, _ := modifiers.Load(key)
 	modifier, ok := rawModifier.(AttrModifier)
 	if !ok {
-		return nil, fmt.Errorf("no modifier found with name '%s'", key)
+		return AttrModifier{}, fmt.Errorf("no modifier found with name '%s'", key)
 	}
 
 	return modifier, nil

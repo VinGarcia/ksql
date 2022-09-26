@@ -5,28 +5,40 @@ import (
 	"database/sql/driver"
 )
 
-// AttrWrapper is the wrapper that allow us to intercept the Scan and Value processes
+// AttrScanWrapper is the wrapper that allow us to intercept the Scan process
 // so we can run the modifiers instead of allowing the database driver to use
 // its default behavior.
 //
-// For that this struct implements both the `sql.Scanner` and `sql.Valuer` interfaces.
-type AttrWrapper struct {
+// For that this struct implements the `sql.Scanner` interface
+type AttrScanWrapper struct {
 	Ctx context.Context
 
-	// When Scanning this value should be a pointer to the attribute
-	// and when "Valuing" it should just be the actual value
-	Attr interface{}
+	AttrPtr interface{}
 
-	Modifier AttrModifier
-	OpInfo   OpInfo
+	ScanFn AttrScanner
+	OpInfo OpInfo
 }
 
 // Scan implements the sql.Scanner interface
-func (a AttrWrapper) Scan(dbValue interface{}) error {
-	return a.Modifier.AttrScan(a.Ctx, a.OpInfo, a.Attr, dbValue)
+func (a AttrScanWrapper) Scan(dbValue interface{}) error {
+	return a.ScanFn(a.Ctx, a.OpInfo, a.AttrPtr, dbValue)
+}
+
+// AttrValueWrapper is the wrapper that allow us to intercept the "Valuing" process
+// so we can run the modifiers instead of allowing the database driver to use
+// its default behavior.
+//
+// For that this struct implements the `sql.Valuer` interface
+type AttrValueWrapper struct {
+	Ctx context.Context
+
+	Attr interface{}
+
+	ValueFn AttrValuer
+	OpInfo  OpInfo
 }
 
 // Value implements the sql.Valuer interface
-func (a AttrWrapper) Value() (driver.Value, error) {
-	return a.Modifier.AttrValue(a.Ctx, a.OpInfo, a.Attr)
+func (a AttrValueWrapper) Value() (driver.Value, error) {
+	return a.ValueFn(a.Ctx, a.OpInfo, a.Attr)
 }
