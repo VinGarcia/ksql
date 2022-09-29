@@ -16,7 +16,7 @@ func NewFromSQLDB(db *sql.DB) (ksql.DB, error) {
 	return ksql.NewWithAdapter(NewSQLAdapter(db), "sqlserver")
 }
 
-// New instantiates a new KissSQL client using the "sqlserver" driver
+// New instantiates a new KSQL client using the "sqlserver" driver
 func New(
 	_ context.Context,
 	connectionString string,
