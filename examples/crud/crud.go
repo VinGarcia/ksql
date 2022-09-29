@@ -149,6 +149,8 @@ func main() {
 		panic(err.Error())
 	}
 
+	fmt.Printf("Users: %#v\n", users)
+
 	// Making transactions:
 	err = db.Transaction(ctx, func(db ksql.Provider) error {
 		var cris2 User
@@ -174,6 +176,4 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
-
-	fmt.Printf("Users: %#v\n", users)
 }
