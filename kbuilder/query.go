@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pkg/errors"
 	"github.com/vingarcia/ksql"
 	"github.com/vingarcia/ksql/internal/structs"
 )
@@ -52,7 +51,7 @@ func (q Query) BuildQuery(dialect ksql.Dialect) (sqlQuery string, params []inter
 	default:
 		selectQuery, err := buildSelectQuery(v, dialect)
 		if err != nil {
-			return "", nil, errors.Wrap(err, "error reading the Select field")
+			return "", nil, fmt.Errorf("error reading the Select field: %w", err)
 		}
 		b.WriteString("SELECT " + selectQuery)
 	}

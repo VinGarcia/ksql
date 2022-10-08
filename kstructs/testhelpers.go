@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/pkg/errors"
-
 	"github.com/vingarcia/ksql/internal/structs"
 )
 
@@ -72,7 +70,7 @@ func FillStructWith(record interface{}, dbRow map[string]interface{}) error {
 
 		destValue, err := src.Convert(destType)
 		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("FillStructWith: error on field `%s`", colName))
+			return fmt.Errorf("FillStructWith: error on field `%s`: %w", colName, err)
 		}
 
 		dest.Set(destValue)
@@ -101,7 +99,7 @@ func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error 
 
 	structType, isSliceOfPtrs, err := structs.DecodeAsSliceOfStructs(sliceType.Elem())
 	if err != nil {
-		return errors.Wrap(err, "FillSliceWith")
+		return fmt.Errorf("FillSliceWith: %w", err)
 	}
 
 	slice := sliceRef.Elem()
@@ -117,7 +115,7 @@ func FillSliceWith(entities interface{}, dbRows []map[string]interface{}) error 
 
 		err := FillStructWith(slice.Index(idx).Addr().Interface(), row)
 		if err != nil {
-			return errors.Wrap(err, "FillSliceWith")
+			return fmt.Errorf("FillSliceWith: %w", err)
 		}
 	}
 
