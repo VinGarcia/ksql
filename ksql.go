@@ -10,7 +10,6 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/pkg/errors"
 	"github.com/vingarcia/ksql/internal/modifiers"
 	"github.com/vingarcia/ksql/internal/structs"
 	"github.com/vingarcia/ksql/ksqltest"
@@ -605,7 +604,7 @@ func normalizeIDsAsMap(idNames []string, idOrMap interface{}) (idMap map[string]
 	case reflect.Struct:
 		idMap, err = ksqltest.StructToMap(idOrMap)
 		if err != nil {
-			return nil, errors.Wrapf(err, "could not get ID(s) from input record")
+			return nil, fmt.Errorf("could not get ID(s) from input record: %w", err)
 		}
 	case reflect.Map:
 		var ok bool
@@ -900,8 +899,9 @@ func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 			if r := recover(); r != nil {
 				rollbackErr := tx.Rollback(ctx)
 				if rollbackErr != nil {
-					r = errors.Wrap(rollbackErr,
-						fmt.Sprintf("KSQL: unable to rollback after panic with value: %v", r),
+					r = fmt.Errorf(
+						"KSQL: unable to rollback after panic with value: %v, rollback error: %w",
+						r, rollbackErr,
 					)
 				}
 				panic(r)
@@ -915,8 +915,9 @@ func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 		if err != nil {
 			rollbackErr := tx.Rollback(ctx)
 			if rollbackErr != nil {
-				err = errors.Wrap(rollbackErr,
-					fmt.Sprintf("KSQL: unable to rollback after error: %s", err.Error()),
+				err = fmt.Errorf(
+					"KSQL: unable to rollback after error: %s, rollback error: %w",
+					err.Error(), rollbackErr,
 				)
 			}
 			return err

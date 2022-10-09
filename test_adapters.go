@@ -8,7 +8,6 @@ import (
 	"io"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/vingarcia/ksql/internal/modifiers"
 	tt "github.com/vingarcia/ksql/internal/testtools"
 	"github.com/vingarcia/ksql/nullable"
@@ -498,7 +497,7 @@ func QueryTest(
 							},
 							NextFn: func() bool { return true },
 							ScanFn: func(values ...interface{}) error {
-								return errors.New("fakeScanErr")
+								return fmt.Errorf("fakeScanErr")
 							},
 						}, nil
 					},
@@ -524,7 +523,7 @@ func QueryTest(
 								return nil
 							},
 							ErrFn: func() error {
-								return errors.New("fakeErrMsg")
+								return fmt.Errorf("fakeErrMsg")
 							},
 						}, nil
 					},
@@ -550,7 +549,7 @@ func QueryTest(
 								return nil
 							},
 							CloseFn: func() error {
-								return errors.New("fakeCloseErr")
+								return fmt.Errorf("fakeCloseErr")
 							},
 						}, nil
 					},
@@ -2115,7 +2114,7 @@ func QueryChunksTest(
 						ForEachChunk: func(buffer []user) error {
 							lengths = append(lengths, len(buffer))
 							users = append(users, buffer...)
-							return errors.New("fake error msg")
+							return fmt.Errorf("fake error msg")
 						},
 					})
 
@@ -2144,7 +2143,7 @@ func QueryChunksTest(
 					_ = c.Insert(ctx, usersTable, &user{Name: "User2"})
 					_ = c.Insert(ctx, usersTable, &user{Name: "User3"})
 
-					returnVals := []error{nil, errors.New("fake error msg")}
+					returnVals := []error{nil, fmt.Errorf("fake error msg")}
 					var lengths []int
 					var users []user
 					err = c.QueryChunks(ctx, ChunkParser{
@@ -2358,7 +2357,7 @@ func TransactionTest(
 				_, err = db.Exec(ctx, "UPDATE users SET age = 22")
 				tt.AssertNoErr(t, err)
 
-				return errors.New("fake-error")
+				return fmt.Errorf("fake-error")
 			})
 			tt.AssertNotEqual(t, err, nil)
 			tt.AssertEqual(t, err.Error(), "fake-error")

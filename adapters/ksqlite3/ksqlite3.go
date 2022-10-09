@@ -16,7 +16,7 @@ func NewFromSQLDB(db *sql.DB) (ksql.DB, error) {
 	return ksql.NewWithAdapter(NewSQLAdapter(db), "sqlite3")
 }
 
-// New instantiates a new KissSQL client using the "sqlite3" driver
+// New instantiates a new KSQL client using the "sqlite3" driver
 func New(
 	_ context.Context,
 	connectionString string,

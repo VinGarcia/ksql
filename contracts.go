@@ -4,12 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-
-	"github.com/pkg/errors"
 )
 
 // ErrRecordNotFound ...
-var ErrRecordNotFound error = errors.Wrap(sql.ErrNoRows, "ksql: the query returned no results")
+var ErrRecordNotFound error = fmt.Errorf("ksql: the query returned no results: %w", sql.ErrNoRows)
 
 // ErrAbortIteration ...
 var ErrAbortIteration error = fmt.Errorf("ksql: abort iteration, should only be used inside QueryChunks function")

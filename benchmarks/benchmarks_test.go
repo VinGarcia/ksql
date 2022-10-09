@@ -213,6 +213,48 @@ func BenchmarkInsert(b *testing.B) {
 		})
 	})
 
+	b.Run("sqlx/prep-stmt", func(b *testing.B) {
+		sqlxDB, err := sqlx.Open(driver, connStr)
+		if err != nil {
+			b.Fatalf("error creating sqlx client: %s", err)
+		}
+		sqlxDB.SetMaxOpenConns(1)
+
+		err = recreateTable(connStr)
+		if err != nil {
+			b.Fatalf("error creating table: %s", err.Error())
+		}
+
+		insertOne, err := sqlxDB.Prepare(`INSERT INTO users(name, age) VALUES ($1, $2) RETURNING id`)
+		if err != nil {
+			b.Fatalf("could not prepare sql insert query: %s", err.Error())
+		}
+
+		b.Run("insert-one", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				user := User{
+					Name: strconv.Itoa(i),
+					Age:  i,
+				}
+				rows, err := insertOne.QueryContext(ctx, user.Name, user.Age)
+				if err != nil {
+					b.Fatalf("insert error: %s", err.Error())
+				}
+				if !rows.Next() {
+					b.Fatalf("missing id from inserted record")
+				}
+				err = rows.Scan(&user.ID)
+				if err != nil {
+					b.Fatalf("error scanning rows")
+				}
+				err = rows.Close()
+				if err != nil {
+					b.Fatalf("error closing rows")
+				}
+			}
+		})
+	})
+
 	b.Run("pgxpool", func(b *testing.B) {
 		pgxConf, err := pgxpool.ParseConfig(connStr)
 		if err != nil {
@@ -652,6 +694,84 @@ func BenchmarkQuery(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var users []User
 				rows, err := sqlxDB.QueryxContext(ctx, `SELECT id, name, age FROM users OFFSET $1 LIMIT 10`, i%90)
+				if err != nil {
+					b.Fatalf("query error: %s", err.Error())
+				}
+				for j := 0; j < 10; j++ {
+					if !rows.Next() {
+						b.Fatalf("missing user from inserted record, offset: %d", i%90)
+					}
+					var user User
+					rows.StructScan(&user)
+					if err != nil {
+						b.Fatalf("error scanning rows")
+					}
+					users = append(users, user)
+				}
+				if len(users) < 10 {
+					b.Fatalf("expected 10 scanned users, but got: %d", len(users))
+				}
+
+				err = rows.Close()
+				if err != nil {
+					b.Fatalf("error closing rows")
+				}
+			}
+		})
+	})
+
+	b.Run("sqlx/prep-stmt", func(b *testing.B) {
+		sqlxDB, err := sqlx.Open(driver, connStr)
+		if err != nil {
+			b.Fatalf("error creating sqlx client: %s", err)
+		}
+		sqlxDB.SetMaxOpenConns(1)
+
+		err = recreateTable(connStr)
+		if err != nil {
+			b.Fatalf("error creating table: %s", err.Error())
+		}
+
+		err = insertUsers(connStr, 100)
+		if err != nil {
+			b.Fatalf("error inserting users: %s", err.Error())
+		}
+
+		singleRow, err := sqlxDB.Preparex(`SELECT id, name, age FROM users OFFSET $1 LIMIT 1`)
+		if err != nil {
+			b.Fatalf("error preparing sql statement for single row: %s", err.Error())
+		}
+
+		multipleRows, err := sqlxDB.Preparex(`SELECT id, name, age FROM users OFFSET $1 LIMIT 10`)
+		if err != nil {
+			b.Fatalf("error preparing sql statement for multiple rows: %s", err.Error())
+		}
+
+		b.Run("single-row", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				var user User
+				rows, err := singleRow.QueryxContext(ctx, i%100)
+				if err != nil {
+					b.Fatalf("query error: %s", err.Error())
+				}
+				if !rows.Next() {
+					b.Fatalf("missing user from inserted record, offset: %d", i%100)
+				}
+				err = rows.StructScan(&user)
+				if err != nil {
+					b.Fatalf("error scanning rows")
+				}
+				err = rows.Close()
+				if err != nil {
+					b.Fatalf("error closing rows")
+				}
+			}
+		})
+
+		b.Run("multiple-rows", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				var users []User
+				rows, err := multipleRows.QueryxContext(ctx, i%90)
 				if err != nil {
 					b.Fatalf("query error: %s", err.Error())
 				}

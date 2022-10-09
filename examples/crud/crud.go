@@ -149,6 +149,8 @@ func main() {
 		panic(err.Error())
 	}
 
+	fmt.Printf("Users: %#v\n", users)
+
 	// Making transactions:
 	err = db.Transaction(ctx, func(db ksql.Provider) error {
 		var cris2 User
@@ -164,7 +166,7 @@ func main() {
 		})
 		if err != nil {
 			// This will also cause an automatic rollback and then panic again
-			// so that we don't hide the panic inside the KissSQL library
+			// so that we don't hide the panic inside the KSQL library
 			panic(err.Error())
 		}
 
@@ -174,6 +176,4 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
-
-	fmt.Printf("Users: %#v\n", users)
 }
