@@ -9,11 +9,9 @@ type AttrModifier struct {
 	// The following attributes will tell KSQL to
 	// leave this attribute out of insertions, updates,
 	// and queries respectively.
-	//
-	// (the private ones are not implemented yet)
-	skipOnInsert bool
+	SkipOnInsert bool
 	SkipOnUpdate bool
-	skipOnQuery  bool
+	SkipOnQuery  bool
 
 	// Implement these functions if you want to override the default Scan/Value behavior
 	// for the target attribute.
