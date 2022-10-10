@@ -54,7 +54,7 @@ func startMySQLDB(dbName string) (databaseURL string, closer func()) {
 	}
 
 	hostAndPort := resource.GetHostPort("3306/tcp")
-	databaseUrl := fmt.Sprintf("root:mysql@(%s)/%s?timeout=30s", hostAndPort, dbName)
+	databaseUrl := fmt.Sprintf("root:mysql@(%s)/%s?timeout=30s&parseTime=true", hostAndPort, dbName)
 
 	fmt.Println("Connecting to mariadb on url: ", databaseUrl)
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/vingarcia/ksql/internal/modifiers"
 	tt "github.com/vingarcia/ksql/internal/testtools"
@@ -71,6 +72,7 @@ func RunTestsForAdapter(
 		PatchTest(t, driver, connStr, newDBAdapter)
 		QueryChunksTest(t, driver, connStr, newDBAdapter)
 		TransactionTest(t, driver, connStr, newDBAdapter)
+		ModifiersTest(t, driver, connStr, newDBAdapter)
 		ScanRowsTest(t, driver, connStr, newDBAdapter)
 	})
 }
@@ -2516,6 +2518,240 @@ func TransactionTest(
 	})
 }
 
+func ModifiersTest(
+	t *testing.T,
+	driver string,
+	connStr string,
+	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
+) {
+	ctx := context.Background()
+
+	t.Run("Modifiers", func(t *testing.T) {
+		err := createTables(driver, connStr)
+		if err != nil {
+			t.Fatal("could not create test table!, reason:", err.Error())
+		}
+
+		t.Run("timeNowUTC modifier", func(t *testing.T) {
+			t.Run("should be set to time.Now().UTC() on insertion", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type tsUser struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					UpdatedAt time.Time `ksql:"updated_at,timeNowUTC"`
+				}
+				u := tsUser{
+					Name: "Letícia",
+				}
+				err := c.Insert(ctx, usersTable, &u)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, u.ID, 0)
+
+				var untaggedUser struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					UpdatedAt time.Time `ksql:"updated_at"`
+				}
+				err = c.QueryOne(ctx, &untaggedUser, `FROM users WHERE id = `+c.dialect.Placeholder(0), u.ID)
+				tt.AssertNoErr(t, err)
+
+				now := time.Now()
+				tt.AssertApproxTime(t,
+					2*time.Second, untaggedUser.UpdatedAt, now,
+					"updatedAt should be set to %v, but got: %v", now, untaggedUser.UpdatedAt,
+				)
+			})
+
+			t.Run("should be set to time.Now().UTC() on updates", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type userWithNoTags struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					UpdatedAt time.Time `ksql:"updated_at"`
+				}
+				untaggedUser := userWithNoTags{
+					Name: "Laura Ribeiro",
+					// Any time different from now:
+					UpdatedAt: tt.ParseTime(t, "2000-08-05T14:00:00Z"),
+				}
+				err := c.Insert(ctx, usersTable, &untaggedUser)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser.ID, 0)
+
+				type taggedUser struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					UpdatedAt time.Time `ksql:"updated_at,timeNowUTC"`
+				}
+				u := taggedUser{
+					ID:   untaggedUser.ID,
+					Name: "Laurinha Ribeiro",
+				}
+				err = c.Patch(ctx, usersTable, u)
+				tt.AssertNoErr(t, err)
+
+				var untaggedUser2 userWithNoTags
+				err = c.QueryOne(ctx, &untaggedUser2, "FROM users WHERE id = "+c.dialect.Placeholder(0), u.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser2.ID, 0)
+
+				now := time.Now()
+				tt.AssertApproxTime(t,
+					2*time.Second, untaggedUser2.UpdatedAt, now,
+					"updatedAt should be set to %v, but got: %v", now, untaggedUser2.UpdatedAt,
+				)
+			})
+
+			t.Run("should not alter the value on queries", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type userWithNoTags struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					UpdatedAt time.Time `ksql:"updated_at"`
+				}
+				untaggedUser := userWithNoTags{
+					Name: "Marta Ribeiro",
+					// Any time different from now:
+					UpdatedAt: tt.ParseTime(t, "2000-08-05T14:00:00Z"),
+				}
+				err := c.Insert(ctx, usersTable, &untaggedUser)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser.ID, 0)
+
+				var taggedUser struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					UpdatedAt time.Time `ksql:"updated_at,timeNowUTC"`
+				}
+				err = c.QueryOne(ctx, &taggedUser, "FROM users WHERE id = "+c.dialect.Placeholder(0), untaggedUser.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, taggedUser.ID, untaggedUser.ID)
+				tt.AssertEqual(t, taggedUser.Name, "Marta Ribeiro")
+				tt.AssertEqual(t, taggedUser.UpdatedAt, tt.ParseTime(t, "2000-08-05T14:00:00Z"))
+			})
+		})
+
+		t.Run("timeNowUTC/skipUpdates modifier", func(t *testing.T) {
+			t.Run("should be set to time.Now().UTC() on insertion", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type tsUser struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					CreatedAt time.Time `ksql:"created_at,timeNowUTC/skipUpdates"`
+				}
+				u := tsUser{
+					Name: "Letícia",
+				}
+				err := c.Insert(ctx, usersTable, &u)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, u.ID, 0)
+
+				var untaggedUser struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					CreatedAt time.Time `ksql:"created_at"`
+				}
+				err = c.QueryOne(ctx, &untaggedUser, `FROM users WHERE id = `+c.dialect.Placeholder(0), u.ID)
+				tt.AssertNoErr(t, err)
+
+				now := time.Now()
+				tt.AssertApproxTime(t,
+					2*time.Second, untaggedUser.CreatedAt, now,
+					"updatedAt should be set to %v, but got: %v", now, untaggedUser.CreatedAt,
+				)
+			})
+
+			t.Run("should be ignored on updates", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type userWithNoTags struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					CreatedAt time.Time `ksql:"created_at"`
+				}
+				untaggedUser := userWithNoTags{
+					Name: "Laura Ribeiro",
+					// Any time different from now:
+					CreatedAt: tt.ParseTime(t, "2000-08-05T14:00:00Z"),
+				}
+				err := c.Insert(ctx, usersTable, &untaggedUser)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser.ID, 0)
+
+				type taggedUser struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					CreatedAt time.Time `ksql:"created_at,timeNowUTC/skipUpdates"`
+				}
+				u := taggedUser{
+					ID:   untaggedUser.ID,
+					Name: "Laurinha Ribeiro",
+					// Some random time that should be ignored:
+					CreatedAt: tt.ParseTime(t, "1999-08-05T14:00:00Z"),
+				}
+				err = c.Patch(ctx, usersTable, u)
+				tt.AssertNoErr(t, err)
+
+				var untaggedUser2 userWithNoTags
+				err = c.QueryOne(ctx, &untaggedUser2, "FROM users WHERE id = "+c.dialect.Placeholder(0), u.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, untaggedUser2.CreatedAt, tt.ParseTime(t, "2000-08-05T14:00:00Z"))
+			})
+
+			t.Run("should not alter the value on queries", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type userWithNoTags struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					CreatedAt time.Time `ksql:"created_at"`
+				}
+				untaggedUser := userWithNoTags{
+					Name: "Marta Ribeiro",
+					// Any time different from now:
+					CreatedAt: tt.ParseTime(t, "2000-08-05T14:00:00Z"),
+				}
+				err := c.Insert(ctx, usersTable, &untaggedUser)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser.ID, 0)
+
+				var taggedUser struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					CreatedAt time.Time `ksql:"created_at,timeNowUTC/skipUpdates"`
+				}
+				err = c.QueryOne(ctx, &taggedUser, "FROM users WHERE id = "+c.dialect.Placeholder(0), untaggedUser.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, taggedUser.ID, untaggedUser.ID)
+				tt.AssertEqual(t, taggedUser.Name, "Marta Ribeiro")
+				tt.AssertEqual(t, taggedUser.CreatedAt, tt.ParseTime(t, "2000-08-05T14:00:00Z"))
+			})
+		})
+	})
+}
+
 // ScanRowsTest runs all tests for making sure the ScanRows feature is
 // working for a given adapter and driver.
 func ScanRowsTest(
@@ -2668,28 +2904,36 @@ func createTables(driver string, connStr string) error {
 		  id INTEGER PRIMARY KEY,
 			age INTEGER,
 			name TEXT,
-			address BLOB
+			address BLOB,
+			created_at DATETIME,
+			updated_at DATETIME
 		)`)
 	case "postgres":
 		_, err = db.Exec(`CREATE TABLE users (
 		  id serial PRIMARY KEY,
 			age INT,
 			name VARCHAR(50),
-			address jsonb
+			address jsonb,
+			created_at TIMESTAMP,
+			updated_at TIMESTAMP
 		)`)
 	case "mysql":
 		_, err = db.Exec(`CREATE TABLE users (
 			id INT AUTO_INCREMENT PRIMARY KEY,
 			age INT,
 			name VARCHAR(50),
-			address JSON
+			address JSON,
+			created_at DATETIME,
+			updated_at DATETIME
 		)`)
 	case "sqlserver":
 		_, err = db.Exec(`CREATE TABLE users (
 			id INT IDENTITY(1,1) PRIMARY KEY,
 			age INT,
 			name VARCHAR(50),
-			address NVARCHAR(4000)
+			address NVARCHAR(4000),
+			created_at DATETIME,
+			updated_at DATETIME
 		)`)
 	}
 	if err != nil {

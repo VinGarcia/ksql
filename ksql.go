@@ -796,6 +796,12 @@ func buildUpdateQuery(
 	if err != nil {
 		return "", nil, err
 	}
+	for key := range recordMap {
+		if info.ByName(key).Modifier.SkipOnUpdate {
+			delete(recordMap, key)
+		}
+	}
+
 	numAttrs := len(recordMap)
 	args = make([]interface{}, numAttrs)
 	numNonIDArgs := numAttrs - len(idFieldNames)

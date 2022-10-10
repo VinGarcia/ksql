@@ -11,6 +11,8 @@ var modifiers sync.Map
 func init() {
 	// These are the builtin modifiers
 	modifiers.Store("json", jsonModifier)
+	modifiers.Store("timeNowUTC", timeNowUTCModifier)
+	modifiers.Store("timeNowUTC/skipUpdates", timeNowUTCSkipUpdatesModifier)
 }
 
 // RegisterAttrModifier allow users to add custom modifiers on startup
