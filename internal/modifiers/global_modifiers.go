@@ -9,10 +9,21 @@ import (
 var modifiers sync.Map
 
 func init() {
-	// These are the builtin modifiers
+	// These are the builtin modifiers:
+
+	// This one is useful for serializing/desserializing structs:
 	modifiers.Store("json", jsonModifier)
+
+	// This next two are useful for the UpdatedAt and Created fields respectively:
+	// They only work on time.Time attributes and will set the attribute to time.Now().
 	modifiers.Store("timeNowUTC", timeNowUTCModifier)
 	modifiers.Store("timeNowUTC/skipUpdates", timeNowUTCSkipUpdatesModifier)
+
+	// These are mostly example modifiers and they are also used
+	// to test the feature of skipping updates, inserts and queries.
+	modifiers.Store("skipUpdates", skipUpdatesModifier)
+	modifiers.Store("skipInserts", skipInsertsModifier)
+	modifiers.Store("skipQueries", skipQueriesModifier)
 }
 
 // RegisterAttrModifier allow users to add custom modifiers on startup

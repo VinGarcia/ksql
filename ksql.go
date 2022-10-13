@@ -258,8 +258,8 @@ func (c DB) QueryOne(
 	defer rows.Close()
 
 	if !rows.Next() {
-		if rows.Err() != nil {
-			return rows.Err()
+		if err := rows.Err(); err != nil {
+			return err
 		}
 		return ErrRecordNotFound
 	}
@@ -709,11 +709,15 @@ func buildInsertQuery(
 
 	columnNames := []string{}
 	for col := range recordMap {
+		if info.ByName(col).Modifier.SkipOnInsert {
+			continue
+		}
+
 		columnNames = append(columnNames, col)
 	}
 
-	params = make([]interface{}, len(recordMap))
-	valuesQuery := make([]string, len(recordMap))
+	params = make([]interface{}, len(columnNames))
+	valuesQuery := make([]string, len(columnNames))
 	for i, col := range columnNames {
 		recordValue := recordMap[col]
 		params[i] = recordValue
@@ -770,6 +774,16 @@ func buildInsertQuery(
 		}
 	}
 
+	if len(columnNames) == 0 && dialect.DriverName() != "mysql" {
+		query = fmt.Sprintf(
+			"INSERT INTO %s%s DEFAULT VALUES%s",
+			dialect.Escape(table.name),
+			outputQuery,
+			returningQuery,
+		)
+		return query, params, scanValues, nil
+	}
+
 	// Note that the outputQuery and the returningQuery depend
 	// on the selected driver, thus, they might be empty strings.
 	query = fmt.Sprintf(
@@ -806,6 +820,10 @@ func buildUpdateQuery(
 	args = make([]interface{}, numAttrs)
 	numNonIDArgs := numAttrs - len(idFieldNames)
 	whereArgs := args[numNonIDArgs:]
+
+	if numNonIDArgs == 0 {
+		return "", nil, ErrNoValuesToUpdate
+	}
 
 	err = validateIfAllIdsArePresent(idFieldNames, recordMap)
 	if err != nil {
