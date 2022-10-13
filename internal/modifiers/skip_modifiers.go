@@ -7,7 +7,3 @@ var skipInsertsModifier = AttrModifier{
 var skipUpdatesModifier = AttrModifier{
 	SkipOnUpdate: true,
 }
-
-var skipQueriesModifier = AttrModifier{
-	SkipOnQuery: true,
-}

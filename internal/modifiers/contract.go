@@ -11,7 +11,6 @@ type AttrModifier struct {
 	// and queries respectively.
 	SkipOnInsert bool
 	SkipOnUpdate bool
-	SkipOnQuery  bool
 
 	// Implement these functions if you want to override the default Scan/Value behavior
 	// for the target attribute.

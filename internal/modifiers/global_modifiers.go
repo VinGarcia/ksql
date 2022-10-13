@@ -23,7 +23,6 @@ func init() {
 	// to test the feature of skipping updates, inserts and queries.
 	modifiers.Store("skipUpdates", skipUpdatesModifier)
 	modifiers.Store("skipInserts", skipInsertsModifier)
-	modifiers.Store("skipQueries", skipQueriesModifier)
 }
 
 // RegisterAttrModifier allow users to add custom modifiers on startup

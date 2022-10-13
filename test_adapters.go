@@ -2986,7 +2986,6 @@ func ModifiersTest(
 				tt.AssertEqual(t, taggedUser.Name, "Marta Ribeiro")
 			})
 		})
-
 	})
 }
 
