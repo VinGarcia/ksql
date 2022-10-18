@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 )
 
 // This modifier serializes objects as JSON when
@@ -13,10 +12,6 @@ import (
 var jsonModifier = AttrModifier{
 	Scan: func(ctx context.Context, opInfo OpInfo, attrPtr interface{}, dbValue interface{}) error {
 		if dbValue == nil {
-			v := reflect.ValueOf(attrPtr)
-			// Set the struct to its 0 value just like json.Unmarshal
-			// does for nil attributes:
-			v.Elem().Set(reflect.Zero(reflect.TypeOf(attrPtr).Elem()))
 			return nil
 		}
 

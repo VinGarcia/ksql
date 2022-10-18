@@ -21,9 +21,11 @@ func TestAttrScan(t *testing.T) {
 		expectErrToContain []string
 	}{
 		{
-			desc:          "should set struct to zero value if input is nil",
-			dbInput:       nil,
-			expectedValue: FakeAttr{},
+			desc:    "should not set struct to zero value if input is nil",
+			dbInput: nil,
+			expectedValue: FakeAttr{
+				Foo: "notZeroValue",
+			},
 		},
 		{
 			desc:    "should work when input is a byte slice",
