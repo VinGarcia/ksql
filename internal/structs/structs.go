@@ -5,6 +5,9 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/vingarcia/ksql/internal/modifiers"
+	"github.com/vingarcia/ksql/ksqlmodifiers"
 )
 
 // StructInfo stores metainformation of the struct
@@ -20,10 +23,10 @@ type StructInfo struct {
 // information regarding a specific field
 // of a struct.
 type FieldInfo struct {
-	Name            string
-	Index           int
-	Valid           bool
-	SerializeAsJSON bool
+	Name     string
+	Index    int
+	Valid    bool
+	Modifier ksqlmodifiers.AttrModifier
 }
 
 // ByIndex returns either the *FieldInfo of a valid
@@ -232,7 +235,7 @@ func (p PtrConverter) Convert(destType reflect.Type) (reflect.Value, error) {
 //
 // This should save several calls to `Field(i).Tag.Get("foo")`
 // which improves performance by a lot.
-func getTagNames(t reflect.Type) (StructInfo, error) {
+func getTagNames(t reflect.Type) (_ StructInfo, err error) {
 	info := StructInfo{
 		byIndex: map[int]*FieldInfo{},
 		byName:  map[string]*FieldInfo{},
@@ -249,10 +252,13 @@ func getTagNames(t reflect.Type) (StructInfo, error) {
 		}
 
 		tags := strings.Split(name, ",")
-		serializeAsJSON := false
+		var modifier ksqlmodifiers.AttrModifier
 		if len(tags) > 1 {
 			name = tags[0]
-			serializeAsJSON = tags[1] == "json"
+			modifier, err = modifiers.LoadGlobalModifier(tags[1])
+			if err != nil {
+				return StructInfo{}, fmt.Errorf("attribute contains invalid modifier name: %w", err)
+			}
 		}
 
 		if _, found := info.byName[name]; found {
@@ -263,9 +269,9 @@ func getTagNames(t reflect.Type) (StructInfo, error) {
 		}
 
 		info.add(FieldInfo{
-			Name:            name,
-			Index:           i,
-			SerializeAsJSON: serializeAsJSON,
+			Name:     name,
+			Index:    i,
+			Modifier: modifier,
 		})
 	}
 

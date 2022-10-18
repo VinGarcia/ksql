@@ -8,6 +8,7 @@ import (
 
 // ErrRecordNotFound ...
 var ErrRecordNotFound error = fmt.Errorf("ksql: the query returned no results: %w", sql.ErrNoRows)
+var ErrNoValuesToUpdate error = fmt.Errorf("ksql: the input struct contains no values to update")
 
 // ErrAbortIteration ...
 var ErrAbortIteration error = fmt.Errorf("ksql: abort iteration, should only be used inside QueryChunks function")

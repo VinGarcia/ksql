@@ -7,8 +7,11 @@ import (
 	"fmt"
 	"io"
 	"testing"
+	"time"
 
+	"github.com/vingarcia/ksql/internal/modifiers"
 	tt "github.com/vingarcia/ksql/internal/testtools"
+	"github.com/vingarcia/ksql/ksqlmodifiers"
 	"github.com/vingarcia/ksql/nullable"
 )
 
@@ -70,6 +73,7 @@ func RunTestsForAdapter(
 		PatchTest(t, driver, connStr, newDBAdapter)
 		QueryChunksTest(t, driver, connStr, newDBAdapter)
 		TransactionTest(t, driver, connStr, newDBAdapter)
+		ModifiersTest(t, driver, connStr, newDBAdapter)
 		ScanRowsTest(t, driver, connStr, newDBAdapter)
 	})
 }
@@ -893,6 +897,33 @@ func InsertTest(
 					tt.AssertNoErr(t, err)
 					tt.AssertEqual(t, inserted.Age, 5455)
 				})
+
+				t.Run("should work and retrieve the ID for structs with no attributes", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, driver)
+
+					type tsUser struct {
+						ID   uint   `ksql:"id"`
+						Name string `ksql:"name,skipInserts"`
+					}
+					u := tsUser{
+						Name: "Letícia",
+					}
+					err := c.Insert(ctx, usersTable, &u)
+					tt.AssertNoErr(t, err)
+					tt.AssertNotEqual(t, u.ID, 0)
+
+					var untaggedUser struct {
+						ID   uint    `ksql:"id"`
+						Name *string `ksql:"name"`
+					}
+					err = c.QueryOne(ctx, &untaggedUser, `FROM users WHERE id = `+c.dialect.Placeholder(0), u.ID)
+					tt.AssertNoErr(t, err)
+					tt.AssertEqual(t, untaggedUser.Name, (*string)(nil))
+				})
 			})
 
 			t.Run("composite key tables", func(t *testing.T) {
@@ -956,6 +987,55 @@ func InsertTest(
 						tt.AssertEqual(t, userPerms[0].ID, permission.ID)
 						tt.AssertEqual(t, userPerms[0].UserID, 2)
 						tt.AssertEqual(t, userPerms[0].PermID, 42)
+					}
+				})
+
+				t.Run("when inserting a struct with no values but composite keys should still retrieve the IDs", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, driver)
+
+					// Table defined with 3 values, but we'll provide only 2,
+					// the third will be generated for the purposes of this test:
+					table := NewTable("user_permissions", "id", "user_id", "perm_id")
+					type taggedPerm struct {
+						ID     uint   `ksql:"id"`
+						UserID int    `ksql:"user_id"`
+						PermID int    `ksql:"perm_id"`
+						Type   string `ksql:"type,skipInserts"`
+					}
+					permission := taggedPerm{
+						UserID: 3,
+						PermID: 43,
+					}
+					err := c.Insert(ctx, table, &permission)
+					tt.AssertNoErr(t, err)
+					tt.AssertNotEqual(t, permission.ID, 0)
+
+					fmt.Println("permID:", permission.ID)
+					var untaggedPerm struct {
+						ID     uint    `ksql:"id"`
+						UserID int     `ksql:"user_id"`
+						PermID int     `ksql:"perm_id"`
+						Type   *string `ksql:"type"`
+					}
+					err = c.QueryOne(ctx, &untaggedPerm, `FROM user_permissions WHERE user_id = 3 AND perm_id = 43`)
+					tt.AssertNoErr(t, err)
+					tt.AssertEqual(t, untaggedPerm.Type, (*string)(nil))
+
+					// Should retrieve the generated ID from the database,
+					// only if the database supports returning multiple values:
+					switch c.dialect.InsertMethod() {
+					case insertWithNoIDRetrieval, insertWithLastInsertID:
+						tt.AssertEqual(t, permission.ID, uint(0))
+						tt.AssertEqual(t, untaggedPerm.UserID, 3)
+						tt.AssertEqual(t, untaggedPerm.PermID, 43)
+					case insertWithReturning, insertWithOutput:
+						tt.AssertEqual(t, untaggedPerm.ID, permission.ID)
+						tt.AssertEqual(t, untaggedPerm.UserID, 3)
+						tt.AssertEqual(t, untaggedPerm.PermID, 43)
 					}
 				})
 			})
@@ -1709,6 +1789,24 @@ func PatchTest(
 			var u *user
 			err := c.Update(ctx, usersTable, u)
 			tt.AssertNotEqual(t, err, nil)
+		})
+
+		t.Run("should report error if the struct has no fields to update", func(t *testing.T) {
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx := context.Background()
+			c := newTestDB(db, driver)
+
+			err = c.Update(ctx, usersTable, struct {
+				ID   uint   `ksql:"id"`               // ID fields are not updated
+				Name string `ksql:"name,skipUpdates"` // the skipUpdate modifier should rule this one out
+				Age  *int   `ksql:"age"`              // Age is a nil pointer so it would not be updated
+			}{
+				ID:   1,
+				Name: "some name",
+			})
+			tt.AssertEqual(t, err, ErrNoValuesToUpdate)
 		})
 
 		t.Run("should report error if the id is missing", func(t *testing.T) {
@@ -2515,6 +2613,432 @@ func TransactionTest(
 	})
 }
 
+func ModifiersTest(
+	t *testing.T,
+	driver string,
+	connStr string,
+	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
+) {
+	ctx := context.Background()
+
+	t.Run("Modifiers", func(t *testing.T) {
+		err := createTables(driver, connStr)
+		if err != nil {
+			t.Fatal("could not create test table!, reason:", err.Error())
+		}
+
+		t.Run("timeNowUTC modifier", func(t *testing.T) {
+			t.Run("should be set to time.Now().UTC() on insertion", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type tsUser struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					UpdatedAt time.Time `ksql:"updated_at,timeNowUTC"`
+				}
+				u := tsUser{
+					Name: "Letícia",
+				}
+				err := c.Insert(ctx, usersTable, &u)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, u.ID, 0)
+
+				var untaggedUser struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					UpdatedAt time.Time `ksql:"updated_at"`
+				}
+				err = c.QueryOne(ctx, &untaggedUser, `FROM users WHERE id = `+c.dialect.Placeholder(0), u.ID)
+				tt.AssertNoErr(t, err)
+
+				now := time.Now()
+				tt.AssertApproxTime(t,
+					2*time.Second, untaggedUser.UpdatedAt, now,
+					"updatedAt should be set to %v, but got: %v", now, untaggedUser.UpdatedAt,
+				)
+			})
+
+			t.Run("should be set to time.Now().UTC() on updates", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type userWithNoTags struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					UpdatedAt time.Time `ksql:"updated_at"`
+				}
+				untaggedUser := userWithNoTags{
+					Name: "Laura Ribeiro",
+					// Any time different from now:
+					UpdatedAt: tt.ParseTime(t, "2000-08-05T14:00:00Z"),
+				}
+				err := c.Insert(ctx, usersTable, &untaggedUser)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser.ID, 0)
+
+				type taggedUser struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					UpdatedAt time.Time `ksql:"updated_at,timeNowUTC"`
+				}
+				u := taggedUser{
+					ID:   untaggedUser.ID,
+					Name: "Laurinha Ribeiro",
+				}
+				err = c.Patch(ctx, usersTable, u)
+				tt.AssertNoErr(t, err)
+
+				var untaggedUser2 userWithNoTags
+				err = c.QueryOne(ctx, &untaggedUser2, "FROM users WHERE id = "+c.dialect.Placeholder(0), u.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser2.ID, 0)
+
+				now := time.Now()
+				tt.AssertApproxTime(t,
+					2*time.Second, untaggedUser2.UpdatedAt, now,
+					"updatedAt should be set to %v, but got: %v", now, untaggedUser2.UpdatedAt,
+				)
+			})
+
+			t.Run("should not alter the value on queries", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type userWithNoTags struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					UpdatedAt time.Time `ksql:"updated_at"`
+				}
+				untaggedUser := userWithNoTags{
+					Name: "Marta Ribeiro",
+					// Any time different from now:
+					UpdatedAt: tt.ParseTime(t, "2000-08-05T14:00:00Z"),
+				}
+				err := c.Insert(ctx, usersTable, &untaggedUser)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser.ID, 0)
+
+				var taggedUser struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					UpdatedAt time.Time `ksql:"updated_at,timeNowUTC"`
+				}
+				err = c.QueryOne(ctx, &taggedUser, "FROM users WHERE id = "+c.dialect.Placeholder(0), untaggedUser.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, taggedUser.ID, untaggedUser.ID)
+				tt.AssertEqual(t, taggedUser.Name, "Marta Ribeiro")
+				tt.AssertEqual(t, taggedUser.UpdatedAt, tt.ParseTime(t, "2000-08-05T14:00:00Z"))
+			})
+		})
+
+		t.Run("timeNowUTC/skipUpdates modifier", func(t *testing.T) {
+			t.Run("should be set to time.Now().UTC() on insertion", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type tsUser struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					CreatedAt time.Time `ksql:"created_at,timeNowUTC/skipUpdates"`
+				}
+				u := tsUser{
+					Name: "Letícia",
+				}
+				err := c.Insert(ctx, usersTable, &u)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, u.ID, 0)
+
+				var untaggedUser struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					CreatedAt time.Time `ksql:"created_at"`
+				}
+				err = c.QueryOne(ctx, &untaggedUser, `FROM users WHERE id = `+c.dialect.Placeholder(0), u.ID)
+				tt.AssertNoErr(t, err)
+
+				now := time.Now()
+				tt.AssertApproxTime(t,
+					2*time.Second, untaggedUser.CreatedAt, now,
+					"updatedAt should be set to %v, but got: %v", now, untaggedUser.CreatedAt,
+				)
+			})
+
+			t.Run("should be ignored on updates", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type userWithNoTags struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					CreatedAt time.Time `ksql:"created_at"`
+				}
+				untaggedUser := userWithNoTags{
+					Name: "Laura Ribeiro",
+					// Any time different from now:
+					CreatedAt: tt.ParseTime(t, "2000-08-05T14:00:00Z"),
+				}
+				err := c.Insert(ctx, usersTable, &untaggedUser)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser.ID, 0)
+
+				type taggedUser struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					CreatedAt time.Time `ksql:"created_at,timeNowUTC/skipUpdates"`
+				}
+				u := taggedUser{
+					ID:   untaggedUser.ID,
+					Name: "Laurinha Ribeiro",
+					// Some random time that should be ignored:
+					CreatedAt: tt.ParseTime(t, "1999-08-05T14:00:00Z"),
+				}
+				err = c.Patch(ctx, usersTable, u)
+				tt.AssertNoErr(t, err)
+
+				var untaggedUser2 userWithNoTags
+				err = c.QueryOne(ctx, &untaggedUser2, "FROM users WHERE id = "+c.dialect.Placeholder(0), u.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, untaggedUser2.CreatedAt, tt.ParseTime(t, "2000-08-05T14:00:00Z"))
+			})
+
+			t.Run("should not alter the value on queries", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type userWithNoTags struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					CreatedAt time.Time `ksql:"created_at"`
+				}
+				untaggedUser := userWithNoTags{
+					Name: "Marta Ribeiro",
+					// Any time different from now:
+					CreatedAt: tt.ParseTime(t, "2000-08-05T14:00:00Z"),
+				}
+				err := c.Insert(ctx, usersTable, &untaggedUser)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser.ID, 0)
+
+				var taggedUser struct {
+					ID        uint      `ksql:"id"`
+					Name      string    `ksql:"name"`
+					CreatedAt time.Time `ksql:"created_at,timeNowUTC/skipUpdates"`
+				}
+				err = c.QueryOne(ctx, &taggedUser, "FROM users WHERE id = "+c.dialect.Placeholder(0), untaggedUser.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, taggedUser.ID, untaggedUser.ID)
+				tt.AssertEqual(t, taggedUser.Name, "Marta Ribeiro")
+				tt.AssertEqual(t, taggedUser.CreatedAt, tt.ParseTime(t, "2000-08-05T14:00:00Z"))
+			})
+		})
+
+		t.Run("skipInserts modifier", func(t *testing.T) {
+			t.Run("should ignore the field during insertions", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type tsUser struct {
+					ID   uint   `ksql:"id"`
+					Name string `ksql:"name,skipInserts"`
+					Age  int    `ksql:"age"`
+				}
+				u := tsUser{
+					Name: "Letícia",
+					Age:  22,
+				}
+				err := c.Insert(ctx, usersTable, &u)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, u.ID, 0)
+
+				var untaggedUser struct {
+					ID   uint    `ksql:"id"`
+					Name *string `ksql:"name"`
+					Age  int     `ksql:"age"`
+				}
+				err = c.QueryOne(ctx, &untaggedUser, `FROM users WHERE id = `+c.dialect.Placeholder(0), u.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, untaggedUser.Name, (*string)(nil))
+				tt.AssertEqual(t, untaggedUser.Age, 22)
+			})
+
+			t.Run("should have no effect on updates", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type userWithNoTags struct {
+					ID   uint   `ksql:"id"`
+					Name string `ksql:"name"`
+					Age  int    `ksql:"age"`
+				}
+				untaggedUser := userWithNoTags{
+					Name: "Laurinha Ribeiro",
+					Age:  11,
+				}
+				err := c.Insert(ctx, usersTable, &untaggedUser)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser.ID, 0)
+
+				type taggedUser struct {
+					ID   uint   `ksql:"id"`
+					Name string `ksql:"name,skipInserts"`
+					Age  int    `ksql:"age"`
+				}
+				u := taggedUser{
+					ID:   untaggedUser.ID,
+					Name: "Laura Ribeiro",
+					Age:  12,
+				}
+				err = c.Patch(ctx, usersTable, u)
+				tt.AssertNoErr(t, err)
+
+				var untaggedUser2 userWithNoTags
+				err = c.QueryOne(ctx, &untaggedUser2, "FROM users WHERE id = "+c.dialect.Placeholder(0), u.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, untaggedUser2.Name, "Laura Ribeiro")
+				tt.AssertEqual(t, untaggedUser2.Age, 12)
+			})
+
+			t.Run("should not alter the value on queries", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type userWithNoTags struct {
+					ID   uint   `ksql:"id"`
+					Name string `ksql:"name"`
+				}
+				untaggedUser := userWithNoTags{
+					Name: "Marta Ribeiro",
+				}
+				err := c.Insert(ctx, usersTable, &untaggedUser)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser.ID, 0)
+
+				var taggedUser struct {
+					ID   uint   `ksql:"id"`
+					Name string `ksql:"name,skipInserts"`
+				}
+				err = c.QueryOne(ctx, &taggedUser, "FROM users WHERE id = "+c.dialect.Placeholder(0), untaggedUser.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, taggedUser.ID, untaggedUser.ID)
+				tt.AssertEqual(t, taggedUser.Name, "Marta Ribeiro")
+			})
+		})
+
+		t.Run("skipUpdates modifier", func(t *testing.T) {
+			t.Run("should set the field on insertion", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type tsUser struct {
+					ID   uint   `ksql:"id"`
+					Name string `ksql:"name,skipUpdates"`
+				}
+				u := tsUser{
+					Name: "Letícia",
+				}
+				err := c.Insert(ctx, usersTable, &u)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, u.ID, 0)
+
+				var untaggedUser struct {
+					ID   uint   `ksql:"id"`
+					Name string `ksql:"name"`
+				}
+				err = c.QueryOne(ctx, &untaggedUser, `FROM users WHERE id = `+c.dialect.Placeholder(0), u.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, untaggedUser.Name, "Letícia")
+			})
+
+			t.Run("should be ignored on updates", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type userWithNoTags struct {
+					ID   uint   `ksql:"id"`
+					Name string `ksql:"name"`
+					Age  int    `ksql:"age"`
+				}
+				untaggedUser := userWithNoTags{
+					Name: "Laurinha Ribeiro",
+					Age:  11,
+				}
+				err := c.Insert(ctx, usersTable, &untaggedUser)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser.ID, 0)
+
+				type taggedUser struct {
+					ID   uint   `ksql:"id"`
+					Name string `ksql:"name,skipUpdates"`
+					Age  int    `ksql:"age"`
+				}
+				u := taggedUser{
+					ID:   untaggedUser.ID,
+					Name: "Laura Ribeiro",
+					Age:  12,
+				}
+				err = c.Patch(ctx, usersTable, u)
+				tt.AssertNoErr(t, err)
+
+				var untaggedUser2 userWithNoTags
+				err = c.QueryOne(ctx, &untaggedUser2, "FROM users WHERE id = "+c.dialect.Placeholder(0), u.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, untaggedUser2.Name, "Laurinha Ribeiro")
+				tt.AssertEqual(t, untaggedUser2.Age, 12)
+			})
+
+			t.Run("should not alter the value on queries", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type userWithNoTags struct {
+					ID   uint   `ksql:"id"`
+					Name string `ksql:"name"`
+				}
+				untaggedUser := userWithNoTags{
+					Name: "Marta Ribeiro",
+				}
+				err := c.Insert(ctx, usersTable, &untaggedUser)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser.ID, 0)
+
+				var taggedUser struct {
+					ID   uint   `ksql:"id"`
+					Name string `ksql:"name,skipUpdates"`
+				}
+				err = c.QueryOne(ctx, &taggedUser, "FROM users WHERE id = "+c.dialect.Placeholder(0), untaggedUser.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, taggedUser.ID, untaggedUser.ID)
+				tt.AssertEqual(t, taggedUser.Name, "Marta Ribeiro")
+			})
+		})
+	})
+}
+
 // ScanRowsTest runs all tests for making sure the ScanRows feature is
 // working for a given adapter and driver.
 func ScanRowsTest(
@@ -2546,7 +3070,7 @@ func ScanRowsTest(
 			tt.AssertEqual(t, rows.Next(), true)
 
 			var u user
-			err = scanRows(dialect, rows, &u)
+			err = scanRows(ctx, dialect, rows, &u)
 			tt.AssertNoErr(t, err)
 
 			tt.AssertEqual(t, u.Name, "User2")
@@ -2579,7 +3103,7 @@ func ScanRowsTest(
 				// Omitted for testing purposes:
 				// Name string `ksql:"name"`
 			}
-			err = scanRows(dialect, rows, &u)
+			err = scanRows(ctx, dialect, rows, &u)
 			tt.AssertNoErr(t, err)
 
 			tt.AssertEqual(t, u.Age, 22)
@@ -2602,7 +3126,7 @@ func ScanRowsTest(
 			var u user
 			err = rows.Close()
 			tt.AssertNoErr(t, err)
-			err = scanRows(dialect, rows, &u)
+			err = scanRows(ctx, dialect, rows, &u)
 			tt.AssertNotEqual(t, err, nil)
 		})
 
@@ -2622,7 +3146,7 @@ func ScanRowsTest(
 			defer rows.Close()
 
 			var u user
-			err = scanRows(dialect, rows, u)
+			err = scanRows(ctx, dialect, rows, u)
 			tt.AssertErrContains(t, err, "ksql", "expected", "pointer to struct", "user")
 		})
 
@@ -2642,7 +3166,7 @@ func ScanRowsTest(
 			defer rows.Close()
 
 			var u map[string]interface{}
-			err = scanRows(dialect, rows, &u)
+			err = scanRows(ctx, dialect, rows, &u)
 			tt.AssertErrContains(t, err, "KSQL", "expected", "pointer to struct", "map[string]interface")
 		})
 	})
@@ -2667,28 +3191,36 @@ func createTables(driver string, connStr string) error {
 		  id INTEGER PRIMARY KEY,
 			age INTEGER,
 			name TEXT,
-			address BLOB
+			address BLOB,
+			created_at DATETIME,
+			updated_at DATETIME
 		)`)
 	case "postgres":
 		_, err = db.Exec(`CREATE TABLE users (
 		  id serial PRIMARY KEY,
 			age INT,
 			name VARCHAR(50),
-			address jsonb
+			address jsonb,
+			created_at TIMESTAMP,
+			updated_at TIMESTAMP
 		)`)
 	case "mysql":
 		_, err = db.Exec(`CREATE TABLE users (
 			id INT AUTO_INCREMENT PRIMARY KEY,
 			age INT,
 			name VARCHAR(50),
-			address JSON
+			address JSON,
+			created_at DATETIME,
+			updated_at DATETIME
 		)`)
 	case "sqlserver":
 		_, err = db.Exec(`CREATE TABLE users (
 			id INT IDENTITY(1,1) PRIMARY KEY,
 			age INT,
 			name VARCHAR(50),
-			address NVARCHAR(4000)
+			address NVARCHAR(4000),
+			created_at DATETIME,
+			updated_at DATETIME
 		)`)
 	}
 	if err != nil {
@@ -2798,9 +3330,18 @@ func getUserByID(db DBAdapter, dialect Dialect, result *user, id uint) error {
 		return sql.ErrNoRows
 	}
 
-	value := jsonSerializable{
-		DriverName: dialect.DriverName(),
-		Attr:       &result.Address,
+	modifier, _ := modifiers.LoadGlobalModifier("json")
+
+	value := modifiers.AttrScanWrapper{
+		Ctx:     context.TODO(),
+		AttrPtr: &result.Address,
+		ScanFn:  modifier.Scan,
+		OpInfo: ksqlmodifiers.OpInfo{
+			DriverName: dialect.DriverName(),
+			// We will not differentiate between Query, QueryOne and QueryChunks
+			// if we did this could lead users to make very strange modifiers
+			Method: "Query",
+		},
 	}
 
 	err = rows.Scan(&result.ID, &result.Name, &result.Age, &value)

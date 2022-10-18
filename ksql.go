@@ -10,7 +10,9 @@ import (
 	"sync"
 	"unicode"
 
+	"github.com/vingarcia/ksql/internal/modifiers"
 	"github.com/vingarcia/ksql/internal/structs"
+	"github.com/vingarcia/ksql/ksqlmodifiers"
 	"github.com/vingarcia/ksql/ksqltest"
 )
 
@@ -184,7 +186,7 @@ func (c DB) Query(
 			elemPtr = elemPtr.Elem()
 		}
 
-		err = scanRows(c.dialect, rows, elemPtr.Interface())
+		err = scanRows(ctx, c.dialect, rows, elemPtr.Interface())
 		if err != nil {
 			return err
 		}
@@ -257,13 +259,13 @@ func (c DB) QueryOne(
 	defer rows.Close()
 
 	if !rows.Next() {
-		if rows.Err() != nil {
-			return rows.Err()
+		if err := rows.Err(); err != nil {
+			return err
 		}
 		return ErrRecordNotFound
 	}
 
-	err = scanRowsFromType(c.dialect, rows, record, t, v)
+	err = scanRowsFromType(ctx, c.dialect, rows, record, t, v)
 	if err != nil {
 		return err
 	}
@@ -342,7 +344,7 @@ func (c DB) QueryChunks(
 			chunk = reflect.Append(chunk, elemValue)
 		}
 
-		err = scanRows(c.dialect, rows, chunk.Index(idx).Addr().Interface())
+		err = scanRows(ctx, c.dialect, rows, chunk.Index(idx).Addr().Interface())
 		if err != nil {
 			return err
 		}
@@ -419,7 +421,7 @@ func (c DB) Insert(
 		return err
 	}
 
-	query, params, scanValues, err := buildInsertQuery(c.dialect, table, t, v, info, record)
+	query, params, scanValues, err := buildInsertQuery(ctx, c.dialect, table, t, v, info, record)
 	if err != nil {
 		return err
 	}
@@ -656,7 +658,7 @@ func (c DB) Patch(
 		return err
 	}
 
-	query, params, err := buildUpdateQuery(c.dialect, table.name, info, record, table.idColumns...)
+	query, params, err := buildUpdateQuery(ctx, c.dialect, table.name, info, record, table.idColumns...)
 	if err != nil {
 		return err
 	}
@@ -681,6 +683,7 @@ func (c DB) Patch(
 }
 
 func buildInsertQuery(
+	ctx context.Context,
 	dialect Dialect,
 	table Table,
 	t reflect.Type,
@@ -707,18 +710,29 @@ func buildInsertQuery(
 
 	columnNames := []string{}
 	for col := range recordMap {
+		if info.ByName(col).Modifier.SkipOnInsert {
+			continue
+		}
+
 		columnNames = append(columnNames, col)
 	}
 
-	params = make([]interface{}, len(recordMap))
-	valuesQuery := make([]string, len(recordMap))
+	params = make([]interface{}, len(columnNames))
+	valuesQuery := make([]string, len(columnNames))
 	for i, col := range columnNames {
 		recordValue := recordMap[col]
 		params[i] = recordValue
-		if info.ByName(col).SerializeAsJSON {
-			params[i] = jsonSerializable{
-				DriverName: dialect.DriverName(),
-				Attr:       recordValue,
+
+		valueFn := info.ByName(col).Modifier.Value
+		if valueFn != nil {
+			params[i] = modifiers.AttrValueWrapper{
+				Ctx:     ctx,
+				Attr:    recordValue,
+				ValueFn: valueFn,
+				OpInfo: ksqlmodifiers.OpInfo{
+					DriverName: dialect.DriverName(),
+					Method:     "Insert",
+				},
 			}
 		}
 
@@ -761,6 +775,16 @@ func buildInsertQuery(
 		}
 	}
 
+	if len(columnNames) == 0 && dialect.DriverName() != "mysql" {
+		query = fmt.Sprintf(
+			"INSERT INTO %s%s DEFAULT VALUES%s",
+			dialect.Escape(table.name),
+			outputQuery,
+			returningQuery,
+		)
+		return query, params, scanValues, nil
+	}
+
 	// Note that the outputQuery and the returningQuery depend
 	// on the selected driver, thus, they might be empty strings.
 	query = fmt.Sprintf(
@@ -776,20 +800,31 @@ func buildInsertQuery(
 }
 
 func buildUpdateQuery(
+	ctx context.Context,
 	dialect Dialect,
 	tableName string,
 	info structs.StructInfo,
 	record interface{},
 	idFieldNames ...string,
 ) (query string, args []interface{}, err error) {
-	recordMap, err := ksqltest.StructToMap(record)
+	recordMap, err := structs.StructToMap(record)
 	if err != nil {
 		return "", nil, err
 	}
+	for key := range recordMap {
+		if info.ByName(key).Modifier.SkipOnUpdate {
+			delete(recordMap, key)
+		}
+	}
+
 	numAttrs := len(recordMap)
 	args = make([]interface{}, numAttrs)
 	numNonIDArgs := numAttrs - len(idFieldNames)
 	whereArgs := args[numNonIDArgs:]
+
+	if numNonIDArgs == 0 {
+		return "", nil, ErrNoValuesToUpdate
+	}
 
 	err = validateIfAllIdsArePresent(idFieldNames, recordMap)
 	if err != nil {
@@ -816,10 +851,17 @@ func buildUpdateQuery(
 	var setQuery []string
 	for i, k := range keys {
 		recordValue := recordMap[k]
-		if info.ByName(k).SerializeAsJSON {
-			recordValue = jsonSerializable{
-				DriverName: dialect.DriverName(),
-				Attr:       recordValue,
+
+		valueFn := info.ByName(k).Modifier.Value
+		if valueFn != nil {
+			recordValue = modifiers.AttrValueWrapper{
+				Ctx:     ctx,
+				Attr:    recordValue,
+				ValueFn: valueFn,
+				OpInfo: ksqlmodifiers.OpInfo{
+					DriverName: dialect.DriverName(),
+					Method:     "Update",
+				},
 			}
 		}
 		args[i] = recordValue
@@ -930,13 +972,14 @@ func (nopScanner) Scan(value interface{}) error {
 	return nil
 }
 
-func scanRows(dialect Dialect, rows Rows, record interface{}) error {
+func scanRows(ctx context.Context, dialect Dialect, rows Rows, record interface{}) error {
 	v := reflect.ValueOf(record)
 	t := v.Type()
-	return scanRowsFromType(dialect, rows, record, t, v)
+	return scanRowsFromType(ctx, dialect, rows, record, t, v)
 }
 
 func scanRowsFromType(
+	ctx context.Context,
 	dialect Dialect,
 	rows Rows,
 	record interface{},
@@ -964,7 +1007,7 @@ func scanRowsFromType(
 		// This version is positional meaning that it expect the arguments
 		// to follow an specific order. It's ok because we don't allow the
 		// user to type the "SELECT" part of the query for nested structs.
-		scanArgs, err = getScanArgsForNestedStructs(dialect, rows, t, v, info)
+		scanArgs, err = getScanArgsForNestedStructs(ctx, dialect, rows, t, v, info)
 		if err != nil {
 			return err
 		}
@@ -975,7 +1018,7 @@ func scanRowsFromType(
 		}
 		// Since this version uses the names of the columns it works
 		// with any order of attributes/columns.
-		scanArgs = getScanArgsFromNames(dialect, names, v, info)
+		scanArgs = getScanArgsFromNames(ctx, dialect, names, v, info)
 	}
 
 	err = rows.Scan(scanArgs...)
@@ -985,7 +1028,14 @@ func scanRowsFromType(
 	return nil
 }
 
-func getScanArgsForNestedStructs(dialect Dialect, rows Rows, t reflect.Type, v reflect.Value, info structs.StructInfo) ([]interface{}, error) {
+func getScanArgsForNestedStructs(
+	ctx context.Context,
+	dialect Dialect,
+	rows Rows,
+	t reflect.Type,
+	v reflect.Value,
+	info structs.StructInfo,
+) ([]interface{}, error) {
 	scanArgs := []interface{}{}
 	for i := 0; i < v.NumField(); i++ {
 		if !info.ByIndex(i).Valid {
@@ -1008,10 +1058,18 @@ func getScanArgsForNestedStructs(dialect Dialect, rows Rows, t reflect.Type, v r
 			valueScanner := nopScannerValue
 			if fieldInfo.Valid {
 				valueScanner = nestedStructValue.Field(fieldInfo.Index).Addr().Interface()
-				if fieldInfo.SerializeAsJSON {
-					valueScanner = &jsonSerializable{
-						DriverName: dialect.DriverName(),
-						Attr:       valueScanner,
+
+				if fieldInfo.Modifier.Scan != nil {
+					valueScanner = &modifiers.AttrScanWrapper{
+						Ctx:     ctx,
+						AttrPtr: valueScanner,
+						ScanFn:  fieldInfo.Modifier.Scan,
+						OpInfo: ksqlmodifiers.OpInfo{
+							DriverName: dialect.DriverName(),
+							// We will not differentiate between Query, QueryOne and QueryChunks
+							// if we did this could lead users to make very strange modifiers
+							Method: "Query",
+						},
 					}
 				}
 			}
@@ -1023,7 +1081,7 @@ func getScanArgsForNestedStructs(dialect Dialect, rows Rows, t reflect.Type, v r
 	return scanArgs, nil
 }
 
-func getScanArgsFromNames(dialect Dialect, names []string, v reflect.Value, info structs.StructInfo) []interface{} {
+func getScanArgsFromNames(ctx context.Context, dialect Dialect, names []string, v reflect.Value, info structs.StructInfo) []interface{} {
 	scanArgs := []interface{}{}
 	for _, name := range names {
 		fieldInfo := info.ByName(name)
@@ -1031,10 +1089,17 @@ func getScanArgsFromNames(dialect Dialect, names []string, v reflect.Value, info
 		valueScanner := nopScannerValue
 		if fieldInfo.Valid {
 			valueScanner = v.Field(fieldInfo.Index).Addr().Interface()
-			if fieldInfo.SerializeAsJSON {
-				valueScanner = &jsonSerializable{
-					DriverName: dialect.DriverName(),
-					Attr:       valueScanner,
+			if fieldInfo.Modifier.Scan != nil {
+				valueScanner = &modifiers.AttrScanWrapper{
+					Ctx:     ctx,
+					AttrPtr: valueScanner,
+					ScanFn:  fieldInfo.Modifier.Scan,
+					OpInfo: ksqlmodifiers.OpInfo{
+						DriverName: dialect.DriverName(),
+						// We will not differentiate between Query, QueryOne and QueryChunks
+						// if we did this could lead users to make very strange modifiers
+						Method: "Query",
+					},
 				}
 			}
 		}
