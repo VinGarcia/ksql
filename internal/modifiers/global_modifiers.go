@@ -36,6 +36,8 @@ func RegisterAttrModifier(key string, modifier AttrModifier) {
 	modifiers.Store(key, modifier)
 }
 
+// LoadGlobalModifier is used internally by KSQL to load
+// modifiers during runtime.
 func LoadGlobalModifier(key string) (AttrModifier, error) {
 	rawModifier, _ := modifiers.Load(key)
 	modifier, ok := rawModifier.(AttrModifier)
