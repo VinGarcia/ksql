@@ -1,8 +1,6 @@
-package modifiers
+package kmodifiers
 
-import (
-	"context"
-)
+import "context"
 
 // AttrModifier informs KSQL how to use this modifier
 type AttrModifier struct {

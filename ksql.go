@@ -12,6 +12,7 @@ import (
 
 	"github.com/vingarcia/ksql/internal/modifiers"
 	"github.com/vingarcia/ksql/internal/structs"
+	"github.com/vingarcia/ksql/kmodifiers"
 	"github.com/vingarcia/ksql/ksqltest"
 )
 
@@ -728,7 +729,7 @@ func buildInsertQuery(
 				Ctx:     ctx,
 				Attr:    recordValue,
 				ValueFn: valueFn,
-				OpInfo: modifiers.OpInfo{
+				OpInfo: kmodifiers.OpInfo{
 					DriverName: dialect.DriverName(),
 					Method:     "Insert",
 				},
@@ -857,7 +858,7 @@ func buildUpdateQuery(
 				Ctx:     ctx,
 				Attr:    recordValue,
 				ValueFn: valueFn,
-				OpInfo: modifiers.OpInfo{
+				OpInfo: kmodifiers.OpInfo{
 					DriverName: dialect.DriverName(),
 					Method:     "Update",
 				},
@@ -1063,7 +1064,7 @@ func getScanArgsForNestedStructs(
 						Ctx:     ctx,
 						AttrPtr: valueScanner,
 						ScanFn:  fieldInfo.Modifier.Scan,
-						OpInfo: modifiers.OpInfo{
+						OpInfo: kmodifiers.OpInfo{
 							DriverName: dialect.DriverName(),
 							// We will not differentiate between Query, QueryOne and QueryChunks
 							// if we did this could lead users to make very strange modifiers
@@ -1093,7 +1094,7 @@ func getScanArgsFromNames(ctx context.Context, dialect Dialect, names []string, 
 					Ctx:     ctx,
 					AttrPtr: valueScanner,
 					ScanFn:  fieldInfo.Modifier.Scan,
-					OpInfo: modifiers.OpInfo{
+					OpInfo: kmodifiers.OpInfo{
 						DriverName: dialect.DriverName(),
 						// We will not differentiate between Query, QueryOne and QueryChunks
 						// if we did this could lead users to make very strange modifiers

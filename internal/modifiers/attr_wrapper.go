@@ -3,6 +3,8 @@ package modifiers
 import (
 	"context"
 	"database/sql/driver"
+
+	"github.com/vingarcia/ksql/kmodifiers"
 )
 
 // AttrScanWrapper is the wrapper that allow us to intercept the Scan process
@@ -15,8 +17,8 @@ type AttrScanWrapper struct {
 
 	AttrPtr interface{}
 
-	ScanFn AttrScanner
-	OpInfo OpInfo
+	ScanFn kmodifiers.AttrScanner
+	OpInfo kmodifiers.OpInfo
 }
 
 // Scan implements the sql.Scanner interface
@@ -34,8 +36,8 @@ type AttrValueWrapper struct {
 
 	Attr interface{}
 
-	ValueFn AttrValuer
-	OpInfo  OpInfo
+	ValueFn kmodifiers.AttrValuer
+	OpInfo  kmodifiers.OpInfo
 }
 
 // Value implements the sql.Valuer interface
