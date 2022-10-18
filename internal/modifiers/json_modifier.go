@@ -29,6 +29,8 @@ var jsonModifier = AttrModifier{
 
 	Value: func(ctx context.Context, opInfo OpInfo, inputValue interface{}) (outputValue interface{}, _ error) {
 		b, err := json.Marshal(inputValue)
+		// SQL server uses the NVARCHAR type to store JSON and
+		// it expects to receive strings not []byte, thus:
 		if opInfo.DriverName == "sqlserver" {
 			return string(b), err
 		}
