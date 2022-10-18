@@ -988,6 +988,55 @@ func InsertTest(
 						tt.AssertEqual(t, userPerms[0].PermID, 42)
 					}
 				})
+
+				t.Run("when inserting a struct with no values but composite keys should still retrieve the IDs", func(t *testing.T) {
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					ctx := context.Background()
+					c := newTestDB(db, driver)
+
+					// Table defined with 3 values, but we'll provide only 2,
+					// the third will be generated for the purposes of this test:
+					table := NewTable("user_permissions", "id", "user_id", "perm_id")
+					type taggedPerm struct {
+						ID     uint   `ksql:"id"`
+						UserID int    `ksql:"user_id"`
+						PermID int    `ksql:"perm_id"`
+						Type   string `ksql:"type,skipInserts"`
+					}
+					permission := taggedPerm{
+						UserID: 3,
+						PermID: 43,
+					}
+					err := c.Insert(ctx, table, &permission)
+					tt.AssertNoErr(t, err)
+					tt.AssertNotEqual(t, permission.ID, 0)
+
+					fmt.Println("permID:", permission.ID)
+					var untaggedPerm struct {
+						ID     uint    `ksql:"id"`
+						UserID int     `ksql:"user_id"`
+						PermID int     `ksql:"perm_id"`
+						Type   *string `ksql:"type"`
+					}
+					err = c.QueryOne(ctx, &untaggedPerm, `FROM user_permissions WHERE user_id = 3 AND perm_id = 43`)
+					tt.AssertNoErr(t, err)
+					tt.AssertEqual(t, untaggedPerm.Type, (*string)(nil))
+
+					// Should retrieve the generated ID from the database,
+					// only if the database supports returning multiple values:
+					switch c.dialect.InsertMethod() {
+					case insertWithNoIDRetrieval, insertWithLastInsertID:
+						tt.AssertEqual(t, permission.ID, uint(0))
+						tt.AssertEqual(t, untaggedPerm.UserID, 3)
+						tt.AssertEqual(t, untaggedPerm.PermID, 43)
+					case insertWithReturning, insertWithOutput:
+						tt.AssertEqual(t, untaggedPerm.ID, permission.ID)
+						tt.AssertEqual(t, untaggedPerm.UserID, 3)
+						tt.AssertEqual(t, untaggedPerm.PermID, 43)
+					}
+				})
 			})
 		})
 
