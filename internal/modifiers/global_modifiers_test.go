@@ -4,15 +4,15 @@ import (
 	"testing"
 
 	tt "github.com/vingarcia/ksql/internal/testtools"
-	"github.com/vingarcia/ksql/kmodifiers"
+	"github.com/vingarcia/ksql/ksqlmodifiers"
 )
 
 func TestRegisterAttrModifier(t *testing.T) {
 	t.Run("should register new modifiers correctly", func(t *testing.T) {
-		modifier1 := kmodifiers.AttrModifier{
+		modifier1 := ksqlmodifiers.AttrModifier{
 			SkipOnUpdate: true,
 		}
-		modifier2 := kmodifiers.AttrModifier{
+		modifier2 := ksqlmodifiers.AttrModifier{
 			SkipOnInsert: true,
 		}
 
@@ -29,10 +29,10 @@ func TestRegisterAttrModifier(t *testing.T) {
 	})
 
 	t.Run("should panic registering a modifier and the name already exists", func(t *testing.T) {
-		modifier1 := kmodifiers.AttrModifier{
+		modifier1 := ksqlmodifiers.AttrModifier{
 			SkipOnUpdate: true,
 		}
-		modifier2 := kmodifiers.AttrModifier{
+		modifier2 := ksqlmodifiers.AttrModifier{
 			SkipOnInsert: true,
 		}
 
@@ -49,6 +49,6 @@ func TestRegisterAttrModifier(t *testing.T) {
 	t.Run("should return an error when loading an inexistent modifier", func(t *testing.T) {
 		mod, err := LoadGlobalModifier("nonExistentModifier")
 		tt.AssertErrContains(t, err, "nonExistentModifier")
-		tt.AssertEqual(t, mod, kmodifiers.AttrModifier{})
+		tt.AssertEqual(t, mod, ksqlmodifiers.AttrModifier{})
 	})
 }

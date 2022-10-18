@@ -1,4 +1,4 @@
-package kmodifiers
+package ksqlmodifiers
 
 import "context"
 

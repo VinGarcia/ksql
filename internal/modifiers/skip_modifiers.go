@@ -1,11 +1,11 @@
 package modifiers
 
-import "github.com/vingarcia/ksql/kmodifiers"
+import "github.com/vingarcia/ksql/ksqlmodifiers"
 
-var skipInsertsModifier = kmodifiers.AttrModifier{
+var skipInsertsModifier = ksqlmodifiers.AttrModifier{
 	SkipOnInsert: true,
 }
 
-var skipUpdatesModifier = kmodifiers.AttrModifier{
+var skipUpdatesModifier = ksqlmodifiers.AttrModifier{
 	SkipOnUpdate: true,
 }

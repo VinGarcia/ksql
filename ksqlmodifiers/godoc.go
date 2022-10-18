@@ -3,4 +3,4 @@
 //
 // For understanding internal details of the code
 // please read the `internal/modifiers` package.
-package kmodifiers
+package ksqlmodifiers

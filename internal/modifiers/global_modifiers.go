@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/vingarcia/ksql/kmodifiers"
+	"github.com/vingarcia/ksql/ksqlmodifiers"
 )
 
 // Here we keep all the registered modifiers
@@ -13,7 +13,7 @@ var modifiers sync.Map
 func init() {
 	// Here we expose the registration function in a public package,
 	// so users can use it:
-	kmodifiers.RegisterAttrModifier = RegisterAttrModifier
+	ksqlmodifiers.RegisterAttrModifier = RegisterAttrModifier
 
 	// These are the builtin modifiers:
 
@@ -33,7 +33,7 @@ func init() {
 
 // RegisterAttrModifier allow users to add custom modifiers on startup
 // it is recommended to do this inside an init() function.
-func RegisterAttrModifier(key string, modifier kmodifiers.AttrModifier) {
+func RegisterAttrModifier(key string, modifier ksqlmodifiers.AttrModifier) {
 	_, found := modifiers.Load(key)
 	if found {
 		panic(fmt.Errorf("KSQL: cannot register modifier '%s' name is already in use", key))
@@ -44,11 +44,11 @@ func RegisterAttrModifier(key string, modifier kmodifiers.AttrModifier) {
 
 // LoadGlobalModifier is used internally by KSQL to load
 // modifiers during runtime.
-func LoadGlobalModifier(key string) (kmodifiers.AttrModifier, error) {
+func LoadGlobalModifier(key string) (ksqlmodifiers.AttrModifier, error) {
 	rawModifier, _ := modifiers.Load(key)
-	modifier, ok := rawModifier.(kmodifiers.AttrModifier)
+	modifier, ok := rawModifier.(ksqlmodifiers.AttrModifier)
 	if !ok {
-		return kmodifiers.AttrModifier{}, fmt.Errorf("no modifier found with name '%s'", key)
+		return ksqlmodifiers.AttrModifier{}, fmt.Errorf("no modifier found with name '%s'", key)
 	}
 
 	return modifier, nil

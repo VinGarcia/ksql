@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/vingarcia/ksql/internal/modifiers"
-	"github.com/vingarcia/ksql/kmodifiers"
+	"github.com/vingarcia/ksql/ksqlmodifiers"
 )
 
 // StructInfo stores metainformation of the struct
@@ -26,7 +26,7 @@ type FieldInfo struct {
 	Name     string
 	Index    int
 	Valid    bool
-	Modifier kmodifiers.AttrModifier
+	Modifier ksqlmodifiers.AttrModifier
 }
 
 // ByIndex returns either the *FieldInfo of a valid
@@ -252,7 +252,7 @@ func getTagNames(t reflect.Type) (_ StructInfo, err error) {
 		}
 
 		tags := strings.Split(name, ",")
-		var modifier kmodifiers.AttrModifier
+		var modifier ksqlmodifiers.AttrModifier
 		if len(tags) > 1 {
 			name = tags[0]
 			modifier, err = modifiers.LoadGlobalModifier(tags[1])

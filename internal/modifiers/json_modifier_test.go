@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	tt "github.com/vingarcia/ksql/internal/testtools"
-	"github.com/vingarcia/ksql/kmodifiers"
+	"github.com/vingarcia/ksql/ksqlmodifiers"
 )
 
 func TestAttrScan(t *testing.T) {
@@ -54,7 +54,7 @@ func TestAttrScan(t *testing.T) {
 			fakeAttr := FakeAttr{
 				Foo: "notZeroValue",
 			}
-			err := jsonModifier.Scan(ctx, kmodifiers.OpInfo{}, &fakeAttr, test.dbInput)
+			err := jsonModifier.Scan(ctx, ksqlmodifiers.OpInfo{}, &fakeAttr, test.dbInput)
 			if test.expectErrToContain != nil {
 				tt.AssertErrContains(t, err, test.expectErrToContain...)
 				t.Skip()
@@ -76,7 +76,7 @@ func TestAttrValue(t *testing.T) {
 	tests := []struct {
 		desc        string
 		dbInput     interface{}
-		opInfoInput kmodifiers.OpInfo
+		opInfoInput ksqlmodifiers.OpInfo
 		attrValue   interface{}
 
 		expectedOutput     interface{}
@@ -85,7 +85,7 @@ func TestAttrValue(t *testing.T) {
 		{
 			desc:    "should return a byte array when the driver is not sqlserver",
 			dbInput: []byte(`{"foo":"bar"}`),
-			opInfoInput: kmodifiers.OpInfo{
+			opInfoInput: ksqlmodifiers.OpInfo{
 				DriverName: "notSQLServer",
 			},
 			attrValue: FakeAttr{
@@ -98,7 +98,7 @@ func TestAttrValue(t *testing.T) {
 		{
 			desc:    "should return a string when the driver is sqlserver",
 			dbInput: []byte(`{"foo":"bar"}`),
-			opInfoInput: kmodifiers.OpInfo{
+			opInfoInput: ksqlmodifiers.OpInfo{
 				DriverName: "sqlserver",
 			},
 			attrValue: FakeAttr{

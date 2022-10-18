@@ -11,7 +11,7 @@ import (
 
 	"github.com/vingarcia/ksql/internal/modifiers"
 	tt "github.com/vingarcia/ksql/internal/testtools"
-	"github.com/vingarcia/ksql/kmodifiers"
+	"github.com/vingarcia/ksql/ksqlmodifiers"
 	"github.com/vingarcia/ksql/nullable"
 )
 
@@ -3336,7 +3336,7 @@ func getUserByID(db DBAdapter, dialect Dialect, result *user, id uint) error {
 		Ctx:     context.TODO(),
 		AttrPtr: &result.Address,
 		ScanFn:  modifier.Scan,
-		OpInfo: kmodifiers.OpInfo{
+		OpInfo: ksqlmodifiers.OpInfo{
 			DriverName: dialect.DriverName(),
 			// We will not differentiate between Query, QueryOne and QueryChunks
 			// if we did this could lead users to make very strange modifiers

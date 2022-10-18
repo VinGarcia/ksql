@@ -1,4 +1,4 @@
-package kmodifiers
+package ksqlmodifiers
 
 // RegisterAttrModifier allow users to add custom modifiers on startup
 // it is recommended to do this inside an init() function.
