@@ -221,14 +221,17 @@ func QueryTest(
 						tt.AssertEqual(t, rows[0].User.ID, joao.ID)
 						tt.AssertEqual(t, rows[0].User.Name, "João Ribeiro")
 						tt.AssertEqual(t, rows[0].Post.Title, "João Post1")
+						tt.AssertNotEqual(t, rows[0].Post.ID, 0)
 
 						tt.AssertEqual(t, rows[1].User.ID, bia.ID)
 						tt.AssertEqual(t, rows[1].User.Name, "Bia Ribeiro")
 						tt.AssertEqual(t, rows[1].Post.Title, "Bia Post1")
+						tt.AssertNotEqual(t, rows[1].Post.ID, 0)
 
 						tt.AssertEqual(t, rows[2].User.ID, bia.ID)
 						tt.AssertEqual(t, rows[2].User.Name, "Bia Ribeiro")
 						tt.AssertEqual(t, rows[2].Post.Title, "Bia Post2")
+						tt.AssertNotEqual(t, rows[2].Post.ID, 0)
 					})
 				})
 
