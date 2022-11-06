@@ -6,11 +6,24 @@ import (
 	"fmt"
 )
 
-// ErrRecordNotFound ...
+// ErrRecordNotFound informs that a given query failed because the record was not found.
+// This error can be returned by the following methods: Update(), QueryOne() and Delete().
 var ErrRecordNotFound error = fmt.Errorf("ksql: the query returned no results: %w", sql.ErrNoRows)
+
+// ErrNoValuesToUpdate informs the error of trying to make an update that would not change any attributes.
+//
+// This could happen if all the non-ID attributes of the struct are being ignored or if they don't exist.
+//
+// Since ID attributes are ignored by the Patch() method updating a struct that only have IDs will result in this error.
+// And this error will also occur if the struct does have some non-ID attributes but they are all being ignored.
+//
+// The reasons that can cause an attribute to be ignored in the Patch() function are:
+// (1) If it is a nil pointer, Patch() will just ignore it.
+// (2) If the attribute is using a modifier that contains the SkipUpdates flag.
 var ErrNoValuesToUpdate error = fmt.Errorf("ksql: the input struct contains no values to update")
 
-// ErrAbortIteration ...
+// ErrAbortIteration should be used inside the QueryChunks function to inform QueryChunks it should stop querying,
+// close the connection and return with no errors.
 var ErrAbortIteration error = fmt.Errorf("ksql: abort iteration, should only be used inside QueryChunks function")
 
 // Provider describes the ksql public behavior.
