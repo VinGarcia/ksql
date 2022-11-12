@@ -67,6 +67,34 @@ type Rows interface {
 	Columns() ([]string, error)
 }
 
+// ScanArgError is a type of error that is expected to be returned
+// from the Scan() method of the Rows interface.
+//
+// It should be returned when there is an error scanning one of the input
+// values.
+//
+// This is necessary in order to allow KSQL to produce a better and more
+// readable error message when this type of error occur.
+type ScanArgError struct {
+	ColumnIndex int
+	Err         error
+}
+
+// Error implements the error interface.
+func (s ScanArgError) Error() string {
+	return fmt.Sprintf(
+		"error scanning input attribute with index %d: %s",
+		s.ColumnIndex, s.Err.Error(),
+	)
+}
+
+func (s ScanArgError) ErrorWithStructNames(structName string, colName string) error {
+	return fmt.Errorf(
+		"error scanning %s.%s: %s",
+		structName, colName, s.Err.Error(),
+	)
+}
+
 // Tx represents a transaction and is expected to be returned by the DBAdapter.BeginTx function
 type Tx interface {
 	DBAdapter
@@ -1002,27 +1030,34 @@ func scanRowsFromType(
 		return err
 	}
 
+	var attrNames []string
 	var scanArgs []interface{}
 	if info.IsNestedStruct {
 		// This version is positional meaning that it expect the arguments
 		// to follow an specific order. It's ok because we don't allow the
 		// user to type the "SELECT" part of the query for nested structs.
-		scanArgs, err = getScanArgsForNestedStructs(ctx, dialect, rows, t, v, info)
+		attrNames, scanArgs, err = getScanArgsForNestedStructs(ctx, dialect, rows, t, v, info)
 		if err != nil {
 			return err
 		}
 	} else {
-		names, err := rows.Columns()
+		colNames, err := rows.Columns()
 		if err != nil {
 			return fmt.Errorf("KSQL: unable to read columns from returned rows: %w", err)
 		}
 		// Since this version uses the names of the columns it works
 		// with any order of attributes/columns.
-		scanArgs = getScanArgsFromNames(ctx, dialect, names, v, info)
+		attrNames, scanArgs = getScanArgsFromNames(ctx, dialect, colNames, v, info)
 	}
 
 	err = rows.Scan(scanArgs...)
 	if err != nil {
+		if scanErr, ok := err.(ScanArgError); ok {
+			return fmt.Errorf(
+				"KSQL: scan error: %w",
+				scanErr.ErrorWithStructNames(t.Name(), attrNames[scanErr.ColumnIndex]),
+			)
+		}
 		return fmt.Errorf("KSQL: scan error: %w", err)
 	}
 	return nil
@@ -1035,8 +1070,7 @@ func getScanArgsForNestedStructs(
 	t reflect.Type,
 	v reflect.Value,
 	info structs.StructInfo,
-) ([]interface{}, error) {
-	scanArgs := []interface{}{}
+) (attrNames []string, scanArgs []interface{}, _ error) {
 	for i := 0; i < v.NumField(); i++ {
 		if !info.ByIndex(i).Valid {
 			continue
@@ -1045,7 +1079,7 @@ func getScanArgsForNestedStructs(
 		// TODO(vingarcia00): Handle case where type is pointer
 		nestedStructInfo, err := structs.GetTagInfo(t.Field(i).Type)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		nestedStructValue := v.Field(i)
@@ -1055,34 +1089,36 @@ func getScanArgsForNestedStructs(
 				continue
 			}
 
-			valueScanner := nopScannerValue
-			if fieldInfo.Valid {
-				valueScanner = nestedStructValue.Field(fieldInfo.Index).Addr().Interface()
-
-				if fieldInfo.Modifier.Scan != nil {
-					valueScanner = &modifiers.AttrScanWrapper{
-						Ctx:     ctx,
-						AttrPtr: valueScanner,
-						ScanFn:  fieldInfo.Modifier.Scan,
-						OpInfo: ksqlmodifiers.OpInfo{
-							DriverName: dialect.DriverName(),
-							// We will not differentiate between Query, QueryOne and QueryChunks
-							// if we did this could lead users to make very strange modifiers
-							Method: "Query",
-						},
-					}
+			valueScanner := nestedStructValue.Field(fieldInfo.Index).Addr().Interface()
+			if fieldInfo.Modifier.Scan != nil {
+				valueScanner = &modifiers.AttrScanWrapper{
+					Ctx:     ctx,
+					AttrPtr: valueScanner,
+					ScanFn:  fieldInfo.Modifier.Scan,
+					OpInfo: ksqlmodifiers.OpInfo{
+						DriverName: dialect.DriverName(),
+						// We will not differentiate between Query, QueryOne and QueryChunks
+						// if we did this could lead users to make very strange modifiers
+						Method: "Query",
+					},
 				}
 			}
 
 			scanArgs = append(scanArgs, valueScanner)
+			attrNames = append(attrNames, info.ByIndex(i).AttrName+"."+fieldInfo.AttrName)
 		}
 	}
 
-	return scanArgs, nil
+	return attrNames, scanArgs, nil
 }
 
-func getScanArgsFromNames(ctx context.Context, dialect Dialect, names []string, v reflect.Value, info structs.StructInfo) []interface{} {
-	scanArgs := []interface{}{}
+func getScanArgsFromNames(
+	ctx context.Context,
+	dialect Dialect,
+	names []string,
+	v reflect.Value,
+	info structs.StructInfo,
+) (attrNames []string, scanArgs []interface{}) {
 	for _, name := range names {
 		fieldInfo := info.ByName(name)
 
@@ -1105,9 +1141,10 @@ func getScanArgsFromNames(ctx context.Context, dialect Dialect, names []string, 
 		}
 
 		scanArgs = append(scanArgs, valueScanner)
+		attrNames = append(attrNames, fieldInfo.AttrName)
 	}
 
-	return scanArgs
+	return attrNames, scanArgs
 }
 
 func buildDeleteQuery(
@@ -1185,7 +1222,7 @@ func buildSelectQueryForPlainStructs(
 			continue
 		}
 
-		fields = append(fields, dialect.Escape(fieldInfo.Name))
+		fields = append(fields, dialect.Escape(fieldInfo.ColumnName))
 	}
 
 	return "SELECT " + strings.Join(fields, ", ") + " "
@@ -1203,7 +1240,7 @@ func buildSelectQueryForNestedStructs(
 			continue
 		}
 
-		nestedStructName := nestedStructInfo.Name
+		nestedStructName := nestedStructInfo.ColumnName
 		nestedStructType := structType.Field(i).Type
 		if nestedStructType.Kind() != reflect.Struct {
 			return "", fmt.Errorf(
@@ -1225,7 +1262,7 @@ func buildSelectQueryForNestedStructs(
 
 			fields = append(
 				fields,
-				dialect.Escape(nestedStructName)+"."+dialect.Escape(fieldInfo.Name),
+				dialect.Escape(nestedStructName)+"."+dialect.Escape(fieldInfo.ColumnName),
 			)
 		}
 	}

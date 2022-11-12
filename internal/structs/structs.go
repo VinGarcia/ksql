@@ -23,10 +23,11 @@ type StructInfo struct {
 // information regarding a specific field
 // of a struct.
 type FieldInfo struct {
-	Name     string
-	Index    int
-	Valid    bool
-	Modifier ksqlmodifiers.AttrModifier
+	AttrName   string
+	ColumnName string
+	Index      int
+	Valid      bool
+	Modifier   ksqlmodifiers.AttrModifier
 }
 
 // ByIndex returns either the *FieldInfo of a valid
@@ -52,12 +53,12 @@ func (s StructInfo) ByName(name string) *FieldInfo {
 func (s StructInfo) add(field FieldInfo) {
 	field.Valid = true
 	s.byIndex[field.Index] = &field
-	s.byName[field.Name] = &field
+	s.byName[field.ColumnName] = &field
 
 	// Make sure to save a lowercased version because
 	// some databases will set these keys to lowercase.
-	if _, found := s.byName[strings.ToLower(field.Name)]; !found {
-		s.byName[strings.ToLower(field.Name)] = &field
+	if _, found := s.byName[strings.ToLower(field.ColumnName)]; !found {
+		s.byName[strings.ToLower(field.ColumnName)] = &field
 	}
 }
 
@@ -143,7 +144,7 @@ func StructToMap(obj interface{}) (map[string]interface{}, error) {
 			field = field.Elem()
 		}
 
-		m[fieldInfo.Name] = field.Interface()
+		m[fieldInfo.ColumnName] = field.Interface()
 	}
 
 	return m, nil
@@ -246,6 +247,7 @@ func getTagNames(t reflect.Type) (_ StructInfo, err error) {
 			return StructInfo{}, fmt.Errorf("all fields using the ksql tags must be exported, but %v is unexported", t)
 		}
 
+		attrName := t.Field(i).Name
 		name := t.Field(i).Tag.Get("ksql")
 		if name == "" {
 			continue
@@ -269,9 +271,10 @@ func getTagNames(t reflect.Type) (_ StructInfo, err error) {
 		}
 
 		info.add(FieldInfo{
-			Name:     name,
-			Index:    i,
-			Modifier: modifier,
+			AttrName:   attrName,
+			ColumnName: name,
+			Index:      i,
+			Modifier:   modifier,
 		})
 	}
 
@@ -289,8 +292,9 @@ func getTagNames(t reflect.Type) (_ StructInfo, err error) {
 		}
 
 		info.add(FieldInfo{
-			Name:  name,
-			Index: i,
+			AttrName:   t.Field(i).Name,
+			ColumnName: name,
+			Index:      i,
 		})
 	}
 

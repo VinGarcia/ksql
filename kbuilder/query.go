@@ -215,7 +215,7 @@ func buildSelectQuery(obj interface{}, dialect ksql.Dialect) (string, error) {
 
 	var escapedNames []string
 	for i := 0; i < info.NumFields(); i++ {
-		name := info.ByIndex(i).Name
+		name := info.ByIndex(i).ColumnName
 		escapedNames = append(escapedNames, dialect.Escape(name))
 	}
 

@@ -81,7 +81,7 @@ func (i Insert) BuildQuery(dialect ksql.Dialect) (sqlQuery string, params []inte
 	b.WriteString(" (")
 	var escapedNames []string
 	for i := 0; i < info.NumFields(); i++ {
-		name := info.ByIndex(i).Name
+		name := info.ByIndex(i).ColumnName
 		escapedNames = append(escapedNames, dialect.Escape(name))
 	}
 	b.WriteString(strings.Join(escapedNames, ", "))

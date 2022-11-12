@@ -3,6 +3,9 @@ package ksqlserver
 import (
 	"context"
 	"database/sql"
+	"strconv"
+	"strings"
+	"unicode"
 
 	"github.com/vingarcia/ksql"
 )
@@ -29,7 +32,8 @@ func (s SQLAdapter) ExecContext(ctx context.Context, query string, args ...inter
 
 // QueryContext implements the DBAdapter interface
 func (s SQLAdapter) QueryContext(ctx context.Context, query string, args ...interface{}) (ksql.Rows, error) {
-	return s.DB.QueryContext(ctx, query, args...)
+	rows, err := s.DB.QueryContext(ctx, query, args...)
+	return SQLRows{rows}, err
 }
 
 // BeginTx implements the Tx interface
@@ -56,7 +60,8 @@ func (s SQLTx) ExecContext(ctx context.Context, query string, args ...interface{
 
 // QueryContext implements the Tx interface
 func (s SQLTx) QueryContext(ctx context.Context, query string, args ...interface{}) (ksql.Rows, error) {
-	return s.Tx.QueryContext(ctx, query, args...)
+	rows, err := s.Tx.QueryContext(ctx, query, args...)
+	return SQLRows{rows}, err
 }
 
 // Rollback implements the Tx interface
@@ -70,3 +75,40 @@ func (s SQLTx) Commit(ctx context.Context) error {
 }
 
 var _ ksql.Tx = SQLTx{}
+
+// SQLRows implements the ksql.Rows interface and is used to help
+// the SQLAdapter to implement the ksql.DBAdapter interface.
+type SQLRows struct {
+	*sql.Rows
+}
+
+var _ ksql.Rows = SQLRows{}
+
+// Scan implements the ksql.Rows interface
+func (p SQLRows) Scan(args ...interface{}) error {
+	err := p.Rows.Scan(args...)
+	if err != nil {
+		// Since this is the error flow we decided it would be ok
+		// to spend a little bit more time parsing this error in order
+		// to produce better error messages.
+		//
+		// If the parsing fails we just return the error unchanged.
+		const scanErrPrefix = "sql: Scan error on column index "
+		var errMsg = err.Error()
+		if strings.HasPrefix(errMsg, scanErrPrefix) {
+			i := len(scanErrPrefix)
+			for unicode.IsDigit(rune(errMsg[i])) {
+				i++
+			}
+			colIndex, convErr := strconv.Atoi(errMsg[len(scanErrPrefix):i])
+			if convErr == nil {
+				return ksql.ScanArgError{
+					ColumnIndex: colIndex,
+					Err:         err,
+				}
+			}
+		}
+	}
+
+	return err
+}

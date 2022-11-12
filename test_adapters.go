@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/vingarcia/ksql/internal/modifiers"
+	"github.com/vingarcia/ksql/internal/structs"
 	tt "github.com/vingarcia/ksql/internal/testtools"
 	"github.com/vingarcia/ksql/ksqlmodifiers"
 	"github.com/vingarcia/ksql/nullable"
@@ -36,6 +39,8 @@ type address struct {
 	State   string `json:"state"`
 	Country string `json:"country"`
 }
+
+var postsTable = NewTable("posts")
 
 type post struct {
 	ID     int    `ksql:"id"`
@@ -1017,7 +1022,6 @@ func InsertTest(
 					tt.AssertNoErr(t, err)
 					tt.AssertNotEqual(t, permission.ID, 0)
 
-					fmt.Println("permID:", permission.ID)
 					var untaggedPerm struct {
 						ID     uint    `ksql:"id"`
 						UserID int     `ksql:"user_id"`
@@ -3050,6 +3054,8 @@ func ScanRowsTest(
 	connStr string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
+	ctx := context.Background()
+
 	t.Run("ScanRows", func(t *testing.T) {
 		t.Run("should scan users correctly", func(t *testing.T) {
 			err := createTables(driver, connStr)
@@ -3058,7 +3064,6 @@ func ScanRowsTest(
 			}
 
 			dialect := supportedDialects[driver]
-			ctx := context.TODO()
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 			c := newTestDB(db, driver)
@@ -3082,12 +3087,9 @@ func ScanRowsTest(
 
 		t.Run("should ignore extra columns from query", func(t *testing.T) {
 			err := createTables(driver, connStr)
-			if err != nil {
-				t.Fatal("could not create test table!, reason:", err.Error())
-			}
+			tt.AssertNoErr(t, err)
 
 			dialect := supportedDialects[driver]
-			ctx := context.TODO()
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 			c := newTestDB(db, driver)
@@ -3112,6 +3114,101 @@ func ScanRowsTest(
 			tt.AssertEqual(t, u.Age, 22)
 		})
 
+		t.Run("should report scan errors", func(t *testing.T) {
+			type brokenUser struct {
+				ID uint `ksql:"id"`
+
+				// The error will happen here, when scanning
+				// an integer into a attribute of type struct{}:
+				Age struct{} `ksql:"age"`
+			}
+
+			type brokenNestedStruct struct {
+				User struct {
+					ID uint `ksql:"id"`
+
+					// The error will happen here, when scanning
+					// an integer into a attribute of type struct:
+					Age struct{} `ksql:"age"`
+				} `tablename:"u"`
+				Post post `tablename:"p"`
+			}
+
+			tests := []struct {
+				desc               string
+				query              string
+				scanTarget         interface{}
+				expectErrToContain []string
+			}{
+				{
+					desc:  "with anonymous structs",
+					query: "FROM users WHERE name='User22'",
+					scanTarget: &struct {
+						ID uint `ksql:"id"`
+
+						// The error will happen here, when scanning
+						// an integer into a attribute of type struct{}:
+						Age struct{} `ksql:"age"`
+					}{},
+					expectErrToContain: []string{" .Age", "struct {}"},
+				},
+				{
+					desc:               "with named structs",
+					query:              "FROM users WHERE name='User22'",
+					scanTarget:         &brokenUser{},
+					expectErrToContain: []string{"brokenUser.Age", "struct {}"},
+				},
+				{
+					desc:  "with anonymous nested structs",
+					query: "FROM users u JOIN posts p ON u.id = p.user_id WHERE name='User22'",
+					scanTarget: &struct {
+						User struct {
+							ID uint `ksql:"id"`
+
+							// The error will happen here, when scanning
+							// an integer into a attribute of type struct:
+							Age struct{} `ksql:"age"`
+						} `tablename:"u"`
+						Post post `tablename:"p"`
+					}{},
+					expectErrToContain: []string{".User.Age", "struct {}"},
+				},
+				{
+					desc:               "with named nested structs",
+					query:              "FROM users u JOIN posts p ON u.id = p.user_id WHERE name='User22'",
+					scanTarget:         &brokenNestedStruct{},
+					expectErrToContain: []string{"brokenNestedStruct.User.Age", "struct {}"},
+				},
+			}
+
+			for _, test := range tests {
+				t.Run(test.desc, func(t *testing.T) {
+					err := createTables(driver, connStr)
+					tt.AssertNoErr(t, err)
+
+					dialect := supportedDialects[driver]
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+					c := newTestDB(db, driver)
+
+					u := user{Name: "User22", Age: 22}
+					_ = c.Insert(ctx, usersTable, &u)
+					_ = c.Insert(ctx, postsTable, &post{UserID: u.ID, Title: "FakeTitle"})
+
+					query := mustBuildSelectQuery(t, dialect, test.scanTarget, test.query)
+
+					rows, err := db.QueryContext(ctx, query)
+					tt.AssertNoErr(t, err)
+					defer rows.Close()
+
+					tt.AssertEqual(t, rows.Next(), true)
+
+					err = scanRows(ctx, dialect, rows, test.scanTarget)
+					tt.AssertErrContains(t, err, test.expectErrToContain...)
+				})
+			}
+		})
+
 		t.Run("should report error for closed rows", func(t *testing.T) {
 			err := createTables(driver, connStr)
 			if err != nil {
@@ -3119,7 +3216,6 @@ func ScanRowsTest(
 			}
 
 			dialect := supportedDialects[driver]
-			ctx := context.TODO()
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
@@ -3140,7 +3236,6 @@ func ScanRowsTest(
 			}
 
 			dialect := supportedDialects[driver]
-			ctx := context.TODO()
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
@@ -3160,7 +3255,6 @@ func ScanRowsTest(
 			}
 
 			dialect := supportedDialects[driver]
-			ctx := context.TODO()
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
@@ -3445,4 +3539,23 @@ func getUserPermissionsByUser(db DBAdapter, driver string, userID int) (results 
 	}
 
 	return results, nil
+}
+
+func mustBuildSelectQuery(t *testing.T,
+	dialect Dialect,
+	record interface{},
+	query string,
+) string {
+	if strings.HasPrefix(query, "SELECT") {
+		return query
+	}
+
+	structType := reflect.TypeOf(record).Elem()
+	structInfo, err := structs.GetTagInfo(structType)
+	tt.AssertNoErr(t, err)
+
+	selectPrefix, err := buildSelectQuery(dialect, structType, structInfo, selectQueryCache[dialect.DriverName()])
+	tt.AssertNoErr(t, err)
+
+	return selectPrefix + query
 }

@@ -96,13 +96,26 @@ func (p PGXTx) Commit(ctx context.Context) error {
 
 var _ ksql.Tx = PGXTx{}
 
-// PGXRows implements the Rows interface and is used to help
-// the PGXAdapter to implement the DBAdapter interface.
+// PGXRows implements the ksql.Rows interface and is used to help
+// the PGXAdapter to implement the ksql.DBAdapter interface.
 type PGXRows struct {
 	pgx.Rows
 }
 
 var _ ksql.Rows = PGXRows{}
+
+// Scan implements the ksql.Rows interface
+func (p PGXRows) Scan(args ...interface{}) error {
+	err := p.Rows.Scan(args...)
+	if scanErr, ok := err.(pgx.ScanArgError); ok {
+		return ksql.ScanArgError{
+			Err:         scanErr.Err,
+			ColumnIndex: scanErr.ColumnIndex,
+		}
+	}
+
+	return err
+}
 
 // Columns implements the Rows interface
 func (p PGXRows) Columns() ([]string, error) {
