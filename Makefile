@@ -34,12 +34,13 @@ go-mod-tidy:
 version=
 update:
 	git tag $(version)
-	git push origin $(version)
+	git push origin master $(version)
 	find adapters -name go.mod -execdir go get github.com/vingarcia/ksql@$(version) \;
 	make go-mod-tidy
 	git commit -am 'Update adapters to use version $(version)'
+	git push origin master
 	for dir in $$(ls adapters); do git tag adapters/$$dir/$(version); done
-	for dir in $$(ls adapters); do git push origin master adapters/$$dir/$(version); done
+	for dir in $$(ls adapters); do git push origin adapters/$$dir/$(version); done
 
 gen: mock
 mock: setup
