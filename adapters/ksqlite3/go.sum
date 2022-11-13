@@ -13,8 +13,8 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5CcY=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
-github.com/vingarcia/ksql v1.4.13 h1:Ibn5GdvRIpDWYhzaR/Kmb+zVIngl3dRN3jLDY7Hg3jY=
-github.com/vingarcia/ksql v1.4.13/go.mod h1:4nOL38WsU6h25rbYyfkVbvzcly1RSBzJ9Oc5wgGMixU=
+github.com/vingarcia/ksql v1.5.0 h1:qA/MAY/VQeo77+0dU8BYDv7xRGJbGUJPS1AX4L22P+I=
+github.com/vingarcia/ksql v1.5.0/go.mod h1:4nOL38WsU6h25rbYyfkVbvzcly1RSBzJ9Oc5wgGMixU=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 h1:qIbj1fsPNlZgppZ+VLlY7N33q108Sa+fhmuc+sWQYwY=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
