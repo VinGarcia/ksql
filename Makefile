@@ -15,9 +15,10 @@ test: setup go-mod-tidy
 	@( cd adapters/ksqlite3 ; $(GOBIN)/richgo test $(path) $(args) )
 
 bench: go-mod-tidy
-	@make --no-print-directory -C benchmarks TIME=$(TIME)
-	@echo "Benchmark executed at: $$(date --iso)"
-	@echo "Benchmark executed on commit: $$(git rev-parse HEAD)"
+	@make --no-print-directory -C benchmarks TIME=$(TIME) | tee benchmark.tmp
+	@echo "Benchmark executed at: $$(date --iso)" | tee -a benchmark.tmp
+	@echo "Benchmark executed on commit: $$(git rev-parse HEAD)" | tee -a benchmark.tmp
+	go run scripts/build-readme-from-template.go readme.template.md benchmark.tmp
 
 lint: setup go-mod-tidy
 	@$(GOBIN)/staticcheck $(path) $(args)
