@@ -18,13 +18,13 @@ services:
       - POSTGRES_DB=${DB_NAME:-ksql}
 
   mysql:
-    image: mysql
+    image: mariadb:10.8
     restart: always
     ports:
       - "127.0.0.1:3306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: mysql
-      MYSQL_DATABASE: ksql
+      MARIADB_ROOT_PASSWORD: mysql
+      MARIADB_DATABASE: ksql
 
   sqlserver:
     image: microsoft/mssql-server-linux:2017-latest

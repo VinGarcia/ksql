@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -93,7 +94,7 @@ func QueryTest(
 ) {
 	ctx := context.Background()
 
-	t.Run("QueryTest", func(t *testing.T) {
+	t.Run("Query", func(t *testing.T) {
 		variations := []struct {
 			desc        string
 			queryPrefix string
@@ -554,6 +555,21 @@ func QueryTest(
 				err := c.Query(ctx, &users, `SELECT * FROM users`)
 				tt.AssertErrContains(t, err, "KSQL", "fakeCloseErr")
 			})
+
+			t.Run("should report error context.Canceled if the context is canceled", func(t *testing.T) {
+				ctx, cancel := context.WithCancel(ctx)
+				cancel()
+
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				var users []user
+				err := c.Query(ctx, &users, `SELECT * FROM users`)
+				tt.AssertErrContains(t, err, "context", "canceled")
+				tt.AssertEqual(t, errors.Is(err, context.Canceled), true)
+			})
 		})
 	})
 }
@@ -566,6 +582,8 @@ func QueryOneTest(
 	connStr string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
+	ctx := context.Background()
+
 	t.Run("QueryOne", func(t *testing.T) {
 		variations := []struct {
 			desc        string
@@ -591,7 +609,6 @@ func QueryOneTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 					u := user{}
 					err := c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE id=1;`)
@@ -601,8 +618,6 @@ func QueryOneTest(
 				t.Run("should return a user correctly", func(t *testing.T) {
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
-
-					ctx := context.Background()
 
 					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
 					tt.AssertNoErr(t, err)
@@ -622,8 +637,6 @@ func QueryOneTest(
 				t.Run("should return only the first result on multiples matches", func(t *testing.T) {
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
-
-					ctx := context.Background()
 
 					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Andréa Sá', 0, '{"country":"US"}')`)
 					tt.AssertNoErr(t, err)
@@ -651,8 +664,6 @@ func QueryOneTest(
 
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
-
-					ctx := context.Background()
 
 					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
 					tt.AssertNoErr(t, err)
@@ -683,7 +694,6 @@ func QueryOneTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Count Olivia', 0, '{"country":"US"}')`)
 					tt.AssertNoErr(t, err)
 
@@ -702,8 +712,6 @@ func QueryOneTest(
 		t.Run("should report error if input is not a pointer to struct", func(t *testing.T) {
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
-
-			ctx := context.Background()
 
 			_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Andréa Sá', 0, '{"country":"US"}')`)
 			tt.AssertNoErr(t, err)
@@ -724,7 +732,6 @@ func QueryOneTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 			var u *user
 			err := c.QueryOne(ctx, u, `SELECT * FROM users`)
@@ -735,7 +742,6 @@ func QueryOneTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 			var u user
 			err := c.QueryOne(ctx, &u, `SELECT * FROM not a valid query`)
@@ -746,7 +752,6 @@ func QueryOneTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 			var row struct {
 				User user `tablename:"users"`
@@ -760,7 +765,6 @@ func QueryOneTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Olivia', 0, '{"country":"US"}')`)
 			tt.AssertNoErr(t, err)
 
@@ -771,6 +775,20 @@ func QueryOneTest(
 			}
 			err = c.QueryOne(ctx, &row, `SELECT count(*) as my_count FROM users`)
 			tt.AssertErrContains(t, err, "unexported", "my_count")
+		})
+
+		t.Run("should report error context.Canceled the context has been canceled", func(t *testing.T) {
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx, cancel := context.WithCancel(ctx)
+			cancel()
+
+			c := newTestDB(db, driver)
+
+			var u user
+			err := c.QueryOne(ctx, &u, `SELECT * FROM users LIMIT 1`)
+			tt.AssertEqual(t, errors.Is(err, context.Canceled), true)
 		})
 	})
 }
@@ -783,6 +801,8 @@ func InsertTest(
 	connStr string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
+	ctx := context.Background()
+
 	t.Run("Insert", func(t *testing.T) {
 		t.Run("success cases", func(t *testing.T) {
 			t.Run("single primary key tables", func(t *testing.T) {
@@ -795,7 +815,6 @@ func InsertTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					u := user{
@@ -828,7 +847,6 @@ func InsertTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					u := user{
@@ -856,7 +874,6 @@ func InsertTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 					err = c.Insert(ctx, usersTable, &struct {
 						ID      int                    `ksql:"id"`
@@ -870,7 +887,6 @@ func InsertTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					usersByName := NewTable("users", "name")
@@ -891,7 +907,6 @@ func InsertTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					type tsUser struct {
@@ -925,7 +940,6 @@ func InsertTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					table := NewTable("user_permissions", "id", "user_id", "perm_id")
@@ -946,7 +960,6 @@ func InsertTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					// Table defined with 3 values, but we'll provide only 2,
@@ -983,7 +996,6 @@ func InsertTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					// Table defined with 3 values, but we'll provide only 2,
@@ -1039,7 +1051,6 @@ func InsertTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 
 				err = c.Insert(ctx, usersTable, "foo")
@@ -1070,7 +1081,6 @@ func InsertTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 
 				// This is an invalid value:
@@ -1084,7 +1094,6 @@ func InsertTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 
 				var u *user
@@ -1096,7 +1105,6 @@ func InsertTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 
 				err := c.Insert(ctx, NewTable("users", ""), &user{Name: "fake-name"})
@@ -1107,7 +1115,6 @@ func InsertTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 
 				err := c.Insert(ctx, NewTable("", "id"), &user{Name: "fake-name"})
@@ -1118,7 +1125,6 @@ func InsertTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 
 				err = c.Insert(ctx, usersTable, &struct {
@@ -1134,7 +1140,6 @@ func InsertTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 
 				brokenTable := NewTable("users", "non_existing_id")
@@ -1150,7 +1155,6 @@ func InsertTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 
 				err = c.Insert(ctx, usersTable, &struct {
@@ -1164,6 +1168,20 @@ func InsertTest(
 				tt.AssertNoErr(t, err)
 				tt.AssertNotEqual(t, u.ID, uint(0))
 				tt.AssertEqual(t, u.Age, 42)
+			})
+
+			t.Run("should report error context.Canceled the context has been canceled", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx, cancel := context.WithCancel(ctx)
+				cancel()
+
+				c := newTestDB(db, driver)
+
+				err = c.Insert(ctx, usersTable, &user{Age: 42, Name: "FakeUserName"})
+
+				tt.AssertEqual(t, errors.Is(err, context.Canceled), true)
 			})
 		})
 	})
@@ -1195,6 +1213,8 @@ func DeleteTest(
 	connStr string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
+	ctx := context.Background()
+
 	t.Run("Delete", func(t *testing.T) {
 		err := createTables(driver, connStr)
 		if err != nil {
@@ -1231,7 +1251,6 @@ func DeleteTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					u1 := user{
@@ -1282,7 +1301,6 @@ func DeleteTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 
 				// This permission should not be deleted, we'll use the id to check it:
@@ -1318,7 +1336,6 @@ func DeleteTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 
 				// This permission should not be deleted, we'll use the id to check it:
@@ -1358,7 +1375,6 @@ func DeleteTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			err = c.Delete(ctx, usersTable, 4200)
@@ -1369,7 +1385,6 @@ func DeleteTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			var u *user
@@ -1383,7 +1398,6 @@ func DeleteTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					err := c.Delete(ctx, NewTable("users", "id"), &struct {
@@ -1397,7 +1411,6 @@ func DeleteTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					err := c.Delete(ctx, NewTable("users", "id"), &struct {
@@ -1412,7 +1425,6 @@ func DeleteTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					err := c.Delete(ctx, NewTable("users", "id"), &struct {
@@ -1429,7 +1441,6 @@ func DeleteTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					err := c.Delete(ctx, userPermissionsTable, &struct {
@@ -1447,7 +1458,6 @@ func DeleteTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					err := c.Delete(ctx, userPermissionsTable, map[string]interface{}{
@@ -1462,7 +1472,6 @@ func DeleteTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					err := c.Delete(ctx, userPermissionsTable, &struct {
@@ -1482,7 +1491,6 @@ func DeleteTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					err := c.Delete(ctx, userPermissionsTable, map[string]interface{}{
@@ -1498,7 +1506,6 @@ func DeleteTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					err := c.Delete(ctx, userPermissionsTable, &struct {
@@ -1518,7 +1525,6 @@ func DeleteTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					err := c.Delete(ctx, userPermissionsTable, map[string]interface{}{
@@ -1536,7 +1542,6 @@ func DeleteTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			err := c.Delete(ctx, NewTable("users", ""), &user{ID: 42, Name: "fake-name"})
@@ -1547,11 +1552,23 @@ func DeleteTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			err := c.Delete(ctx, NewTable("", "id"), &user{Name: "fake-name"})
 			tt.AssertErrContains(t, err, "ksql.Table", "table name", "empty string")
+		})
+
+		t.Run("should report error context.Canceled the context has been canceled", func(t *testing.T) {
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx, cancel := context.WithCancel(ctx)
+			cancel()
+
+			c := newTestDB(db, driver)
+
+			err := c.Delete(ctx, usersTable, &user{ID: 42, Name: "fake-name"})
+			tt.AssertEqual(t, errors.Is(err, context.Canceled), true)
 		})
 	})
 }
@@ -1564,6 +1581,8 @@ func PatchTest(
 	connStr string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
+	ctx := context.Background()
+
 	t.Run("Patch", func(t *testing.T) {
 		err := createTables(driver, connStr)
 		if err != nil {
@@ -1574,7 +1593,6 @@ func PatchTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			u := user{
@@ -1603,7 +1621,6 @@ func PatchTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			u := user{
@@ -1632,7 +1649,6 @@ func PatchTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			err = createUserPermission(db, c.dialect, userPermission{
@@ -1669,7 +1685,6 @@ func PatchTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			type partialUser struct {
@@ -1706,7 +1721,6 @@ func PatchTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			type partialUser struct {
@@ -1743,7 +1757,6 @@ func PatchTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			err = c.Update(ctx, usersTable, user{
@@ -1757,7 +1770,6 @@ func PatchTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			err = c.Update(ctx, NewTable("non_existing_table"), user{
@@ -1771,7 +1783,6 @@ func PatchTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			var u *user
@@ -1783,7 +1794,6 @@ func PatchTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			err = c.Update(ctx, usersTable, struct {
@@ -1802,7 +1812,6 @@ func PatchTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 
 				err := c.Update(ctx, usersTable, &user{
@@ -1816,7 +1825,6 @@ func PatchTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 
 				err := c.Update(ctx, NewTable("user_permissions", "id", "user_id", "perm_id"), &userPermission{
@@ -1826,6 +1834,22 @@ func PatchTest(
 				})
 				tt.AssertErrContains(t, err, "invalid value", "0", "'user_id'")
 			})
+		})
+
+		t.Run("should report error context.Canceled the context has been canceled", func(t *testing.T) {
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx, cancel := context.WithCancel(ctx)
+			cancel()
+
+			c := newTestDB(db, driver)
+
+			err = c.Update(ctx, usersTable, user{
+				ID:   1,
+				Name: "Thayane",
+			})
+			tt.AssertEqual(t, errors.Is(err, context.Canceled), true)
 		})
 	})
 }
@@ -1838,6 +1862,8 @@ func QueryChunksTest(
 	connStr string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
+	ctx := context.Background()
+
 	t.Run("QueryChunks", func(t *testing.T) {
 		variations := []struct {
 			desc        string
@@ -1863,7 +1889,6 @@ func QueryChunksTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					_ = c.Insert(ctx, usersTable, &user{
@@ -1903,7 +1928,6 @@ func QueryChunksTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					_ = c.Insert(ctx, usersTable, &user{Name: "User1", Address: address{Country: "US"}})
@@ -1945,7 +1969,6 @@ func QueryChunksTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					_ = c.Insert(ctx, usersTable, &user{Name: "User1", Address: address{Country: "US"}})
@@ -1987,7 +2010,6 @@ func QueryChunksTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					_ = c.Insert(ctx, usersTable, &user{Name: "User1"})
@@ -2038,7 +2060,6 @@ func QueryChunksTest(
 						Age:  20,
 					}
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 					_ = c.Insert(ctx, usersTable, &joao)
 					_ = c.Insert(ctx, usersTable, &thatiana)
@@ -2100,7 +2121,6 @@ func QueryChunksTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					_ = c.Insert(ctx, usersTable, &user{Name: "User1"})
@@ -2139,7 +2159,6 @@ func QueryChunksTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					_ = c.Insert(ctx, usersTable, &user{Name: "User1"})
@@ -2182,7 +2201,6 @@ func QueryChunksTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					_ = c.Insert(ctx, usersTable, &user{Name: "User1"})
@@ -2221,7 +2239,6 @@ func QueryChunksTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					_ = c.Insert(ctx, usersTable, &user{Name: "User1"})
@@ -2259,7 +2276,6 @@ func QueryChunksTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					funcs := []interface{}{
@@ -2303,7 +2319,6 @@ func QueryChunksTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 					err := c.QueryChunks(ctx, ChunkParser{
 						Query:  `SELECT * FROM not a valid query`,
@@ -2321,7 +2336,6 @@ func QueryChunksTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 
 					err := c.QueryChunks(ctx, ChunkParser{
@@ -2341,6 +2355,29 @@ func QueryChunksTest(
 				})
 			})
 		}
+
+		t.Run("error cases", func(t *testing.T) {
+			t.Run("should report error context.Canceled the context has been canceled", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				ctx, cancel := context.WithCancel(ctx)
+				cancel()
+
+				c := newTestDB(db, driver)
+
+				err := c.QueryChunks(ctx, ChunkParser{
+					Query:  `SELECT * FROM users u JOIN posts p ON u.id = p.user_id`,
+					Params: []interface{}{},
+
+					ChunkSize: 2,
+					ForEachChunk: func(rows []user) error {
+						return nil
+					},
+				})
+				tt.AssertEqual(t, errors.Is(err, context.Canceled), true)
+			})
+		})
 	})
 }
 
@@ -2352,6 +2389,8 @@ func TransactionTest(
 	connStr string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
+	ctx := context.Background()
+
 	t.Run("Transaction", func(t *testing.T) {
 		t.Run("should query a single row correctly", func(t *testing.T) {
 			err := createTables(driver, connStr)
@@ -2362,7 +2401,6 @@ func TransactionTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			_ = c.Insert(ctx, usersTable, &user{Name: "User1"})
@@ -2389,7 +2427,6 @@ func TransactionTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			u := user{
@@ -2426,7 +2463,6 @@ func TransactionTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			u1 := user{Name: "User1", Age: 42}
@@ -2463,7 +2499,6 @@ func TransactionTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			u1 := user{Name: "User1", Age: 42}
@@ -2501,7 +2536,6 @@ func TransactionTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			cMock := mockTxBeginner{
@@ -2536,7 +2570,6 @@ func TransactionTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			cMock := mockTxBeginner{
@@ -2562,7 +2595,6 @@ func TransactionTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			cMock := mockTxBeginner{
@@ -2588,7 +2620,6 @@ func TransactionTest(
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
 
-			ctx := context.Background()
 			c := newTestDB(db, driver)
 
 			c.db = mockDBAdapter{}
@@ -2597,6 +2628,21 @@ func TransactionTest(
 				return nil
 			})
 			tt.AssertErrContains(t, err, "KSQL", "can't start transaction", "DBAdapter", "TxBeginner")
+		})
+
+		t.Run("should report error context.Canceled the context has been canceled", func(t *testing.T) {
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			ctx, cancel := context.WithCancel(ctx)
+			cancel()
+
+			c := newTestDB(db, driver)
+
+			err := c.Transaction(ctx, func(db Provider) error {
+				return nil
+			})
+			tt.AssertEqual(t, errors.Is(err, context.Canceled), true)
 		})
 	})
 }

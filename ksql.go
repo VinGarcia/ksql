@@ -84,14 +84,14 @@ type ScanArgError struct {
 func (s ScanArgError) Error() string {
 	return fmt.Sprintf(
 		"error scanning input attribute with index %d: %s",
-		s.ColumnIndex, s.Err.Error(),
+		s.ColumnIndex, s.Err,
 	)
 }
 
 func (s ScanArgError) ErrorWithStructNames(structName string, colName string) error {
 	return fmt.Errorf(
-		"error scanning %s.%s: %s",
-		structName, colName, s.Err.Error(),
+		"error scanning %s.%s: %w",
+		structName, colName, s.Err,
 	)
 }
 
@@ -192,7 +192,7 @@ func (c DB) Query(
 
 	rows, err := c.db.QueryContext(ctx, query, params...)
 	if err != nil {
-		return fmt.Errorf("error running query: %s", err)
+		return fmt.Errorf("error running query: %w", err)
 	}
 	defer rows.Close()
 
@@ -282,7 +282,7 @@ func (c DB) QueryOne(
 
 	rows, err := c.db.QueryContext(ctx, query, params...)
 	if err != nil {
-		return fmt.Errorf("error running query: %s", err)
+		return fmt.Errorf("error running query: %w", err)
 	}
 	defer rows.Close()
 
@@ -441,7 +441,7 @@ func (c DB) Insert(
 	}
 
 	if err := table.validate(); err != nil {
-		return fmt.Errorf("can't insert in ksql.Table: %s", err)
+		return fmt.Errorf("can't insert in ksql.Table: %w", err)
 	}
 
 	info, err := structs.GetTagInfo(t.Elem())
@@ -586,7 +586,7 @@ func (c DB) Delete(
 	idOrRecord interface{},
 ) error {
 	if err := table.validate(); err != nil {
-		return fmt.Errorf("can't delete from ksql.Table: %s", err)
+		return fmt.Errorf("can't delete from ksql.Table: %w", err)
 	}
 
 	idMap, err := normalizeIDsAsMap(table.idColumns, idOrRecord)
@@ -605,7 +605,7 @@ func (c DB) Delete(
 
 	n, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("unable to check if the record was succesfully deleted: %s", err)
+		return fmt.Errorf("unable to check if the record was succesfully deleted: %w", err)
 	}
 
 	if n == 0 {
@@ -699,7 +699,7 @@ func (c DB) Patch(
 	n, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf(
-			"unexpected error: unable to fetch how many rows were affected by the update: %s",
+			"unexpected error: unable to fetch how many rows were affected by the update: %w",
 			err,
 		)
 	}
@@ -946,7 +946,7 @@ func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 	case TxBeginner:
 		tx, err := txBeginner.BeginTx(ctx)
 		if err != nil {
-			return fmt.Errorf("KSQL: error starting transaction: %s", err)
+			return fmt.Errorf("KSQL: error starting transaction: %w", err)
 		}
 		defer func() {
 			if r := recover(); r != nil {
@@ -970,7 +970,7 @@ func (c DB) Transaction(ctx context.Context, fn func(Provider) error) error {
 			if rollbackErr != nil {
 				err = fmt.Errorf(
 					"KSQL: unable to rollback after error: %s, rollback error: %w",
-					err.Error(), rollbackErr,
+					err, rollbackErr,
 				)
 			}
 			return err
