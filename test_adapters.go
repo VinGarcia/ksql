@@ -91,6 +91,8 @@ func QueryTest(
 	connStr string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
+	ctx := context.Background()
+
 	t.Run("QueryTest", func(t *testing.T) {
 		variations := []struct {
 			desc        string
@@ -117,7 +119,6 @@ func QueryTest(
 						db, closer := newDBAdapter(t)
 						defer closer.Close()
 
-						ctx := context.Background()
 						c := newTestDB(db, driver)
 						var users []user
 						err := c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
@@ -134,10 +135,9 @@ func QueryTest(
 						db, closer := newDBAdapter(t)
 						defer closer.Close()
 
-						_, err := db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
+						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
 						tt.AssertNoErr(t, err)
 
-						ctx := context.Background()
 						c := newTestDB(db, driver)
 						var users []user
 						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name=`+c.dialect.Placeholder(0), "Bia")
@@ -153,13 +153,12 @@ func QueryTest(
 						db, closer := newDBAdapter(t)
 						defer closer.Close()
 
-						_, err := db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
+						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
 						tt.AssertNoErr(t, err)
 
-						_, err = db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('Bia Garcia', 0, '{"country":"BR"}')`)
+						_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia Garcia', 0, '{"country":"BR"}')`)
 						tt.AssertNoErr(t, err)
 
-						ctx := context.Background()
 						c := newTestDB(db, driver)
 						var users []user
 						err = c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE name like `+c.dialect.Placeholder(0), "% Garcia")
@@ -185,22 +184,22 @@ func QueryTest(
 							return
 						}
 
-						_, err := db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
+						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
 						tt.AssertNoErr(t, err)
 						var joao user
 						getUserByName(db, driver, &joao, "João Ribeiro")
 						tt.AssertNoErr(t, err)
 
-						_, err = db.ExecContext(context.TODO(), `INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
+						_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
 						tt.AssertNoErr(t, err)
 						var bia user
 						getUserByName(db, driver, &bia, "Bia Ribeiro")
 
-						_, err = db.ExecContext(context.TODO(), fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post1')`))
+						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post1')`))
 						tt.AssertNoErr(t, err)
-						_, err = db.ExecContext(context.TODO(), fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post2')`))
+						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post2')`))
 						tt.AssertNoErr(t, err)
-						_, err = db.ExecContext(context.TODO(), fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
+						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
 						tt.AssertNoErr(t, err)
 
 						ctx := context.Background()
@@ -250,7 +249,6 @@ func QueryTest(
 						db, closer := newDBAdapter(t)
 						defer closer.Close()
 
-						ctx := context.Background()
 						c := newTestDB(db, driver)
 						var users []*user
 						err := c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
@@ -266,8 +264,6 @@ func QueryTest(
 					t.Run("should return a user correctly", func(t *testing.T) {
 						db, closer := newDBAdapter(t)
 						defer closer.Close()
-
-						ctx := context.Background()
 
 						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
 						tt.AssertNoErr(t, err)
@@ -286,8 +282,6 @@ func QueryTest(
 					t.Run("should return multiple users correctly", func(t *testing.T) {
 						db, closer := newDBAdapter(t)
 						defer closer.Close()
-
-						ctx := context.Background()
 
 						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
 						tt.AssertNoErr(t, err)
@@ -319,8 +313,6 @@ func QueryTest(
 
 						db, closer := newDBAdapter(t)
 						defer closer.Close()
-
-						ctx := context.Background()
 
 						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
 						tt.AssertNoErr(t, err)
@@ -379,8 +371,6 @@ func QueryTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
-
 				_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Andréa Sá', 0)`)
 				tt.AssertNoErr(t, err)
 
@@ -406,7 +396,6 @@ func QueryTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 				var users []user
 				err := c.Query(ctx, &users, `SELECT * FROM not a valid query`)
@@ -417,7 +406,6 @@ func QueryTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 
 				// Provoque an error by sending an invalid struct:
@@ -434,7 +422,6 @@ func QueryTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 				var rows []struct {
 					User user `tablename:"users"`
@@ -449,7 +436,6 @@ func QueryTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 					var rows []struct {
 						Foo int `tablename:"foo"`
@@ -467,7 +453,6 @@ func QueryTest(
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
 
-					ctx := context.Background()
 					c := newTestDB(db, driver)
 					var rows []struct {
 						Foo *user `tablename:"foo"`
@@ -486,7 +471,6 @@ func QueryTest(
 				db, closer := newDBAdapter(t)
 				defer closer.Close()
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 				var rows []struct {
 					User user `tablename:"users"`
@@ -514,7 +498,6 @@ func QueryTest(
 					},
 				}
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 
 				var users []user
@@ -540,7 +523,6 @@ func QueryTest(
 					},
 				}
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 
 				var users []user
@@ -566,7 +548,6 @@ func QueryTest(
 					},
 				}
 
-				ctx := context.Background()
 				c := newTestDB(db, driver)
 
 				var users []user

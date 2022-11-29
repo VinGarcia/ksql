@@ -35,3 +35,18 @@ services:
     environment:
       SA_PASSWORD: "Sqls3rv3r"
       ACCEPT_EULA: "Y"
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    # The `always` option below will make sure this
+    # container is started when you turn on your machine,
+    # so you don't have to worry about it everytime.
+    restart: always
+    ports:
+      # The 127.0.0.1 prefix makes sure this instance
+      # cannot be accessed externally, so it is ok
+      # for this instante to have no password.
+      - "127.0.0.1:1433:1433"
+    environment:
+      - SA_PASSWORD=Sqls3rv3r
+      - ACCEPT_EULA=Y
