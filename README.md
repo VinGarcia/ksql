@@ -9,10 +9,15 @@
 KSQL was created to offer an actually simple and satisfactory
 tool for interacting with SQL Databases in Golang.
 
-The core idea on KSQL is to offer an easy to use interface,
-the actual communication with the database is decoupled so we can use
-KSQL on top of `pgx`, `database/sql` and possibly other tools.
-You can even create you own backend adapter for KSQL which is
+The core goal of KSQL is not to offer new features that
+are unavailable on other libraries (although we do have some),
+but to offer a well-thought and well-planned API so that users
+have an easier time, learning, debugging, and avoiding common pitfalls.
+
+KSQL is also decoupled from its backend so that
+the actual communication with the database is performed by
+well-known and trusted technologies, namely: `pgx` and `database/sql`.
+You can even create your own backend adapter for KSQL which is
 useful in some situations.
 
 In this README you will find examples for "Getting Started" with the library,
