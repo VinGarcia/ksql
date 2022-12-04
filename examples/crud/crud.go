@@ -3,23 +3,35 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/vingarcia/ksql"
 	"github.com/vingarcia/ksql/adapters/ksqlite3"
 	"github.com/vingarcia/ksql/nullable"
 )
 
-// User ...
 type User struct {
 	ID   int    `ksql:"id"`
 	Name string `ksql:"name"`
 	Age  int    `ksql:"age"`
 
-	// This field will be saved as JSON in the database
+	// The following attributes are making use of the KSQL Modifiers,
+	// you can find more about them on our Wiki:
+	//
+	// - https://github.com/VinGarcia/ksql/wiki/Modifiers
+	//
+
+	// The `json` modifier will save the address as JSON in the database
 	Address Address `ksql:"address,json"`
+
+	// The timeNowUTC modifier will set this field to `time.Now().UTC()` before saving it:
+	UpdatedAt time.Time `ksql:"updated_at,timeNowUTC"`
+
+	// The timeNowUTC/skipUpdates modifier will set this field to `time.Now().UTC()` only
+	// when first creating it and ignore it during updates.
+	CreatedAt time.Time `ksql:"created_at,timeNowUTC/skipUpdates"`
 }
 
-// PartialUpdateUser ...
 type PartialUpdateUser struct {
 	ID      int      `ksql:"id"`
 	Name    *string  `ksql:"name"`
@@ -27,13 +39,12 @@ type PartialUpdateUser struct {
 	Address *Address `ksql:"address,json"`
 }
 
-// Address ...
 type Address struct {
 	State string `json:"state"`
 	City  string `json:"city"`
 }
 
-// UsersTable informs ksql the name of the table and that it can
+// UsersTable informs KSQL the name of the table and that it can
 // use the default value for the primary key column name: "id"
 var UsersTable = ksql.NewTable("users")
 
@@ -64,7 +75,9 @@ func main() {
 	  id INTEGER PRIMARY KEY,
 		age INTEGER,
 		name TEXT,
-		address BLOB
+		address BLOB,
+		created_at DATETIME,
+		updated_at DATETIME
 	)`)
 	if err != nil {
 		panic(err.Error())
@@ -102,7 +115,7 @@ func main() {
 	}
 
 	// Retrieving Cristina, note that if you omit the SELECT part of the query
-	// ksql will build it for you (efficiently) based on the fields from the struct:
+	// KSQL will build it for you (efficiently) based on the fields from the struct:
 	var cris User
 	err = db.QueryOne(ctx, &cris, "FROM users WHERE name = ? ORDER BY id", "Cristina")
 	if err != nil {
