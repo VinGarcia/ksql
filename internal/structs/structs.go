@@ -150,7 +150,7 @@ func StructToMap(obj interface{}) (map[string]interface{}, error) {
 		field := v.Field(i)
 		ft := field.Type()
 		if ft.Kind() == reflect.Ptr {
-			if field.IsNil() {
+			if field.IsNil() && !fieldInfo.Modifier.Nullable {
 				continue
 			}
 

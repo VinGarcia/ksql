@@ -19,6 +19,7 @@ func init() {
 
 	// This one is useful for serializing/desserializing structs:
 	modifiers.Store("json", jsonModifier)
+	modifiers.Store("json/nullable", jsonNullableModifier)
 
 	// This next two are useful for the UpdatedAt and Created fields respectively:
 	// They only work on time.Time attributes and will set the attribute to time.Now().
@@ -29,6 +30,7 @@ func init() {
 	// to test the feature of skipping updates, inserts and queries.
 	modifiers.Store("skipUpdates", skipUpdatesModifier)
 	modifiers.Store("skipInserts", skipInsertsModifier)
+	modifiers.Store("nullable", nullableModifier)
 }
 
 // RegisterAttrModifier allow users to add custom modifiers on startup

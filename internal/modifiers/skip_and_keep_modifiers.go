@@ -9,3 +9,7 @@ var skipInsertsModifier = ksqlmodifiers.AttrModifier{
 var skipUpdatesModifier = ksqlmodifiers.AttrModifier{
 	SkipOnUpdate: true,
 }
+
+var nullableModifier = ksqlmodifiers.AttrModifier{
+	Nullable: true,
+}

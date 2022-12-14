@@ -39,3 +39,10 @@ var jsonModifier = ksqlmodifiers.AttrModifier{
 		return b, err
 	},
 }
+
+var jsonNullableModifier = ksqlmodifiers.AttrModifier{
+	Nullable: true,
+
+	Scan:  jsonModifier.Scan,
+	Value: jsonModifier.Value,
+}

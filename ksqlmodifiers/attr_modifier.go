@@ -10,6 +10,10 @@ type AttrModifier struct {
 	SkipOnInsert bool
 	SkipOnUpdate bool
 
+	// Nullable will make sure that on Insert and Patch operations
+	// this field will not be ignored even if it is a NULL pointer.
+	Nullable bool
+
 	// Implement these functions if you want to override the default Scan/Value behavior
 	// for the target attribute.
 	Scan  AttrScanner
