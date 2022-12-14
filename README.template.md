@@ -226,7 +226,6 @@ is configured to kill the containers after 20 seconds.
 
 ## TODO List
 
-- Add support for serializing structs as other formats such as YAML
 - Update `ksqltest.FillStructWith` to work with `ksql:"..,json"` tagged attributes
 - Create a way for users to submit user defined dialects
 - Improve error messages (ongoing)
@@ -234,7 +233,6 @@ is configured to kill the containers after 20 seconds.
 - Add support for the Insert function to work with maps
 - Add support for a `ksql.Array(params ...interface{})` for allowing queries like this:
   `db.Query(ctx, &user, "SELECT * FROM user WHERE id in (?)", ksql.Array(1,2,3))`
-- Improve docs about `ksql.Mock`
 
 ## Optimization Oportunities
 
@@ -250,4 +248,6 @@ is configured to kill the containers after 20 seconds.
 - Change the `.Transaction(db ksql.Provider)` to a `.Transaction(ctx context.Context)`
 - Make the `.Query()` method to return a `type Query interface { One(); All(); Chunks(); }`
 - Have an `Update()` method that updates without ignoring NULLs as `Patch()` does
+  - Have a new Modifier `skipNullUpdates` so that the Update function will do the job of the `Patch`
+  - Remove the `Patch` function.
 - Rename `NewTable()` to just `Table()` so it feels right to declare it inline when convenient
