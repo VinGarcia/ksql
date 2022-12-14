@@ -686,7 +686,12 @@ func (c DB) Patch(
 		return err
 	}
 
-	query, params, err := buildUpdateQuery(ctx, c.dialect, table.name, info, record, table.idColumns...)
+	recordMap, err := structs.StructToMap(record)
+	if err != nil {
+		return err
+	}
+
+	query, params, err := buildUpdateQuery(ctx, c.dialect, table.name, info, recordMap, table.idColumns...)
 	if err != nil {
 		return err
 	}
@@ -832,13 +837,9 @@ func buildUpdateQuery(
 	dialect Dialect,
 	tableName string,
 	info structs.StructInfo,
-	record interface{},
+	recordMap map[string]interface{},
 	idFieldNames ...string,
 ) (query string, args []interface{}, err error) {
-	recordMap, err := structs.StructToMap(record)
-	if err != nil {
-		return "", nil, err
-	}
 	for key := range recordMap {
 		if info.ByName(key).Modifier.SkipOnUpdate {
 			delete(recordMap, key)
