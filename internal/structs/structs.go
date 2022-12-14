@@ -23,11 +23,24 @@ type StructInfo struct {
 // information regarding a specific field
 // of a struct.
 type FieldInfo struct {
-	AttrName   string
+	// AttrName is the name of struct attribute of the struct.
+	AttrName string
+
+	// ColumnName is the name of the database column described by the ksql tag.
 	ColumnName string
-	Index      int
-	Valid      bool
-	Modifier   ksqlmodifiers.AttrModifier
+
+	// Index indexes the position of this attribute on the struct.
+	// This field is meant to be used together with the
+	// `reflect.Value.Field()` and `reflect.Type.Field()` methods.
+	Index int
+
+	// Valid will only be set to false if the instance
+	// of this field was not initialized, i.e.
+	// it denotes the zero value of a FieldInfo.
+	Valid bool
+
+	// Modifier contains the AttrModifier associated with this field.
+	Modifier ksqlmodifiers.AttrModifier
 }
 
 // ByIndex returns either the *FieldInfo of a valid
