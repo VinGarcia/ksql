@@ -13,7 +13,6 @@ import (
 	"github.com/vingarcia/ksql/internal/modifiers"
 	"github.com/vingarcia/ksql/internal/structs"
 	"github.com/vingarcia/ksql/ksqlmodifiers"
-	"github.com/vingarcia/ksql/ksqltest"
 )
 
 var selectQueryCache = initializeQueryCache()
@@ -631,7 +630,7 @@ func normalizeIDsAsMap(idNames []string, idOrMap interface{}) (idMap map[string]
 
 	switch t.Kind() {
 	case reflect.Struct:
-		idMap, err = ksqltest.StructToMap(idOrMap)
+		idMap, err = structs.StructToMap(idOrMap)
 		if err != nil {
 			return nil, fmt.Errorf("could not get ID(s) from input record: %w", err)
 		}
@@ -724,7 +723,7 @@ func buildInsertQuery(
 	info structs.StructInfo,
 	record interface{},
 ) (query string, params []interface{}, scanValues []interface{}, err error) {
-	recordMap, err := ksqltest.StructToMap(record)
+	recordMap, err := structs.StructToMap(record)
 	if err != nil {
 		return "", nil, nil, err
 	}
