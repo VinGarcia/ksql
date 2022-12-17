@@ -3070,6 +3070,151 @@ func ModifiersTest(
 				tt.AssertEqual(t, taggedUser.Name, "Marta Ribeiro")
 			})
 		})
+
+		t.Run("nullable modifier", func(t *testing.T) {
+			t.Run("should prevent null fields from being ignored during insertions", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				// The default value of the column "nullable_field"
+				// is the string: "not_null".
+				//
+				// So the tagged struct below should insert passing NULL
+				// and the untagged should insert not passing any value
+				// for this column, thus, only the second one should create
+				// a recording using the default value.
+
+				var taggedUser struct {
+					ID            uint    `ksql:"id"`
+					NullableField *string `ksql:"nullable_field,nullable"`
+				}
+
+				var untaggedUser struct {
+					ID            uint    `ksql:"id"`
+					NullableField *string `ksql:"nullable_field"`
+				}
+
+				err := c.Insert(ctx, usersTable, &taggedUser)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, taggedUser.ID, 0)
+
+				err = c.Insert(ctx, usersTable, &untaggedUser)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser.ID, 0)
+
+				err = c.QueryOne(ctx, &taggedUser, `FROM users WHERE id = `+c.dialect.Placeholder(0), taggedUser.ID)
+				tt.AssertNoErr(t, err)
+
+				err = c.QueryOne(ctx, &untaggedUser, `FROM users WHERE id = `+c.dialect.Placeholder(0), untaggedUser.ID)
+				tt.AssertNoErr(t, err)
+
+				tt.AssertEqual(t, taggedUser.NullableField == nil, true)
+				tt.AssertEqual(t, untaggedUser.NullableField, nullable.String("not_null"))
+			})
+
+			t.Run("should prevent null fields from being ignored during updates", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type userWithNoTags struct {
+					ID            uint    `ksql:"id"`
+					Name          string  `ksql:"name"`
+					NullableField *string `ksql:"nullable_field"`
+				}
+				untaggedUser := userWithNoTags{
+					Name:          "Laurinha Ribeiro",
+					NullableField: nullable.String("fakeValue"),
+				}
+				err := c.Insert(ctx, usersTable, &untaggedUser)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser.ID, 0)
+
+				type taggedUser struct {
+					ID            uint    `ksql:"id"`
+					Name          string  `ksql:"name"`
+					NullableField *string `ksql:"nullable_field,nullable"`
+				}
+				u := taggedUser{
+					ID:            untaggedUser.ID,
+					Name:          "Laura Ribeiro",
+					NullableField: nil,
+				}
+				err = c.Patch(ctx, usersTable, u)
+				tt.AssertNoErr(t, err)
+
+				var untaggedUser2 userWithNoTags
+				err = c.QueryOne(ctx, &untaggedUser2, "FROM users WHERE id = "+c.dialect.Placeholder(0), untaggedUser.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, untaggedUser2.Name, "Laura Ribeiro")
+				tt.AssertEqual(t, untaggedUser2.NullableField == nil, true)
+			})
+
+			t.Run("should not alter the value on queries", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type userWithNoTags struct {
+					ID   uint    `ksql:"id"`
+					Name *string `ksql:"name"`
+				}
+				untaggedUser := userWithNoTags{
+					Name: nullable.String("Marta Ribeiro"),
+				}
+				err := c.Insert(ctx, usersTable, &untaggedUser)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, untaggedUser.ID, 0)
+
+				var taggedUser struct {
+					ID   uint    `ksql:"id"`
+					Name *string `ksql:"name,nullable"`
+				}
+				err = c.QueryOne(ctx, &taggedUser, "FROM users WHERE id = "+c.dialect.Placeholder(0), untaggedUser.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, taggedUser.ID, untaggedUser.ID)
+				tt.AssertEqual(t, taggedUser.Name, nullable.String("Marta Ribeiro"))
+			})
+
+			t.Run("should cause no effect if used on a non pointer field", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, driver)
+
+				type user struct {
+					ID   uint   `ksql:"id"`
+					Name string `ksql:"name,nullable"`
+					Age  int    `ksql:"age,nullable"`
+				}
+				u1 := user{
+					Name: "Marta Ribeiro",
+				}
+				err := c.Insert(ctx, usersTable, &u1)
+				tt.AssertNoErr(t, err)
+				tt.AssertNotEqual(t, u1.ID, 0)
+
+				err = c.Patch(ctx, usersTable, &struct {
+					ID  uint `ksql:"id"`
+					Age int  `ksql:"age,nullable"`
+				}{
+					ID:  u1.ID,
+					Age: 42,
+				})
+				tt.AssertNoErr(t, err)
+
+				var u2 user
+				err = c.QueryOne(ctx, &u2, "FROM users WHERE id = "+c.dialect.Placeholder(0), u1.ID)
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, u2.ID, u1.ID)
+				tt.AssertEqual(t, u2.Name, "Marta Ribeiro")
+				tt.AssertEqual(t, u2.Age, 42)
+			})
+		})
 	})
 }
 
@@ -3317,7 +3462,8 @@ func createTables(driver string, connStr string) error {
 			name TEXT,
 			address BLOB,
 			created_at DATETIME,
-			updated_at DATETIME
+			updated_at DATETIME,
+			nullable_field TEXT DEFAULT "not_null"
 		)`)
 	case "postgres":
 		_, err = db.Exec(`CREATE TABLE users (
@@ -3326,7 +3472,8 @@ func createTables(driver string, connStr string) error {
 			name VARCHAR(50),
 			address jsonb,
 			created_at TIMESTAMP,
-			updated_at TIMESTAMP
+			updated_at TIMESTAMP,
+			nullable_field VARCHAR(50) DEFAULT 'not_null'
 		)`)
 	case "mysql":
 		_, err = db.Exec(`CREATE TABLE users (
@@ -3335,7 +3482,8 @@ func createTables(driver string, connStr string) error {
 			name VARCHAR(50),
 			address JSON,
 			created_at DATETIME,
-			updated_at DATETIME
+			updated_at DATETIME,
+			nullable_field VARCHAR(50) DEFAULT "not_null"
 		)`)
 	case "sqlserver":
 		_, err = db.Exec(`CREATE TABLE users (
@@ -3344,7 +3492,8 @@ func createTables(driver string, connStr string) error {
 			name VARCHAR(50),
 			address NVARCHAR(4000),
 			created_at DATETIME,
-			updated_at DATETIME
+			updated_at DATETIME,
+			nullable_field VARCHAR(50) DEFAULT 'not_null'
 		)`)
 	}
 	if err != nil {
