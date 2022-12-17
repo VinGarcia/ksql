@@ -3100,12 +3100,12 @@ func ModifiersTest(
 				tt.AssertNoErr(t, err)
 				tt.AssertNotEqual(t, taggedUser.ID, 0)
 
-				err = c.QueryOne(ctx, &taggedUser, `FROM users WHERE id = `+c.dialect.Placeholder(0), taggedUser.ID)
-				tt.AssertNoErr(t, err)
-
 				err = c.Insert(ctx, usersTable, &untaggedUser)
 				tt.AssertNoErr(t, err)
-				tt.AssertNotEqual(t, taggedUser.ID, 0)
+				tt.AssertNotEqual(t, untaggedUser.ID, 0)
+
+				err = c.QueryOne(ctx, &taggedUser, `FROM users WHERE id = `+c.dialect.Placeholder(0), taggedUser.ID)
+				tt.AssertNoErr(t, err)
 
 				err = c.QueryOne(ctx, &untaggedUser, `FROM users WHERE id = `+c.dialect.Placeholder(0), untaggedUser.ID)
 				tt.AssertNoErr(t, err)
