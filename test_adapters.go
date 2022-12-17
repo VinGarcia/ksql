@@ -3078,6 +3078,14 @@ func ModifiersTest(
 
 				c := newTestDB(db, driver)
 
+				// The default value of the column "nullable_field"
+				// is the string: "not_null".
+				//
+				// So the tagged struct below should insert passing NULL
+				// and the untagged should insert not passing any value
+				// for this column, thus, only the second one should create
+				// a recording using the default value.
+
 				var taggedUser struct {
 					ID            uint    `ksql:"id"`
 					NullableField *string `ksql:"nullable_field,nullable"`
