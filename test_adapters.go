@@ -3197,6 +3197,7 @@ func ModifiersTest(
 					ID:  u1.ID,
 					Age: 42,
 				})
+				tt.AssertNoErr(t, err)
 
 				var u2 user
 				err = c.QueryOne(ctx, &u2, "FROM users WHERE id = "+c.dialect.Placeholder(0), u1.ID)
