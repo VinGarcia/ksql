@@ -3577,7 +3577,6 @@ func createTables(driver string, connStr string) error {
 
 func newTestDB(db DBAdapter, driver string) DB {
 	return DB{
-		driver:  driver,
 		dialect: supportedDialects[driver],
 		db:      db,
 	}

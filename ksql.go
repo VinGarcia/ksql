@@ -30,7 +30,6 @@ func initializeQueryCache() map[string]*sync.Map {
 // interfacing with the "database/sql" package implementing
 // the KSQL interface `ksql.Provider`.
 type DB struct {
-	driver  string
 	dialect Dialect
 	db      DBAdapter
 }
@@ -133,7 +132,6 @@ func NewWithAdapter(
 
 	return DB{
 		dialect: dialect,
-		driver:  dialectName,
 		db:      db,
 	}, nil
 }
@@ -463,7 +461,7 @@ func (c DB) Insert(
 	default:
 		// Unsupported drivers should be detected on the New() function,
 		// So we don't expect the code to ever get into this default case.
-		err = fmt.Errorf("code error: unsupported driver `%s`", c.driver)
+		err = fmt.Errorf("code error: unsupported driver `%s`", c.dialect.DriverName())
 	}
 
 	return err
