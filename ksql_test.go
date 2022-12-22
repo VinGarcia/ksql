@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	tt "github.com/vingarcia/ksql/internal/testtools"
+	"github.com/vingarcia/ksql/sqldialect"
 )
 
 func TestConfigSetDefaultValues(t *testing.T) {
@@ -19,24 +20,24 @@ func TestConfigSetDefaultValues(t *testing.T) {
 
 func TestNewAdapterWith(t *testing.T) {
 	t.Run("should build new instances correctly", func(t *testing.T) {
-		for dialectName := range supportedDialects {
+		for _, dialect := range sqldialect.SupportedDialects {
 			db, err := NewWithAdapter(
 				DBAdapter(nil),
-				dialectName,
+				dialect,
 			)
 
 			tt.AssertNoErr(t, err)
-			tt.AssertEqual(t, db.dialect, supportedDialects[dialectName])
+			tt.AssertEqual(t, db.dialect, dialect)
 		}
 	})
 
-	t.Run("should report invalid dialectNames correctly", func(t *testing.T) {
+	t.Run("should report invalid dialects correctly", func(t *testing.T) {
 		_, err := NewWithAdapter(
 			DBAdapter(nil),
-			"fake-dialect-name",
+			nil,
 		)
 
-		tt.AssertNotEqual(t, err, nil)
+		tt.AssertErrContains(t, err, "expected a valid", "Provider", "nil")
 	})
 }
 

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/vingarcia/ksql"
 	"github.com/vingarcia/ksql/internal/structs"
+	"github.com/vingarcia/ksql/sqldialect"
 )
 
 // Query is is the struct template for building SELECT queries.
@@ -33,16 +33,16 @@ type Query struct {
 // Build is a utility function for finding the dialect based on the driver and
 // then calling BuildQuery(dialect)
 func (q Query) Build(driver string) (sqlQuery string, params []interface{}, _ error) {
-	dialect, err := ksql.GetDriverDialect(driver)
-	if err != nil {
-		return "", nil, err
+	dialect, ok := sqldialect.SupportedDialects[driver]
+	if !ok {
+		return "", nil, fmt.Errorf("unsupported driver `%s`", driver)
 	}
 
 	return q.BuildQuery(dialect)
 }
 
 // BuildQuery implements the queryBuilder interface
-func (q Query) BuildQuery(dialect ksql.Dialect) (sqlQuery string, params []interface{}, _ error) {
+func (q Query) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params []interface{}, _ error) {
 	var b strings.Builder
 
 	switch v := q.Select.(type) {
@@ -106,7 +106,7 @@ type WhereQuery struct {
 // in a dynamic way.
 type WhereQueries []WhereQuery
 
-func (w WhereQueries) build(dialect ksql.Dialect) (query string, params []interface{}) {
+func (w WhereQueries) build(dialect sqldialect.Provider) (query string, params []interface{}) {
 	var conds []string
 	for _, whereQuery := range w {
 		var placeholders []interface{}
@@ -190,7 +190,7 @@ func OrderBy(fields string) OrderByQuery {
 var cachedSelectQueries = &sync.Map{}
 
 // Builds the select query using cached info so that its efficient
-func buildSelectQuery(obj interface{}, dialect ksql.Dialect) (string, error) {
+func buildSelectQuery(obj interface{}, dialect sqldialect.Provider) (string, error) {
 	t := reflect.TypeOf(obj)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()

@@ -5,6 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/vingarcia/ksql"
+	"github.com/vingarcia/ksql/sqldialect"
 
 	// This is imported here so the user don't
 	// have to worry about it when he uses it.
@@ -13,7 +14,7 @@ import (
 
 // NewFromPgxPool builds a ksql.DB from a *pgxpool.Pool instance
 func NewFromPgxPool(pool *pgxpool.Pool) (db ksql.DB, err error) {
-	return ksql.NewWithAdapter(NewPGXAdapter(pool), "postgres")
+	return ksql.NewWithAdapter(NewPGXAdapter(pool), sqldialect.PostgresDialect{})
 }
 
 // New instantiates a new ksql.Client using pgx as the backend driver
@@ -39,6 +40,6 @@ func New(
 		return ksql.DB{}, err
 	}
 
-	db, err = ksql.NewWithAdapter(NewPGXAdapter(pool), "postgres")
+	db, err = ksql.NewWithAdapter(NewPGXAdapter(pool), sqldialect.PostgresDialect{})
 	return db, err
 }

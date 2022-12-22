@@ -13,13 +13,14 @@ import (
 	"github.com/vingarcia/ksql/internal/modifiers"
 	"github.com/vingarcia/ksql/internal/structs"
 	"github.com/vingarcia/ksql/ksqlmodifiers"
+	"github.com/vingarcia/ksql/sqldialect"
 )
 
 var selectQueryCache = initializeQueryCache()
 
 func initializeQueryCache() map[string]*sync.Map {
 	cache := map[string]*sync.Map{}
-	for dname := range supportedDialects {
+	for dname := range sqldialect.SupportedDialects {
 		cache[dname] = &sync.Map{}
 	}
 
@@ -30,7 +31,7 @@ func initializeQueryCache() map[string]*sync.Map {
 // interfacing with the "database/sql" package implementing
 // the KSQL interface `ksql.Provider`.
 type DB struct {
-	dialect Dialect
+	dialect sqldialect.Provider
 	db      DBAdapter
 }
 
@@ -122,17 +123,16 @@ func (c *Config) SetDefaultValues() {
 // NewWithAdapter allows the user to insert a custom implementation
 // of the DBAdapter interface
 func NewWithAdapter(
-	db DBAdapter,
-	dialectName string,
+	adapter DBAdapter,
+	dialect sqldialect.Provider,
 ) (DB, error) {
-	dialect := supportedDialects[dialectName]
 	if dialect == nil {
-		return DB{}, fmt.Errorf("unsupported driver `%s`", dialectName)
+		return DB{}, fmt.Errorf("expected a valid sqldialect.Provider as argument but got `nil`")
 	}
 
 	return DB{
 		dialect: dialect,
-		db:      db,
+		db:      adapter,
 	}, nil
 }
 
@@ -452,11 +452,11 @@ func (c DB) Insert(
 	}
 
 	switch table.insertMethodFor(c.dialect) {
-	case insertWithReturning, insertWithOutput:
+	case sqldialect.InsertWithReturning, sqldialect.InsertWithOutput:
 		err = c.insertReturningIDs(ctx, query, params, scanValues, table.idColumns)
-	case insertWithLastInsertID:
+	case sqldialect.InsertWithLastInsertID:
 		err = c.insertWithLastInsertID(ctx, t, v, info, record, query, params, table.idColumns[0])
-	case insertWithNoIDRetrieval:
+	case sqldialect.InsertWithNoIDRetrieval:
 		err = c.insertWithNoIDRetrieval(ctx, query, params)
 	default:
 		// Unsupported drivers should be detected on the New() function,
@@ -714,7 +714,7 @@ func (c DB) Patch(
 
 func buildInsertQuery(
 	ctx context.Context,
-	dialect Dialect,
+	dialect sqldialect.Provider,
 	table Table,
 	t reflect.Type,
 	v reflect.Value,
@@ -777,7 +777,7 @@ func buildInsertQuery(
 
 	var returningQuery, outputQuery string
 	switch dialect.InsertMethod() {
-	case insertWithReturning:
+	case sqldialect.InsertWithReturning:
 		escapedIDNames := []string{}
 		for _, id := range table.idColumns {
 			escapedIDNames = append(escapedIDNames, dialect.Escape(id))
@@ -790,7 +790,7 @@ func buildInsertQuery(
 				v.Elem().Field(info.ByName(id).Index).Addr().Interface(),
 			)
 		}
-	case insertWithOutput:
+	case sqldialect.InsertWithOutput:
 		escapedIDNames := []string{}
 		for _, id := range table.idColumns {
 			escapedIDNames = append(escapedIDNames, "INSERTED."+dialect.Escape(id))
@@ -831,7 +831,7 @@ func buildInsertQuery(
 
 func buildUpdateQuery(
 	ctx context.Context,
-	dialect Dialect,
+	dialect sqldialect.Provider,
 	tableName string,
 	info structs.StructInfo,
 	recordMap map[string]interface{},
@@ -998,7 +998,7 @@ func (nopScanner) Scan(value interface{}) error {
 	return nil
 }
 
-func scanRows(ctx context.Context, dialect Dialect, rows Rows, record interface{}) error {
+func scanRows(ctx context.Context, dialect sqldialect.Provider, rows Rows, record interface{}) error {
 	v := reflect.ValueOf(record)
 	t := v.Type()
 	return scanRowsFromType(ctx, dialect, rows, record, t, v)
@@ -1006,7 +1006,7 @@ func scanRows(ctx context.Context, dialect Dialect, rows Rows, record interface{
 
 func scanRowsFromType(
 	ctx context.Context,
-	dialect Dialect,
+	dialect sqldialect.Provider,
 	rows Rows,
 	record interface{},
 	t reflect.Type,
@@ -1063,7 +1063,7 @@ func scanRowsFromType(
 
 func getScanArgsForNestedStructs(
 	ctx context.Context,
-	dialect Dialect,
+	dialect sqldialect.Provider,
 	rows Rows,
 	t reflect.Type,
 	v reflect.Value,
@@ -1112,7 +1112,7 @@ func getScanArgsForNestedStructs(
 
 func getScanArgsFromNames(
 	ctx context.Context,
-	dialect Dialect,
+	dialect sqldialect.Provider,
 	names []string,
 	v reflect.Value,
 	info structs.StructInfo,
@@ -1146,7 +1146,7 @@ func getScanArgsFromNames(
 }
 
 func buildDeleteQuery(
-	dialect Dialect,
+	dialect sqldialect.Provider,
 	table Table,
 	idMap map[string]interface{},
 ) (query string, params []interface{}) {
@@ -1182,7 +1182,7 @@ func getFirstToken(s string) string {
 }
 
 func buildSelectQuery(
-	dialect Dialect,
+	dialect sqldialect.Provider,
 	structType reflect.Type,
 	info structs.StructInfo,
 	selectQueryCache *sync.Map,
@@ -1209,7 +1209,7 @@ func buildSelectQuery(
 }
 
 func buildSelectQueryForPlainStructs(
-	dialect Dialect,
+	dialect sqldialect.Provider,
 	structType reflect.Type,
 	info structs.StructInfo,
 ) string {
@@ -1227,7 +1227,7 @@ func buildSelectQueryForPlainStructs(
 }
 
 func buildSelectQueryForNestedStructs(
-	dialect Dialect,
+	dialect sqldialect.Provider,
 	structType reflect.Type,
 	info structs.StructInfo,
 ) (string, error) {
