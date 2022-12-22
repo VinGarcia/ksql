@@ -48,7 +48,11 @@ gen: mock
 mock: setup
 	$(GOBIN)/mockgen -package=exampleservice -source=contracts.go -destination=examples/example_service/mocks.go
 
-setup: $(GOBIN)/richgo $(GOBIN)/staticcheck $(GOBIN)/mockgen
+setup: $(GOBIN)/richgo $(GOBIN)/staticcheck $(GOBIN)/mockgen go.work
+
+go.work:
+	go work init
+	go work use -r .
 
 $(GOBIN)/richgo:
 	go install github.com/kyoh86/richgo@latest

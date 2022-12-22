@@ -11,13 +11,14 @@ import (
 	"github.com/ory/dockertest"
 	"github.com/ory/dockertest/docker"
 	"github.com/vingarcia/ksql"
+	"github.com/vingarcia/ksql/sqldialect"
 )
 
 func TestAdapter(t *testing.T) {
 	mysqlURL, closeMySQL := startMySQLDB("ksql")
 	defer closeMySQL()
 
-	ksql.RunTestsForAdapter(t, "kmysql", "mysql", mysqlURL, func(t *testing.T) (ksql.DBAdapter, io.Closer) {
+	ksql.RunTestsForAdapter(t, "kmysql", sqldialect.MysqlDialect{}, mysqlURL, func(t *testing.T) (ksql.DBAdapter, io.Closer) {
 		db, err := sql.Open("mysql", mysqlURL)
 		if err != nil {
 			t.Fatal(err.Error())

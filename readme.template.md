@@ -227,7 +227,6 @@ is configured to kill the containers after 20 seconds.
 ## TODO List
 
 - Update `ksqltest.FillStructWith` to work with `ksql:"..,json"` tagged attributes
-- Create a way for users to submit user defined dialects
 - Improve error messages (ongoing)
 
 ## Optimization Oportunities

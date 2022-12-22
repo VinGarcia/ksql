@@ -5,6 +5,7 @@ import (
 	"database/sql"
 
 	"github.com/vingarcia/ksql"
+	"github.com/vingarcia/ksql/sqldialect"
 
 	// This is imported here so the user don't
 	// have to worry about it when he uses it.
@@ -13,7 +14,7 @@ import (
 
 // NewFromSQLDB builds a ksql.DB from a *sql.DB instance
 func NewFromSQLDB(db *sql.DB) (ksql.DB, error) {
-	return ksql.NewWithAdapter(NewSQLAdapter(db), "sqlserver")
+	return ksql.NewWithAdapter(NewSQLAdapter(db), sqldialect.SqlserverDialect{})
 }
 
 // New instantiates a new KSQL client using the "sqlserver" driver
@@ -34,5 +35,5 @@ func New(
 
 	db.SetMaxOpenConns(config.MaxOpenConns)
 
-	return ksql.NewWithAdapter(NewSQLAdapter(db), "sqlserver")
+	return ksql.NewWithAdapter(NewSQLAdapter(db), sqldialect.SqlserverDialect{})
 }

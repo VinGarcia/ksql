@@ -13,13 +13,14 @@ import (
 	"github.com/ory/dockertest"
 	"github.com/ory/dockertest/docker"
 	"github.com/vingarcia/ksql"
+	"github.com/vingarcia/ksql/sqldialect"
 )
 
 func TestAdapter(t *testing.T) {
 	postgresURL, closePostgres := startPostgresDB("ksql")
 	defer closePostgres()
 
-	ksql.RunTestsForAdapter(t, "kpgx", "postgres", postgresURL, func(t *testing.T) (ksql.DBAdapter, io.Closer) {
+	ksql.RunTestsForAdapter(t, "kpgx", sqldialect.PostgresDialect{}, postgresURL, func(t *testing.T) (ksql.DBAdapter, io.Closer) {
 		pool, err := pgxpool.Connect(context.TODO(), postgresURL)
 		if err != nil {
 			t.Fatal(err.Error())

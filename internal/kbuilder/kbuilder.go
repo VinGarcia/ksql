@@ -1,7 +1,9 @@
 package kbuilder
 
 import (
-	"github.com/vingarcia/ksql"
+	"fmt"
+
+	"github.com/vingarcia/ksql/sqldialect"
 )
 
 // Builder is the basic container for injecting
@@ -11,19 +13,23 @@ import (
 // directly without this builder, but we kept it
 // here for convenience.
 type Builder struct {
-	dialect ksql.Dialect
+	dialect sqldialect.Provider
 }
 
 type queryBuilder interface {
-	BuildQuery(dialect ksql.Dialect) (sqlQuery string, params []interface{}, _ error)
+	BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params []interface{}, _ error)
 }
 
 // New creates a new Builder container.
 func New(driver string) (Builder, error) {
-	dialect, err := ksql.GetDriverDialect(driver)
+	dialect, ok := sqldialect.SupportedDialects[driver]
+	if !ok {
+		return Builder{}, fmt.Errorf("unsupported driver `%s`", driver)
+	}
+
 	return Builder{
 		dialect: dialect,
-	}, err
+	}, nil
 }
 
 // Build receives a query builder struct, injects it with the configurations

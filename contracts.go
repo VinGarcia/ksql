@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"github.com/vingarcia/ksql/sqldialect"
 )
 
 // ErrRecordNotFound informs that a given query failed because the record was not found.
@@ -101,14 +103,14 @@ func (t Table) validate() error {
 	return nil
 }
 
-func (t Table) insertMethodFor(dialect Dialect) insertMethod {
+func (t Table) insertMethodFor(dialect sqldialect.Provider) sqldialect.InsertMethod {
 	if len(t.idColumns) == 1 {
 		return dialect.InsertMethod()
 	}
 
 	insertMethod := dialect.InsertMethod()
-	if insertMethod == insertWithLastInsertID {
-		return insertWithNoIDRetrieval
+	if insertMethod == sqldialect.InsertWithLastInsertID {
+		return sqldialect.InsertWithNoIDRetrieval
 	}
 
 	return insertMethod

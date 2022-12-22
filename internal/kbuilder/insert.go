@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/vingarcia/ksql"
 	"github.com/vingarcia/ksql/internal/structs"
+	"github.com/vingarcia/ksql/sqldialect"
 )
 
 // Insert is the struct template for building INSERT queries
@@ -22,16 +22,16 @@ type Insert struct {
 // Build is a utility function for finding the dialect based on the driver and
 // then calling BuildQuery(dialect)
 func (i Insert) Build(driver string) (sqlQuery string, params []interface{}, _ error) {
-	dialect, err := ksql.GetDriverDialect(driver)
-	if err != nil {
-		return "", nil, err
+	dialect, ok := sqldialect.SupportedDialects[driver]
+	if !ok {
+		return "", nil, fmt.Errorf("unsupported driver `%s`", driver)
 	}
 
 	return i.BuildQuery(dialect)
 }
 
 // BuildQuery implements the queryBuilder interface
-func (i Insert) BuildQuery(dialect ksql.Dialect) (sqlQuery string, params []interface{}, _ error) {
+func (i Insert) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params []interface{}, _ error) {
 	var b strings.Builder
 	b.WriteString("INSERT INTO " + dialect.Escape(i.Into))
 
