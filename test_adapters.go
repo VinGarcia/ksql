@@ -3440,7 +3440,7 @@ func createTables(dialect sqldialect.Provider, connStr string) error {
 	driver := dialect.DriverName()
 
 	if connStr == "" {
-		return fmt.Errorf("unsupported dialect: '%s'", dialect)
+		return fmt.Errorf("unsupported dialect: '%s'", driver)
 	}
 
 	db, err := sql.Open(driver, connStr)
