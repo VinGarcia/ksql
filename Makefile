@@ -19,8 +19,8 @@ bench: go-mod-tidy
 	@echo "Benchmark executed at: $$(date --iso)" | tee -a benchmark.tmp
 	@echo "Benchmark executed on commit: $$(git rev-parse HEAD)" | tee -a benchmark.tmp
 
-readme: benchmark.tmp README.template.md
-	go run scripts/build-readme-from-template.go README.template.md examples/crud/crud.go benchmark.tmp
+readme: benchmark.tmp readme.template.md
+	go run scripts/build-readme-from-template.go readme.template.md examples/crud/crud.go benchmark.tmp
 
 lint: setup go-mod-tidy
 	@$(GOBIN)/staticcheck $(path) $(args)

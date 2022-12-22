@@ -462,10 +462,6 @@ is configured to kill the containers after 20 seconds.
 - Update `ksqltest.FillStructWith` to work with `ksql:"..,json"` tagged attributes
 - Create a way for users to submit user defined dialects
 - Improve error messages (ongoing)
-- Add support for the Patch function to work with maps for partial updates
-- Add support for the Insert function to work with maps
-- Add support for a `ksql.Array(params ...interface{})` for allowing queries like this:
-  `db.Query(ctx, &user, "SELECT * FROM user WHERE id in (?)", ksql.Array(1,2,3))`
 
 ## Optimization Oportunities
 
