@@ -17,11 +17,9 @@ require (
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/opencontainers/runc v1.1.0 // indirect
 	github.com/ory/dockertest v3.3.5+incompatible
-	github.com/stretchr/testify v1.8.0 // indirect
-	github.com/vingarcia/ksql v1.6.0
+	github.com/vingarcia/ksql v1.7.0
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/sys v0.0.0-20220315194320-039c03cc5b86 // indirect
-	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gotest.tools v2.2.0+incompatible // indirect
 )
