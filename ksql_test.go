@@ -9,6 +9,15 @@ import (
 	"github.com/vingarcia/ksql/sqldialect"
 )
 
+func TestScanArgError(t *testing.T) {
+	err := ScanArgError{
+		ColumnIndex: 12,
+		Err:         io.EOF,
+	}
+
+	tt.AssertErrContains(t, err, "input attribute", "index 12", "EOF")
+}
+
 func TestConfigSetDefaultValues(t *testing.T) {
 	config := Config{}
 	config.SetDefaultValues()
