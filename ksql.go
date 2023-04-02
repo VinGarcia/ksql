@@ -845,16 +845,16 @@ func buildUpdateQuery(
 
 	numAttrs := len(recordMap)
 	args = make([]interface{}, numAttrs)
-	numNonIDArgs := numAttrs - len(idFieldNames)
-	whereArgs := args[numNonIDArgs:]
-
-	if numNonIDArgs == 0 {
-		return "", nil, ErrNoValuesToUpdate
-	}
 
 	err = validateIfAllIdsArePresent(idFieldNames, recordMap)
 	if err != nil {
 		return "", nil, err
+	}
+
+	numNonIDArgs := numAttrs - len(idFieldNames)
+	whereArgs := args[numNonIDArgs:]
+	if numNonIDArgs == 0 {
+		return "", nil, ErrNoValuesToUpdate
 	}
 
 	whereQuery := make([]string, len(idFieldNames))
@@ -912,11 +912,11 @@ func validateIfAllIdsArePresent(idNames []string, idMap map[string]interface{}) 
 	for _, idName := range idNames {
 		id, found := idMap[idName]
 		if !found {
-			return fmt.Errorf("missing required id field `%s` on input record", idName)
+			return fmt.Errorf("missing required id field `%s` on input record: %w", idName, ErrRecordMissingIDs)
 		}
 
 		if id == nil || reflect.ValueOf(id).IsZero() {
-			return fmt.Errorf("invalid value '%v' received for id column: '%s'", id, idName)
+			return fmt.Errorf("invalid value '%v' received for id column: '%s': %w", id, idName, ErrRecordMissingIDs)
 		}
 	}
 
