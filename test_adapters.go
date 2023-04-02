@@ -1805,7 +1805,7 @@ func PatchTest(
 				ID:   1,
 				Name: "some name",
 			})
-			tt.AssertEqual(t, err, ErrNoValuesToUpdate)
+			tt.AssertErrContains(t, err, "struct", "no values to update")
 		})
 
 		t.Run("should report error if the id is missing", func(t *testing.T) {
@@ -1834,6 +1834,40 @@ func PatchTest(
 					PermID: 42,
 				})
 				tt.AssertErrContains(t, err, "invalid value", "0", "'user_id'")
+			})
+		})
+
+		t.Run("should report error if the struct has no id", func(t *testing.T) {
+			t.Run("with a single primary key", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, dialect)
+
+				err := c.Update(ctx, usersTable, &struct {
+					// Missing ID
+					Name string `ksql:"name"`
+				}{
+					Name: "Jane",
+				})
+				tt.AssertErrContains(t, err, "missing", "ID fields", "id")
+			})
+
+			t.Run("with composite keys", func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				c := newTestDB(db, dialect)
+
+				err := c.Update(ctx, NewTable("user_permissions", "id", "user_id", "perm_id"), &struct {
+					ID int `ksql:"id"`
+					// Missing UserID
+					PermID int `ksql:"perm_id"`
+				}{
+					ID:     1,
+					PermID: 42,
+				})
+				tt.AssertErrContains(t, err, "missing", "ID fields", "user_id")
 			})
 		})
 
