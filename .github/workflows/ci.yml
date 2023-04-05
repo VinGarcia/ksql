@@ -9,7 +9,12 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+
+      - uses: actions/checkout@v3
       - name: Pull Postgres
         run: docker pull postgres:14.0
       - name: Pull MariaDB

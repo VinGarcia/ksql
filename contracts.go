@@ -24,6 +24,10 @@ var ErrRecordNotFound error = fmt.Errorf("ksql: the query returned no results: %
 // (2) If the attribute is using a modifier that contains the SkipUpdates flag.
 var ErrNoValuesToUpdate error = fmt.Errorf("ksql: the input struct contains no values to update")
 
+// ErrRecordMissingIDs is returned by the Update or Delete functions if an input record does
+// not have all of the IDs described on the input table.
+var ErrRecordMissingIDs error = fmt.Errorf("ksql: missing required ID fields")
+
 // ErrAbortIteration should be used inside the QueryChunks function to inform QueryChunks it should stop querying,
 // close the connection and return with no errors.
 var ErrAbortIteration error = fmt.Errorf("ksql: abort iteration, should only be used inside QueryChunks function")
