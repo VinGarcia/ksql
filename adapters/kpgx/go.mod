@@ -11,12 +11,13 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
-	github.com/jackc/pgx/v5 v5.2.0
+	github.com/jackc/pgx/v5 v5.3.1
 	github.com/lib/pq v1.10.4
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/opencontainers/runc v1.1.0 // indirect
 	github.com/ory/dockertest v3.3.5+incompatible
 	github.com/vingarcia/ksql v1.7.0
+	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gotest.tools v2.2.0+incompatible // indirect
 )
