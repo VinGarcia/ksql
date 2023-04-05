@@ -72,16 +72,18 @@ func RunTestsForAdapter(
 	connStr string,
 	newDBAdapter func(t *testing.T) (DBAdapter, io.Closer),
 ) {
-	t.Run(adapterName+"."+dialect.DriverName(), func(t *testing.T) {
-		QueryTest(t, dialect, connStr, newDBAdapter)
-		QueryOneTest(t, dialect, connStr, newDBAdapter)
-		InsertTest(t, dialect, connStr, newDBAdapter)
-		DeleteTest(t, dialect, connStr, newDBAdapter)
-		PatchTest(t, dialect, connStr, newDBAdapter)
-		QueryChunksTest(t, dialect, connStr, newDBAdapter)
-		TransactionTest(t, dialect, connStr, newDBAdapter)
-		ModifiersTest(t, dialect, connStr, newDBAdapter)
-		ScanRowsTest(t, dialect, connStr, newDBAdapter)
+	t.Run(adapterName, func(t *testing.T) {
+		t.Run(dialect.DriverName(), func(t *testing.T) {
+			QueryTest(t, dialect, connStr, newDBAdapter)
+			QueryOneTest(t, dialect, connStr, newDBAdapter)
+			InsertTest(t, dialect, connStr, newDBAdapter)
+			DeleteTest(t, dialect, connStr, newDBAdapter)
+			PatchTest(t, dialect, connStr, newDBAdapter)
+			QueryChunksTest(t, dialect, connStr, newDBAdapter)
+			TransactionTest(t, dialect, connStr, newDBAdapter)
+			ModifiersTest(t, dialect, connStr, newDBAdapter)
+			ScanRowsTest(t, dialect, connStr, newDBAdapter)
+		})
 	})
 }
 
