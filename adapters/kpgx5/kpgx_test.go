@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ory/dockertest"
 	"github.com/ory/dockertest/docker"
 	"github.com/vingarcia/ksql"
@@ -21,7 +21,7 @@ func TestAdapter(t *testing.T) {
 	defer closePostgres()
 
 	ksql.RunTestsForAdapter(t, "kpgx", sqldialect.PostgresDialect{}, postgresURL, func(t *testing.T) (ksql.DBAdapter, io.Closer) {
-		pool, err := pgxpool.Connect(context.TODO(), postgresURL)
+		pool, err := pgxpool.New(context.TODO(), postgresURL)
 		if err != nil {
 			t.Fatal(err.Error())
 		}

@@ -3,7 +3,7 @@ package kpgx
 import (
 	"context"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vingarcia/ksql"
 	"github.com/vingarcia/ksql/sqldialect"
 
@@ -32,7 +32,7 @@ func New(
 
 	pgxConf.MaxConns = int32(config.MaxOpenConns)
 
-	pool, err := pgxpool.ConnectConfig(ctx, pgxConf)
+	pool, err := pgxpool.NewWithConfig(ctx, pgxConf)
 	if err != nil {
 		return ksql.DB{}, err
 	}
