@@ -9,10 +9,10 @@ test: setup go-mod-tidy
 	$(GOBIN)/richgo test $(path) $(args)
 	@( cd benchmarks ; $(GOBIN)/richgo test $(path) $(args) )
 	@( cd examples ; $(GOBIN)/richgo test $(path) $(args) )
-	@( cd adapters/kpgx ; $(GOBIN)/richgo test $(path) $(args) )
-	@( cd adapters/kmysql ; $(GOBIN)/richgo test $(path) $(args) )
-	@( cd adapters/ksqlserver ; $(GOBIN)/richgo test $(path) $(args) )
-	@( cd adapters/ksqlite3 ; $(GOBIN)/richgo test $(path) $(args) )
+	@( cd adapters/kpgx ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
+	@( cd adapters/kmysql ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
+	@( cd adapters/ksqlserver ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
+	@( cd adapters/ksqlite3 ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
 
 bench: go-mod-tidy
 	@make --no-print-directory -C benchmarks TIME=$(TIME) | tee benchmark.tmp
