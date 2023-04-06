@@ -17,7 +17,7 @@ func init() {
 
 	// These are the builtin modifiers:
 
-	// This one is useful for serializing/desserializing structs:
+	// This one is useful for serializing/deserializing structs:
 	modifiers.Store("json", jsonModifier)
 	modifiers.Store("json/nullable", jsonNullableModifier)
 
