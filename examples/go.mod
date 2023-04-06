@@ -13,7 +13,7 @@ replace (
 require (
 	github.com/golang/mock v1.6.0
 	github.com/stretchr/testify v1.8.1
-	github.com/vingarcia/ksql v1.7.0
+	github.com/vingarcia/ksql v1.7.1
 	github.com/vingarcia/ksql/adapters/kmysql v0.0.0-00010101000000-000000000000
 	github.com/vingarcia/ksql/adapters/kpgx v0.0.0-00010101000000-000000000000
 	github.com/vingarcia/ksql/adapters/ksqlite3 v0.0.0-00010101000000-000000000000

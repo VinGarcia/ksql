@@ -4,5 +4,5 @@ go 1.14
 
 require (
 	github.com/mattn/go-sqlite3 v1.14.12
-	github.com/vingarcia/ksql v1.7.0
+	github.com/vingarcia/ksql v1.7.1
 )
