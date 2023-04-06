@@ -40,6 +40,5 @@ func New(
 		return ksql.DB{}, err
 	}
 
-	db, err = ksql.NewWithAdapter(NewPGXAdapter(pool), sqldialect.PostgresDialect{})
-	return db, err
+	return ksql.NewWithAdapter(NewPGXAdapter(pool), sqldialect.PostgresDialect{})
 }
