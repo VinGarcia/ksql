@@ -53,8 +53,6 @@ type Mock struct {
 	PatchFn  func(ctx context.Context, table Table, record interface{}) error
 	DeleteFn func(ctx context.Context, table Table, idOrRecord interface{}) error
 
-	UpdateFn func(ctx context.Context, table Table, record interface{}) error
-
 	QueryFn       func(ctx context.Context, records interface{}, query string, params ...interface{}) error
 	QueryOneFn    func(ctx context.Context, record interface{}, query string, params ...interface{}) error
 	QueryChunksFn func(ctx context.Context, parser ChunkParser) error
@@ -93,7 +91,7 @@ type MockResult struct {
 //	}
 //
 //	mockdb := ksql.Mock{
-//		UpdateFn: func(_ context.Context, _ ksql.Table, record interface{}) error {
+//		PatchFn: func(_ context.Context, _ ksql.Table, record interface{}) error {
 //			return ksql.ErrRecordNotFound
 //		},
 //	}.SetFallbackDatabase(db)
@@ -110,10 +108,6 @@ func (m Mock) SetFallbackDatabase(db Provider) Mock {
 	}
 	if m.DeleteFn == nil {
 		m.DeleteFn = db.Delete
-	}
-
-	if m.UpdateFn == nil {
-		m.UpdateFn = db.Update
 	}
 
 	if m.QueryFn == nil {
@@ -164,16 +158,6 @@ func (m Mock) Delete(ctx context.Context, table Table, idOrRecord interface{}) e
 		panic(fmt.Errorf("ksql.Mock.Delete(ctx, %v, %v) called but the ksql.Mock.DeleteFn() is not set", table, idOrRecord))
 	}
 	return m.DeleteFn(ctx, table, idOrRecord)
-}
-
-// Update mocks the behavior of the Update method.
-// If UpdateFn is set it will just call it returning the same return values.
-// If UpdateFn is unset it will panic with an appropriate error message.
-func (m Mock) Update(ctx context.Context, table Table, record interface{}) error {
-	if m.UpdateFn == nil {
-		panic(fmt.Errorf("ksql.Mock.Update(ctx, %v, %v) called but the ksql.Mock.UpdateFn() is not set", table, record))
-	}
-	return m.UpdateFn(ctx, table, record)
 }
 
 // Query mocks the behavior of the Query method.

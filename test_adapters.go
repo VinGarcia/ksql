@@ -1608,7 +1608,7 @@ func PatchTest(
 			tt.AssertNoErr(t, err)
 			tt.AssertNotEqual(t, u.ID, uint(0))
 
-			err = c.Update(ctx, usersTable, user{
+			err = c.Patch(ctx, usersTable, user{
 				ID:   u.ID,
 				Name: "Thayane",
 			})
@@ -1636,7 +1636,7 @@ func PatchTest(
 			tt.AssertNoErr(t, err)
 			tt.AssertNotEqual(t, u.ID, uint(0))
 
-			err = c.Update(ctx, usersTable, &user{
+			err = c.Patch(ctx, usersTable, &user{
 				ID:   u.ID,
 				Name: "Thayane",
 			})
@@ -1666,7 +1666,7 @@ func PatchTest(
 			tt.AssertNotEqual(t, existingPerm.ID, 0)
 			tt.AssertEqual(t, existingPerm.Type, "existingFakeType")
 
-			err = c.Update(ctx, NewTable("user_permissions", "id", "user_id", "perm_id"), &userPermission{
+			err = c.Patch(ctx, NewTable("user_permissions", "id", "user_id", "perm_id"), &userPermission{
 				ID:     existingPerm.ID,
 				UserID: 42,
 				PermID: 43,
@@ -1704,7 +1704,7 @@ func PatchTest(
 			tt.AssertNoErr(t, err)
 			tt.AssertNotEqual(t, u.ID, uint(0))
 
-			err = c.Update(ctx, usersTable, partialUser{
+			err = c.Patch(ctx, usersTable, partialUser{
 				ID: u.ID,
 				// Should be updated because it is not null, just empty:
 				Name: "",
@@ -1741,7 +1741,7 @@ func PatchTest(
 			tt.AssertNotEqual(t, u.ID, uint(0))
 
 			// Should update all fields:
-			err = c.Update(ctx, usersTable, partialUser{
+			err = c.Patch(ctx, usersTable, partialUser{
 				ID:   u.ID,
 				Name: "Thay",
 				Age:  nullable.Int(42),
@@ -1762,7 +1762,7 @@ func PatchTest(
 
 			c := newTestDB(db, dialect)
 
-			err = c.Update(ctx, usersTable, user{
+			err = c.Patch(ctx, usersTable, user{
 				ID:   4200,
 				Name: "Thayane",
 			})
@@ -1775,7 +1775,7 @@ func PatchTest(
 
 			c := newTestDB(db, dialect)
 
-			err = c.Update(ctx, NewTable("non_existing_table"), user{
+			err = c.Patch(ctx, NewTable("non_existing_table"), user{
 				ID:   1,
 				Name: "Thayane",
 			})
@@ -1789,7 +1789,7 @@ func PatchTest(
 			c := newTestDB(db, dialect)
 
 			var u *user
-			err := c.Update(ctx, usersTable, u)
+			err := c.Patch(ctx, usersTable, u)
 			tt.AssertNotEqual(t, err, nil)
 		})
 
@@ -1799,7 +1799,7 @@ func PatchTest(
 
 			c := newTestDB(db, dialect)
 
-			err = c.Update(ctx, usersTable, struct {
+			err = c.Patch(ctx, usersTable, struct {
 				ID   uint   `ksql:"id"`               // ID fields are not updated
 				Name string `ksql:"name,skipUpdates"` // the skipUpdate modifier should rule this one out
 				Age  *int   `ksql:"age"`              // Age is a nil pointer so it would not be updated
@@ -1817,7 +1817,7 @@ func PatchTest(
 
 				c := newTestDB(db, dialect)
 
-				err := c.Update(ctx, usersTable, &user{
+				err := c.Patch(ctx, usersTable, &user{
 					// Missing ID
 					Name: "Jane",
 				})
@@ -1830,7 +1830,7 @@ func PatchTest(
 
 				c := newTestDB(db, dialect)
 
-				err := c.Update(ctx, NewTable("user_permissions", "id", "user_id", "perm_id"), &userPermission{
+				err := c.Patch(ctx, NewTable("user_permissions", "id", "user_id", "perm_id"), &userPermission{
 					ID: 1,
 					// Missing UserID
 					PermID: 42,
@@ -1846,7 +1846,7 @@ func PatchTest(
 
 				c := newTestDB(db, dialect)
 
-				err := c.Update(ctx, usersTable, &struct {
+				err := c.Patch(ctx, usersTable, &struct {
 					// Missing ID
 					Name string `ksql:"name"`
 				}{
@@ -1861,7 +1861,7 @@ func PatchTest(
 
 				c := newTestDB(db, dialect)
 
-				err := c.Update(ctx, NewTable("user_permissions", "id", "user_id", "perm_id"), &struct {
+				err := c.Patch(ctx, NewTable("user_permissions", "id", "user_id", "perm_id"), &struct {
 					ID int `ksql:"id"`
 					// Missing UserID
 					PermID int `ksql:"perm_id"`
@@ -1882,7 +1882,7 @@ func PatchTest(
 
 			c := newTestDB(db, dialect)
 
-			err = c.Update(ctx, usersTable, user{
+			err = c.Patch(ctx, usersTable, user{
 				ID:   1,
 				Name: "Thayane",
 			})

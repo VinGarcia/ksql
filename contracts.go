@@ -9,7 +9,7 @@ import (
 )
 
 // ErrRecordNotFound informs that a given query failed because the record was not found.
-// This error can be returned by the following methods: Update(), QueryOne() and Delete().
+// This error can be returned by the following methods: Patch(), QueryOne() and Delete().
 var ErrRecordNotFound error = fmt.Errorf("ksql: the query returned no results: %w", sql.ErrNoRows)
 
 // ErrNoValuesToUpdate informs the error of trying to make an update that would not change any attributes.
@@ -41,9 +41,6 @@ type Provider interface {
 	Patch(ctx context.Context, table Table, record interface{}) error
 	Delete(ctx context.Context, table Table, idOrRecord interface{}) error
 
-	// Deprecated: use the Patch() method instead.
-	Update(ctx context.Context, table Table, record interface{}) error
-
 	Query(ctx context.Context, records interface{}, query string, params ...interface{}) error
 	QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error
 	QueryChunks(ctx context.Context, parser ChunkParser) error
@@ -56,7 +53,7 @@ type Provider interface {
 // deleting entities from the database by ID using the 3 helper functions
 // created for that purpose.
 type Table struct {
-	// this name must be set in order to use the Insert, Delete and Update helper
+	// this name must be set in order to use the Insert, Delete and Patch helper
 	// functions. If you only intend to make queries or to use the Exec function
 	// it is safe to leave this field unset.
 	name string
@@ -73,7 +70,7 @@ type Table struct {
 // This Table is required only for using the helper methods:
 //
 // - Insert
-// - Update
+// - Patch
 // - Delete
 //
 // Passing multiple ID columns will be interpreted

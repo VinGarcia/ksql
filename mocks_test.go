@@ -50,22 +50,6 @@ func TestMock(t *testing.T) {
 			tt.AssertErrContains(t, err, "ksql.Mock.Patch(", "ksql.Mock.PatchFn", "not set")
 		})
 
-		t.Run("Update should panic", func(t *testing.T) {
-			ctx := context.Background()
-			mock := ksql.Mock{}
-			panicPayload := tt.PanicHandler(func() {
-				mock.Update(ctx, UsersTable, &User{
-					ID:   4242,
-					Name: "fake-name",
-					Age:  42,
-				})
-			})
-
-			err, ok := panicPayload.(error)
-			tt.AssertEqual(t, ok, true)
-			tt.AssertErrContains(t, err, "ksql.Mock.Update(", "ksql.Mock.UpdateFn", "not set")
-		})
-
 		t.Run("Delete should panic", func(t *testing.T) {
 			ctx := context.Background()
 			mock := ksql.Mock{}
@@ -206,37 +190,6 @@ func TestMock(t *testing.T) {
 				},
 			}
 			err := mock.Patch(ctx, UsersTable, &User{
-				ID:   4242,
-				Name: "fake-name",
-				Age:  42,
-			})
-
-			tt.AssertErrContains(t, err, "fake-error")
-			tt.AssertEqual(t, capturedArgs.ctx, ctx)
-			tt.AssertEqual(t, capturedArgs.table, UsersTable)
-			tt.AssertEqual(t, capturedArgs.record, &User{
-				ID:   4242,
-				Name: "fake-name",
-				Age:  42,
-			})
-		})
-
-		t.Run("Update", func(t *testing.T) {
-			ctx := context.Background()
-			var capturedArgs struct {
-				ctx    context.Context
-				table  ksql.Table
-				record interface{}
-			}
-			mock := ksql.Mock{
-				UpdateFn: func(ctx context.Context, table ksql.Table, record interface{}) error {
-					capturedArgs.ctx = ctx
-					capturedArgs.table = table
-					capturedArgs.record = record
-					return fmt.Errorf("fake-error")
-				},
-			}
-			err := mock.Update(ctx, UsersTable, &User{
 				ID:   4242,
 				Name: "fake-name",
 				Age:  42,
@@ -431,8 +384,8 @@ func TestMock(t *testing.T) {
 			InsertFn: func(ctx context.Context, table ksql.Table, record interface{}) error {
 				return fmt.Errorf("called from InsertFn")
 			},
-			UpdateFn: func(ctx context.Context, table ksql.Table, record interface{}) error {
-				return fmt.Errorf("called from UpdateFn")
+			PatchFn: func(ctx context.Context, table ksql.Table, record interface{}) error {
+				return fmt.Errorf("called from PatchFn")
 			},
 			DeleteFn: func(ctx context.Context, table ksql.Table, record interface{}) error {
 				return fmt.Errorf("called from DeleteFn")
@@ -460,8 +413,8 @@ func TestMock(t *testing.T) {
 		var user User
 		err := testMock.Insert(ctx, UsersTable, &user)
 		tt.AssertErrContains(t, err, "called from InsertFn")
-		err = testMock.Update(ctx, UsersTable, &user)
-		tt.AssertErrContains(t, err, "called from UpdateFn")
+		err = testMock.Patch(ctx, UsersTable, &user)
+		tt.AssertErrContains(t, err, "called from PatchFn")
 		err = testMock.Delete(ctx, UsersTable, &user)
 		tt.AssertErrContains(t, err, "called from DeleteFn")
 
