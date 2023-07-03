@@ -68,3 +68,7 @@ $(GOBIN)/mockgen:
 # Running examples:
 exampleservice: mock
 	$(GOPATH)/bin/richgo test ./examples/example_service/...
+
+PG_URL=
+pgxsupport:
+	go run ./examples/pgxsupport/.
