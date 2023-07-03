@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/jackc/pgtype"
 	"github.com/vingarcia/ksql"
 	"github.com/vingarcia/ksql/adapters/kpgx"
 )
@@ -84,29 +85,27 @@ func main() {
 		panic(err.Error())
 	}
 
-	userID := u.ID
+	checkIfUserBelongsToTeams(ctx, db, u.ID, []int{1, 2, 42})
+}
 
-	// The example below illustrates how it is possible to use pgx
-	// special support to slices Inside a query:
-
-	// Find user iff user belongs to either team on the input list:
-	var user User
-	err = db.QueryOne(ctx, &user,
-		`SELECT u.*
+func checkIfUserBelongsToTeams(ctx context.Context, db ksql.Provider, userID int, teamIDs []int) {
+	// Check if user belongs to either of the input teams:
+	var row struct {
+		Count pgtype.Int8 `ksql:"c"`
+	}
+	err := db.QueryOne(ctx, &row,
+		`SELECT count(*) as c
 		FROM users AS u
 		JOIN team_members AS tm
 			ON u.id = tm.user_id
 		WHERE u.id = $1
 			AND tm.team_id = ANY($2)`,
 		userID,
-		[]int{1, 2, 42},
+		[]int{1, 2, 42}, // Int slices are supported by PGX
 	)
-	if err == ksql.ErrRecordNotFound {
-		fmt.Println("Input user does not exist or does not belong to any of the provided teams")
-		return
-	} else if err != nil {
+	if err != nil {
 		log.Fatalf("unexpected error: %s", err)
 	}
 
-	fmt.Printf("Found user: %+v\n", user)
+	fmt.Printf("Count: %+v\n", row.Count.Int)
 }
