@@ -47,6 +47,19 @@ func AssertErrContains(t *testing.T, err error, substrs ...string) {
 	}
 }
 
+// AssertContains will check if the input text contains
+// all the substrs specified on the substrs argument or
+// fail with an appropriate error message.
+func AssertContains(t *testing.T, str string, substrs ...string) {
+	for _, substr := range substrs {
+		require.True(t,
+			strings.Contains(str, substr),
+			"missing substring '%s' in error message: '%s'",
+			substr, str,
+		)
+	}
+}
+
 // AssertApproxDuration checks if the durations v1 and v2 are close up to the tolerance specified.
 // The format and args slice can be used for generating an appropriate error message if they are not.
 func AssertApproxDuration(t *testing.T, tolerance time.Duration, v1, v2 time.Duration, format string, args ...interface{}) {

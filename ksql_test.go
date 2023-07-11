@@ -2,6 +2,7 @@ package ksql
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"testing"
@@ -103,39 +104,107 @@ func TestClose(t *testing.T) {
 func TestInjectLogger(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("should work for the Query function", func(t *testing.T) {
-		var inputQuery string
-		var inputParams []interface{}
-		c := DB{
-			db: mockDBAdapter{
-				QueryContextFn: func(ctx context.Context, query string, params ...interface{}) (Rows, error) {
-					inputQuery = query
-					inputParams = params
+	tests := []struct {
+		desc       string
+		logLevel   string
+		methodCall func(ctx context.Context, db Provider) error
+		queryErr   error
 
-					return mockRows{
-						NextFn: func() bool { return false },
-					}, nil
-				},
+		expectLoggedQueryToContain []string
+		expectLoggedParams         []interface{}
+		expectLoggedErrToContain   []string
+	}{
+		{
+			desc:     "should work for the Query function",
+			logLevel: "info",
+			methodCall: func(ctx context.Context, db Provider) error {
+				var row []struct {
+					Count int `ksql:"count"`
+				}
+				return db.Query(ctx, &row, `SELECT count(*) AS count FROM users WHERE type = $1 AND age < $2`, "fakeType", 42)
 			},
-		}
 
-		var loggedQuery string
-		var loggedParams []interface{}
-		var loggedErr error
-		ctx := InjectLogger(ctx, "info", func(ctx context.Context, values LogValues) {
-			loggedQuery = values.Query
-			loggedParams = values.Params
-			loggedErr = values.Err
+			expectLoggedQueryToContain: []string{"count(*)", "type = $1"},
+			expectLoggedParams:         []interface{}{"fakeType", 42},
+		},
+		{
+			desc:     "should work for the Query function when an error is returned",
+			logLevel: "info",
+			methodCall: func(ctx context.Context, db Provider) error {
+				var row []struct {
+					Count int `ksql:"count"`
+				}
+				return db.Query(ctx, &row, `SELECT count(*) AS count FROM users WHERE type = $1 AND age < $2`, "fakeType", 42)
+			},
+			queryErr: errors.New("fakeErrMsg"),
+
+			expectLoggedQueryToContain: []string{"count(*)", "type = $1"},
+			expectLoggedParams:         []interface{}{"fakeType", 42},
+			expectLoggedErrToContain:   []string{"fakeErrMsg"},
+		},
+		{
+			desc:     "should work for the Query function when an error is returned with error level",
+			logLevel: "error",
+			methodCall: func(ctx context.Context, db Provider) error {
+				var row []struct {
+					Count int `ksql:"count"`
+				}
+				return db.Query(ctx, &row, `SELECT count(*) AS count FROM users WHERE type = $1 AND age < $2`, "fakeType", 42)
+			},
+			queryErr: errors.New("fakeErrMsg"),
+
+			expectLoggedQueryToContain: []string{"count(*)", "type = $1"},
+			expectLoggedParams:         []interface{}{"fakeType", 42},
+			expectLoggedErrToContain:   []string{"fakeErrMsg"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			var inputQuery string
+			var inputParams []interface{}
+			c := DB{
+				db: mockDBAdapter{
+					QueryContextFn: func(ctx context.Context, query string, params ...interface{}) (Rows, error) {
+						inputQuery = query
+						inputParams = params
+
+						return mockRows{
+							NextFn: func() bool { return false },
+						}, test.queryErr
+					},
+					ExecContextFn: func(ctx context.Context, query string, params ...interface{}) (Result, error) {
+						inputQuery = query
+						inputParams = params
+
+						return mockResult{}, test.queryErr
+					},
+				},
+			}
+
+			var loggedQuery string
+			var loggedParams []interface{}
+			var loggedErr error
+			ctx := InjectLogger(ctx, "info", func(ctx context.Context, values LogValues) {
+				loggedQuery = values.Query
+				loggedParams = values.Params
+				loggedErr = values.Err
+			})
+
+			err := test.methodCall(ctx, c)
+			if test.expectLoggedErrToContain != nil {
+				tt.AssertErrContains(t, err, test.expectLoggedErrToContain...)
+				tt.AssertErrContains(t, loggedErr, test.expectLoggedErrToContain...)
+			} else {
+				tt.AssertNoErr(t, err)
+				tt.AssertEqual(t, loggedErr, nil)
+			}
+
+			tt.AssertEqual(t, loggedQuery, inputQuery)
+			tt.AssertEqual(t, loggedParams, inputParams)
+
+			tt.AssertContains(t, loggedQuery, test.expectLoggedQueryToContain...)
+			tt.AssertEqual(t, loggedParams, test.expectLoggedParams)
 		})
-
-		var row []struct {
-			Count int `ksql:"count"`
-		}
-		err := c.Query(ctx, &row, `SELECT count(*) AS count FROM users WHERE type = $1 AND age < $2`, "fakeType", 42)
-		tt.AssertNoErr(t, err)
-		tt.AssertEqual(t, len(row), 0)
-		tt.AssertEqual(t, loggedQuery, inputQuery)
-		tt.AssertEqual(t, loggedParams, inputParams)
-		tt.AssertEqual(t, loggedErr, nil)
-	})
+	}
 }
