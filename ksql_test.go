@@ -1,6 +1,7 @@
 package ksql
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"testing"
@@ -96,5 +97,45 @@ func TestClose(t *testing.T) {
 
 		err := c.Close()
 		tt.AssertErrContains(t, err, "fakeCloseErrMsg")
+	})
+}
+
+func TestInjectLogger(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("should work for the Query function", func(t *testing.T) {
+		var inputQuery string
+		var inputParams []interface{}
+		c := DB{
+			db: mockDBAdapter{
+				QueryContextFn: func(ctx context.Context, query string, params ...interface{}) (Rows, error) {
+					inputQuery = query
+					inputParams = params
+
+					return mockRows{
+						NextFn: func() bool { return false },
+					}, nil
+				},
+			},
+		}
+
+		var loggedQuery string
+		var loggedParams []interface{}
+		var loggedErr error
+		ctx := InjectLogger(ctx, "info", func(ctx context.Context, values LogValues) {
+			loggedQuery = values.Query
+			loggedParams = values.Params
+			loggedErr = values.Err
+		})
+
+		var row []struct {
+			Count int `ksql:"count"`
+		}
+		err := c.Query(ctx, &row, `SELECT count(*) AS count FROM users WHERE type = $1 AND age < $2`, "fakeType", 42)
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, len(row), 0)
+		tt.AssertEqual(t, loggedQuery, inputQuery)
+		tt.AssertEqual(t, loggedParams, inputParams)
+		tt.AssertEqual(t, loggedErr, nil)
 	})
 }
