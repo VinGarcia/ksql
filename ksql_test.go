@@ -106,17 +106,15 @@ func TestInjectLogger(t *testing.T) {
 
 	tests := []struct {
 		desc       string
-		logLevel   string
 		methodCall func(ctx context.Context, db Provider) error
 		queryErr   error
 
 		expectLoggedQueryToContain []string
-		expectLoggedParams         []interface{}
+		expectLoggedParams         map[interface{}]bool
 		expectLoggedErrToContain   []string
 	}{
 		{
-			desc:     "should work for the Query function",
-			logLevel: "info",
+			desc: "should work for the Query function",
 			methodCall: func(ctx context.Context, db Provider) error {
 				var row []struct {
 					Count int `ksql:"count"`
@@ -125,26 +123,10 @@ func TestInjectLogger(t *testing.T) {
 			},
 
 			expectLoggedQueryToContain: []string{"SELECT", "count", "type = $1"},
-			expectLoggedParams:         []interface{}{"fakeType", 42},
+			expectLoggedParams:         map[interface{}]bool{"fakeType": true, 42: true},
 		},
 		{
-			desc:     "should work for the Query function when an error is returned",
-			logLevel: "info",
-			methodCall: func(ctx context.Context, db Provider) error {
-				var row []struct {
-					Count int `ksql:"count"`
-				}
-				return db.Query(ctx, &row, `FROM users WHERE type = $1 AND age < $2`, "fakeType", 42)
-			},
-			queryErr: errors.New("fakeErrMsg"),
-
-			expectLoggedQueryToContain: []string{"SELECT", "count", "type = $1"},
-			expectLoggedParams:         []interface{}{"fakeType", 42},
-			expectLoggedErrToContain:   []string{"fakeErrMsg"},
-		},
-		{
-			desc:     "should work for the Query function when an error is returned with error level",
-			logLevel: "error",
+			desc: "should work for the Query function when an error is returned",
 			methodCall: func(ctx context.Context, db Provider) error {
 				var row []struct {
 					Count int `ksql:"count"`
@@ -154,12 +136,11 @@ func TestInjectLogger(t *testing.T) {
 			queryErr: errors.New("fakeErrMsg"),
 
 			expectLoggedQueryToContain: []string{"SELECT", "count", "type = $1"},
-			expectLoggedParams:         []interface{}{"fakeType", 42},
+			expectLoggedParams:         map[interface{}]bool{"fakeType": true, 42: true},
 			expectLoggedErrToContain:   []string{"fakeErrMsg"},
 		},
 		{
-			desc:     "should work for the QueryOne function",
-			logLevel: "info",
+			desc: "should work for the QueryOne function",
 			methodCall: func(ctx context.Context, db Provider) error {
 				var row struct {
 					Count int `ksql:"count"`
@@ -168,11 +149,10 @@ func TestInjectLogger(t *testing.T) {
 			},
 
 			expectLoggedQueryToContain: []string{"SELECT", "count", "type = $1"},
-			expectLoggedParams:         []interface{}{"fakeType", 42},
+			expectLoggedParams:         map[interface{}]bool{"fakeType": true, 42: true},
 		},
 		{
-			desc:     "should work for the QueryOne function when an error is returned",
-			logLevel: "info",
+			desc: "should work for the QueryOne function when an error is returned",
 			methodCall: func(ctx context.Context, db Provider) error {
 				var row struct {
 					Count int `ksql:"count"`
@@ -182,22 +162,109 @@ func TestInjectLogger(t *testing.T) {
 			queryErr: errors.New("fakeErrMsg"),
 
 			expectLoggedQueryToContain: []string{"SELECT", "count", "type = $1"},
-			expectLoggedParams:         []interface{}{"fakeType", 42},
+			expectLoggedParams:         map[interface{}]bool{"fakeType": true, 42: true},
 			expectLoggedErrToContain:   []string{"fakeErrMsg"},
 		},
 		{
-			desc:     "should work for the QueryOne function when an error is returned with error level",
-			logLevel: "error",
+			desc: "should work for the Insert function",
 			methodCall: func(ctx context.Context, db Provider) error {
-				var row struct {
+				fakeRecord := struct {
+					ID    int `ksql:"id"`
 					Count int `ksql:"count"`
+				}{
+					ID:    42,
+					Count: 43,
 				}
-				return db.QueryOne(ctx, &row, `FROM users WHERE type = $1 AND age < $2`, "fakeType", 42)
+				return db.Insert(ctx, NewTable("fakeTable"), &fakeRecord)
+			},
+
+			expectLoggedQueryToContain: []string{"INSERT", "fakeTable", `"id"`},
+			expectLoggedParams:         map[interface{}]bool{42: true, 43: true},
+		},
+		{
+			desc: "should work for the Insert function when an error is returned",
+			methodCall: func(ctx context.Context, db Provider) error {
+				fakeRecord := struct {
+					ID    int `ksql:"id"`
+					Count int `ksql:"count"`
+				}{
+					ID:    42,
+					Count: 43,
+				}
+				return db.Insert(ctx, NewTable("fakeTable"), &fakeRecord)
 			},
 			queryErr: errors.New("fakeErrMsg"),
 
-			expectLoggedQueryToContain: []string{"SELECT", "count", "type = $1"},
-			expectLoggedParams:         []interface{}{"fakeType", 42},
+			expectLoggedQueryToContain: []string{"INSERT", "fakeTable", `"id"`},
+			expectLoggedParams:         map[interface{}]bool{42: true, 43: true},
+			expectLoggedErrToContain:   []string{"fakeErrMsg"},
+		},
+		{
+			desc: "should work for the Patch function",
+			methodCall: func(ctx context.Context, db Provider) error {
+				fakeRecord := struct {
+					ID    int `ksql:"id"`
+					Count int `ksql:"count"`
+				}{
+					ID:    42,
+					Count: 43,
+				}
+				return db.Patch(ctx, NewTable("fakeTable"), &fakeRecord)
+			},
+
+			expectLoggedQueryToContain: []string{"UPDATE", "fakeTable", `"id"`},
+			expectLoggedParams:         map[interface{}]bool{42: true, 43: true},
+		},
+		{
+			desc: "should work for the Patch function when an error is returned",
+			methodCall: func(ctx context.Context, db Provider) error {
+				fakeRecord := struct {
+					ID    int `ksql:"id"`
+					Count int `ksql:"count"`
+				}{
+					ID:    42,
+					Count: 43,
+				}
+				return db.Patch(ctx, NewTable("fakeTable"), &fakeRecord)
+			},
+			queryErr: errors.New("fakeErrMsg"),
+
+			expectLoggedQueryToContain: []string{"UPDATE", "fakeTable", `"id"`},
+			expectLoggedParams:         map[interface{}]bool{42: true, 43: true},
+			expectLoggedErrToContain:   []string{"fakeErrMsg"},
+		},
+		{
+			desc: "should work for the Delete function",
+			methodCall: func(ctx context.Context, db Provider) error {
+				fakeRecord := struct {
+					ID    int `ksql:"id"`
+					Count int `ksql:"count"`
+				}{
+					ID:    42,
+					Count: 43,
+				}
+				return db.Delete(ctx, NewTable("fakeTable"), &fakeRecord)
+			},
+
+			expectLoggedQueryToContain: []string{"DELETE", "fakeTable", `"id"`},
+			expectLoggedParams:         map[interface{}]bool{42: true},
+		},
+		{
+			desc: "should work for the Delete function when an error is returned",
+			methodCall: func(ctx context.Context, db Provider) error {
+				fakeRecord := struct {
+					ID    int `ksql:"id"`
+					Count int `ksql:"count"`
+				}{
+					ID:    42,
+					Count: 43,
+				}
+				return db.Delete(ctx, NewTable("fakeTable"), &fakeRecord)
+			},
+			queryErr: errors.New("fakeErrMsg"),
+
+			expectLoggedQueryToContain: []string{"DELETE", "fakeTable", `"id"`},
+			expectLoggedParams:         map[interface{}]bool{42: true},
 			expectLoggedErrToContain:   []string{"fakeErrMsg"},
 		},
 	}
@@ -231,7 +298,13 @@ func TestInjectLogger(t *testing.T) {
 						inputQuery = query
 						inputParams = params
 
-						return mockResult{}, test.queryErr
+						return mockResult{
+							// Make sure this mock will return a single row
+							// for the purposes of this test:
+							RowsAffectedFn: func() (int64, error) {
+								return 1, nil
+							},
+						}, test.queryErr
 					},
 				},
 			}
@@ -258,7 +331,12 @@ func TestInjectLogger(t *testing.T) {
 			tt.AssertEqual(t, loggedParams, inputParams)
 
 			tt.AssertContains(t, loggedQuery, test.expectLoggedQueryToContain...)
-			tt.AssertEqual(t, loggedParams, test.expectLoggedParams)
+
+			paramsMap := map[interface{}]bool{}
+			for _, param := range loggedParams {
+				paramsMap[param] = true
+			}
+			tt.AssertEqual(t, paramsMap, test.expectLoggedParams)
 		})
 	}
 }
