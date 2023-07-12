@@ -312,7 +312,7 @@ func TestInjectLogger(t *testing.T) {
 			var loggedQuery string
 			var loggedParams []interface{}
 			var loggedErr error
-			ctx := InjectLogger(ctx, "info", func(ctx context.Context, values LogValues) {
+			ctx := InjectLogger(ctx, func(ctx context.Context, values LogValues) {
 				loggedQuery = values.Query
 				loggedParams = values.Params
 				loggedErr = values.Err
