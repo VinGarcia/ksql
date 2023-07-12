@@ -58,6 +58,23 @@ type loggerFn func(ctx context.Context, query string, params []interface{}, err 
 // InjectLogger is a debugging tool that allows the user to force
 // KSQL to log the query, query params and error response whenever
 // a query is executed.
+//
+// Example Usage:
+//
+//     ctx = ksql.InjectLogger(ctx, ksql.Logger)
+//
+//     var user User
+//     db.Insert(ctx, usersTable, &user)
+//
+//     user.Name = "NewName"
+//     db.Patch(ctx, usersTable, &user)
+//
+//     var users []User
+//     db.Query(ctx, &users, someQuery, someParams...)
+//     db.QueryOne(ctx, &user, someQuery, someParams...)
+//
+//     db.Delete(ctx, usersTable, user.ID)
+//
 func InjectLogger(
 	ctx context.Context,
 	logFn LoggerFn,
