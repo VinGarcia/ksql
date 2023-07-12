@@ -9,9 +9,11 @@ import (
 // This variable is only used during tests:
 var logPrinter = fmt.Println
 
-var _ LoggerFn = ErrorsLogger
+var _ LoggerFn = ErrorLogger
 
-func ErrorsLogger(ctx context.Context, values LogValues) {
+// ErrorLogger is a builtin logger that can be passed to
+// ksql.InjectLogger() to only log when an error occurs.
+func ErrorLogger(ctx context.Context, values LogValues) {
 	if values.Err == nil {
 		return
 	}
@@ -21,6 +23,8 @@ func ErrorsLogger(ctx context.Context, values LogValues) {
 
 var _ LoggerFn = Logger
 
+// Logger is a builtin logger that can be passed to
+// ksql.InjectLogger() to log every query and every error.
 func Logger(ctx context.Context, values LogValues) {
 	m := map[string]interface{}{
 		"query":  values.Query,
@@ -37,15 +41,23 @@ func Logger(ctx context.Context, values LogValues) {
 
 type loggerKey struct{}
 
+// LogValues is the argument type of ksql.LoggerFn which contains
+// the data available for logging whenever a query is executed.
 type LogValues struct {
 	Query  string
 	Params []interface{}
 	Err    error
 }
 
+// LoggerFn is a the type of function received as
+// argument of the ksql.InjectLogger function.
 type LoggerFn func(ctx context.Context, values LogValues)
+
 type loggerFn func(ctx context.Context, query string, params []interface{}, err error)
 
+// InjectLogger is a debugging tool that allows the user to force
+// KSQL to log the query, query params and error response whenever
+// a query is executed.
 func InjectLogger(
 	ctx context.Context,
 	logFn LoggerFn,

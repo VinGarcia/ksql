@@ -68,7 +68,7 @@ func TestBuiltinLoggers(t *testing.T) {
 				return 0, nil
 			}
 
-			ErrorsLogger(ctx, LogValues{
+			ErrorLogger(ctx, LogValues{
 				Query:  "FakeQuery",
 				Params: []interface{}{"FakeParam"},
 			})
@@ -83,7 +83,7 @@ func TestBuiltinLoggers(t *testing.T) {
 				return 0, nil
 			}
 
-			ErrorsLogger(ctx, LogValues{
+			ErrorLogger(ctx, LogValues{
 				Query:  "FakeQuery",
 				Params: []interface{}{"FakeParam"},
 				Err:    errors.New("fakeErrMsg"),
