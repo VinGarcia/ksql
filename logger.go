@@ -1,6 +1,9 @@
 package ksql
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 type loggerKey struct{}
 
@@ -15,7 +18,9 @@ func InjectLogger(
 	level string,
 	logFn func(ctx context.Context, values LogValues),
 ) context.Context {
+	level = strings.ToLower(level)
 	if level != "info" {
+		// Default to the least verbose level:
 		level = "error"
 	}
 

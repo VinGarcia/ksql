@@ -121,10 +121,10 @@ func TestInjectLogger(t *testing.T) {
 				var row []struct {
 					Count int `ksql:"count"`
 				}
-				return db.Query(ctx, &row, `SELECT count(*) AS count FROM users WHERE type = $1 AND age < $2`, "fakeType", 42)
+				return db.Query(ctx, &row, `FROM users WHERE type = $1 AND age < $2`, "fakeType", 42)
 			},
 
-			expectLoggedQueryToContain: []string{"count(*)", "type = $1"},
+			expectLoggedQueryToContain: []string{"SELECT", "count", "type = $1"},
 			expectLoggedParams:         []interface{}{"fakeType", 42},
 		},
 		{
@@ -134,11 +134,11 @@ func TestInjectLogger(t *testing.T) {
 				var row []struct {
 					Count int `ksql:"count"`
 				}
-				return db.Query(ctx, &row, `SELECT count(*) AS count FROM users WHERE type = $1 AND age < $2`, "fakeType", 42)
+				return db.Query(ctx, &row, `FROM users WHERE type = $1 AND age < $2`, "fakeType", 42)
 			},
 			queryErr: errors.New("fakeErrMsg"),
 
-			expectLoggedQueryToContain: []string{"count(*)", "type = $1"},
+			expectLoggedQueryToContain: []string{"SELECT", "count", "type = $1"},
 			expectLoggedParams:         []interface{}{"fakeType", 42},
 			expectLoggedErrToContain:   []string{"fakeErrMsg"},
 		},
@@ -149,11 +149,54 @@ func TestInjectLogger(t *testing.T) {
 				var row []struct {
 					Count int `ksql:"count"`
 				}
-				return db.Query(ctx, &row, `SELECT count(*) AS count FROM users WHERE type = $1 AND age < $2`, "fakeType", 42)
+				return db.Query(ctx, &row, `FROM users WHERE type = $1 AND age < $2`, "fakeType", 42)
 			},
 			queryErr: errors.New("fakeErrMsg"),
 
-			expectLoggedQueryToContain: []string{"count(*)", "type = $1"},
+			expectLoggedQueryToContain: []string{"SELECT", "count", "type = $1"},
+			expectLoggedParams:         []interface{}{"fakeType", 42},
+			expectLoggedErrToContain:   []string{"fakeErrMsg"},
+		},
+		{
+			desc:     "should work for the QueryOne function",
+			logLevel: "info",
+			methodCall: func(ctx context.Context, db Provider) error {
+				var row struct {
+					Count int `ksql:"count"`
+				}
+				return db.QueryOne(ctx, &row, `FROM users WHERE type = $1 AND age < $2`, "fakeType", 42)
+			},
+
+			expectLoggedQueryToContain: []string{"SELECT", "count", "type = $1"},
+			expectLoggedParams:         []interface{}{"fakeType", 42},
+		},
+		{
+			desc:     "should work for the QueryOne function when an error is returned",
+			logLevel: "info",
+			methodCall: func(ctx context.Context, db Provider) error {
+				var row struct {
+					Count int `ksql:"count"`
+				}
+				return db.QueryOne(ctx, &row, `FROM users WHERE type = $1 AND age < $2`, "fakeType", 42)
+			},
+			queryErr: errors.New("fakeErrMsg"),
+
+			expectLoggedQueryToContain: []string{"SELECT", "count", "type = $1"},
+			expectLoggedParams:         []interface{}{"fakeType", 42},
+			expectLoggedErrToContain:   []string{"fakeErrMsg"},
+		},
+		{
+			desc:     "should work for the QueryOne function when an error is returned with error level",
+			logLevel: "error",
+			methodCall: func(ctx context.Context, db Provider) error {
+				var row struct {
+					Count int `ksql:"count"`
+				}
+				return db.QueryOne(ctx, &row, `FROM users WHERE type = $1 AND age < $2`, "fakeType", 42)
+			},
+			queryErr: errors.New("fakeErrMsg"),
+
+			expectLoggedQueryToContain: []string{"SELECT", "count", "type = $1"},
 			expectLoggedParams:         []interface{}{"fakeType", 42},
 			expectLoggedErrToContain:   []string{"fakeErrMsg"},
 		},
@@ -163,14 +206,25 @@ func TestInjectLogger(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			var inputQuery string
 			var inputParams []interface{}
+			numRows := 1
 			c := DB{
+				dialect: sqldialect.SupportedDialects["postgres"],
 				db: mockDBAdapter{
 					QueryContextFn: func(ctx context.Context, query string, params ...interface{}) (Rows, error) {
 						inputQuery = query
 						inputParams = params
 
 						return mockRows{
-							NextFn: func() bool { return false },
+							ScanFn: func(args ...interface{}) error {
+								return nil
+							},
+							// Make sure this mock will return a single row
+							// for the purposes of this test:
+							NextFn: func() bool {
+								numRows--
+								return numRows >= 0
+							},
+							ColumnsFn: func() ([]string, error) { return []string{"count"}, nil },
 						}, test.queryErr
 					},
 					ExecContextFn: func(ctx context.Context, query string, params ...interface{}) (Result, error) {
