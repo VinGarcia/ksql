@@ -24,7 +24,7 @@ func ErrorLogger(ctx context.Context, values LogValues) {
 var _ LoggerFn = Logger
 
 // Logger is a builtin logger that can be passed to
-// ksql.InjectLogger() to log every query and every error.
+// ksql.InjectLogger() to log every query and query errors.
 func Logger(ctx context.Context, values LogValues) {
 	m := map[string]interface{}{
 		"query":  values.Query,
