@@ -451,10 +451,11 @@ func (c DB) Insert(
 	}
 
 	query, params, scanValues, err := buildInsertQuery(ctx, c.dialect, table, t, v, info, record)
-	defer ctxLog(ctx, query, params, &err)
 	if err != nil {
 		return err
 	}
+
+	defer ctxLog(ctx, query, params, &err)
 
 	switch table.insertMethodFor(c.dialect) {
 	case sqldialect.InsertWithReturning, sqldialect.InsertWithOutput:
@@ -683,10 +684,11 @@ func (c DB) Patch(
 	}
 
 	query, params, err := buildUpdateQuery(ctx, c.dialect, table.name, info, recordMap, table.idColumns...)
-	defer ctxLog(ctx, query, params, &err)
 	if err != nil {
 		return err
 	}
+
+	defer ctxLog(ctx, query, params, &err)
 
 	result, err := c.db.ExecContext(ctx, query, params...)
 	if err != nil {
