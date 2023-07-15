@@ -148,7 +148,7 @@ func (c DB) Query(
 	records interface{},
 	query string,
 	params ...interface{},
-) error {
+) (err error) {
 	slicePtr := reflect.ValueOf(records)
 	slicePtrType := slicePtr.Type()
 	if slicePtrType.Kind() != reflect.Ptr {
@@ -186,6 +186,8 @@ func (c DB) Query(
 		}
 		query = selectPrefix + query
 	}
+
+	defer ctxLog(ctx, query, params, &err)
 
 	rows, err := c.db.QueryContext(ctx, query, params...)
 	if err != nil {
@@ -242,7 +244,7 @@ func (c DB) QueryOne(
 	record interface{},
 	query string,
 	params ...interface{},
-) error {
+) (err error) {
 	v := reflect.ValueOf(record)
 	t := v.Type()
 	if t.Kind() != reflect.Ptr {
@@ -276,6 +278,8 @@ func (c DB) QueryOne(
 		}
 		query = selectPrefix + query
 	}
+
+	defer ctxLog(ctx, query, params, &err)
 
 	rows, err := c.db.QueryContext(ctx, query, params...)
 	if err != nil {
@@ -423,10 +427,10 @@ func (c DB) Insert(
 	ctx context.Context,
 	table Table,
 	record interface{},
-) error {
+) (err error) {
 	v := reflect.ValueOf(record)
 	t := v.Type()
-	if err := assertStructPtr(t); err != nil {
+	if err = assertStructPtr(t); err != nil {
 		return fmt.Errorf(
 			"KSQL: expected record to be a pointer to struct, but got: %T",
 			record,
@@ -450,6 +454,8 @@ func (c DB) Insert(
 	if err != nil {
 		return err
 	}
+
+	defer ctxLog(ctx, query, params, &err)
 
 	switch table.insertMethodFor(c.dialect) {
 	case sqldialect.InsertWithReturning, sqldialect.InsertWithOutput:
@@ -581,7 +587,7 @@ func (c DB) Delete(
 	ctx context.Context,
 	table Table,
 	idOrRecord interface{},
-) error {
+) (err error) {
 	if err := table.validate(); err != nil {
 		return fmt.Errorf("can't delete from ksql.Table: %w", err)
 	}
@@ -594,6 +600,8 @@ func (c DB) Delete(
 	var query string
 	var params []interface{}
 	query, params = buildDeleteQuery(c.dialect, table, idMap)
+
+	defer ctxLog(ctx, query, params, &err)
 
 	result, err := c.db.ExecContext(ctx, query, params...)
 	if err != nil {
@@ -655,7 +663,7 @@ func (c DB) Patch(
 	ctx context.Context,
 	table Table,
 	record interface{},
-) error {
+) (err error) {
 	v := reflect.ValueOf(record)
 	t := v.Type()
 	tStruct := t
@@ -679,6 +687,8 @@ func (c DB) Patch(
 	if err != nil {
 		return err
 	}
+
+	defer ctxLog(ctx, query, params, &err)
 
 	result, err := c.db.ExecContext(ctx, query, params...)
 	if err != nil {

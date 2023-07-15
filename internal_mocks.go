@@ -62,6 +62,26 @@ func (m mockRows) Columns() ([]string, error) {
 	return m.ColumnsFn()
 }
 
+// mockResult mocks the ksql.Result interface
+type mockResult struct {
+	LastInsertIdFn func() (int64, error)
+	RowsAffectedFn func() (int64, error)
+}
+
+func (m mockResult) LastInsertId() (int64, error) {
+	if m.LastInsertIdFn != nil {
+		return m.LastInsertIdFn()
+	}
+	return 0, nil
+}
+
+func (m mockResult) RowsAffected() (int64, error) {
+	if m.RowsAffectedFn != nil {
+		return m.RowsAffectedFn()
+	}
+	return 0, nil
+}
+
 // mockTx mocks the ksql.Tx interface
 type mockTx struct {
 	DBAdapter
