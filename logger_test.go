@@ -12,12 +12,24 @@ import (
 func TestCtxLog(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("should not log anything nor panic if logger is nil", func(t *testing.T) {
+	defer func() {
+		logPrinter = fmt.Println
+	}()
+
+	t.Run("should not log anything nor panic when the logger is not injected", func(t *testing.T) {
+		var printedArgs []interface{}
+		logPrinter = func(args ...interface{}) (n int, err error) {
+			printedArgs = args
+			return 0, nil
+		}
+
 		panicPayload := tt.PanicHandler(func() {
 			ctxLog(ctx, "fakeQuery", []interface{}{}, nil)
 		})
 		tt.AssertEqual(t, panicPayload, nil)
+		tt.AssertEqual(t, printedArgs, []interface{}(nil))
 	})
+
 }
 
 func TestBuiltinLoggers(t *testing.T) {
