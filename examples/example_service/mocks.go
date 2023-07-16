@@ -162,17 +162,3 @@ func (mr *MockProviderMockRecorder) Transaction(ctx, fn interface{}) *gomock.Cal
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Transaction", reflect.TypeOf((*MockProvider)(nil).Transaction), ctx, fn)
 }
-
-// Update mocks base method.
-func (m *MockProvider) Update(ctx context.Context, table ksql.Table, record interface{}) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Update", ctx, table, record)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Update indicates an expected call of Update.
-func (mr *MockProviderMockRecorder) Update(ctx, table, record interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockProvider)(nil).Update), ctx, table, record)
-}

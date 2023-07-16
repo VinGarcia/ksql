@@ -321,7 +321,7 @@ func (c DB) QueryOne(
 func (c DB) QueryChunks(
 	ctx context.Context,
 	parser ChunkParser,
-) error {
+) (err error) {
 	fnValue := reflect.ValueOf(parser.ForEachChunk)
 	chunkType, err := structs.ParseInputFunc(parser.ForEachChunk)
 	if err != nil {
@@ -353,6 +353,8 @@ func (c DB) QueryChunks(
 		}
 		parser.Query = selectPrefix + parser.Query
 	}
+
+	defer ctxLog(ctx, parser.Query, parser.Params, &err)
 
 	rows, err := c.db.QueryContext(ctx, parser.Query, parser.Params...)
 	if err != nil {
@@ -921,7 +923,9 @@ func validateIfAllIdsArePresent(idNames []string, idMap map[string]interface{}) 
 }
 
 // Exec just runs an SQL command on the database returning no rows.
-func (c DB) Exec(ctx context.Context, query string, params ...interface{}) (Result, error) {
+func (c DB) Exec(ctx context.Context, query string, params ...interface{}) (_ Result, err error) {
+	defer ctxLog(ctx, query, params, &err)
+
 	return c.db.ExecContext(ctx, query, params...)
 }
 

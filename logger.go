@@ -36,16 +36,7 @@ var _ LoggerFn = Logger
 //
 // Validation errors will just return an error as usual.
 func Logger(ctx context.Context, values LogValues) {
-	m := map[string]interface{}{
-		"query":  values.Query,
-		"params": values.Params,
-	}
-
-	if values.Err != nil {
-		m["error"] = values.Err.Error()
-	}
-
-	b, _ := json.Marshal(m)
+	b, _ := json.Marshal(values)
 	logPrinter(string(b))
 }
 
@@ -54,9 +45,9 @@ type loggerKey struct{}
 // LogValues is the argument type of ksql.LoggerFn which contains
 // the data available for logging whenever a query is executed.
 type LogValues struct {
-	Query  string
-	Params []interface{}
-	Err    error
+	Query  string        `json:"query"`
+	Params []interface{} `json:"params"`
+	Err    error         `json:"error,omitempty"`
 }
 
 // LoggerFn is a the type of function received as

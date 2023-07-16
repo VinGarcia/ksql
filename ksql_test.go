@@ -166,6 +166,46 @@ func TestInjectLogger(t *testing.T) {
 			expectLoggedErrToContain:   []string{"fakeErrMsg"},
 		},
 		{
+			desc: "should work for the QueryChunks function",
+			methodCall: func(ctx context.Context, db Provider) error {
+				type Row struct {
+					Count int `ksql:"count"`
+				}
+				return db.QueryChunks(ctx, ChunkParser{
+					Query:     `FROM users WHERE type = $1 AND age < $2`,
+					Params:    []interface{}{"fakeType", 42},
+					ChunkSize: 100,
+					ForEachChunk: func(row []Row) error {
+						return nil
+					},
+				})
+			},
+
+			expectLoggedQueryToContain: []string{"SELECT", "count", "type = $1"},
+			expectLoggedParams:         map[interface{}]bool{"fakeType": true, 42: true},
+		},
+		{
+			desc: "should work for the QueryChunks function when an error is returned",
+			methodCall: func(ctx context.Context, db Provider) error {
+				type Row struct {
+					Count int `ksql:"count"`
+				}
+				return db.QueryChunks(ctx, ChunkParser{
+					Query:     `FROM users WHERE type = $1 AND age < $2`,
+					Params:    []interface{}{"fakeType", 42},
+					ChunkSize: 100,
+					ForEachChunk: func(row []Row) error {
+						return nil
+					},
+				})
+			},
+			queryErr: errors.New("fakeErrMsg"),
+
+			expectLoggedQueryToContain: []string{"SELECT", "count", "type = $1"},
+			expectLoggedParams:         map[interface{}]bool{"fakeType": true, 42: true},
+			expectLoggedErrToContain:   []string{"fakeErrMsg"},
+		},
+		{
 			desc: "should work for the Insert function",
 			methodCall: func(ctx context.Context, db Provider) error {
 				fakeRecord := struct {
@@ -265,6 +305,28 @@ func TestInjectLogger(t *testing.T) {
 
 			expectLoggedQueryToContain: []string{"DELETE", "fakeTable", `"id"`},
 			expectLoggedParams:         map[interface{}]bool{42: true},
+			expectLoggedErrToContain:   []string{"fakeErrMsg"},
+		},
+		{
+			desc: "should work for the Exec function",
+			methodCall: func(ctx context.Context, db Provider) error {
+				_, err := db.Exec(ctx, `DELETE FROM fakeTable WHERE type = $1 OR age >= $2`, "fakeType", 142)
+				return err
+			},
+
+			expectLoggedQueryToContain: []string{"DELETE", "fakeTable", "type", "age"},
+			expectLoggedParams:         map[interface{}]bool{"fakeType": true, 142: true},
+		},
+		{
+			desc: "should work for the Exec function when an error is returned",
+			methodCall: func(ctx context.Context, db Provider) error {
+				_, err := db.Exec(ctx, `DELETE FROM fakeTable WHERE type = $1 OR age >= $2`, "fakeType", 142)
+				return err
+			},
+			queryErr: errors.New("fakeErrMsg"),
+
+			expectLoggedQueryToContain: []string{"DELETE", "fakeTable", "type", "age"},
+			expectLoggedParams:         map[interface{}]bool{"fakeType": true, 142: true},
 			expectLoggedErrToContain:   []string{"fakeErrMsg"},
 		},
 	}
