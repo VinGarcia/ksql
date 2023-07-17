@@ -55,6 +55,20 @@ func TestBuiltinLoggers(t *testing.T) {
 			tt.AssertContains(t, fmt.Sprint(printedArgs...), "FakeQuery", "FakeParam")
 		})
 
+		t.Run("with no params", func(t *testing.T) {
+			var printedArgs []interface{}
+			logPrinter = func(args ...interface{}) (n int, err error) {
+				printedArgs = args
+				return 0, nil
+			}
+
+			Logger(ctx, LogValues{
+				Query: "FakeQuery",
+			})
+
+			tt.AssertContains(t, fmt.Sprint(printedArgs...), "FakeQuery", `"params":[]`)
+		})
+
 		t.Run("with errors", func(t *testing.T) {
 			var printedArgs []interface{}
 			logPrinter = func(args ...interface{}) (n int, err error) {
@@ -86,6 +100,21 @@ func TestBuiltinLoggers(t *testing.T) {
 			})
 
 			tt.AssertEqual(t, printedArgs, []interface{}(nil))
+		})
+
+		t.Run("with no params", func(t *testing.T) {
+			var printedArgs []interface{}
+			logPrinter = func(args ...interface{}) (n int, err error) {
+				printedArgs = args
+				return 0, nil
+			}
+
+			ErrorLogger(ctx, LogValues{
+				Query: "FakeQuery",
+				Err:   errors.New("fakeErrMsg"),
+			})
+
+			tt.AssertContains(t, fmt.Sprint(printedArgs...), "FakeQuery", `"params":[]`, "fakeErrMsg")
 		})
 
 		t.Run("with errors", func(t *testing.T) {
