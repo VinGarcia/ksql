@@ -82,8 +82,11 @@ type loggerFn func(ctx context.Context, query string, params []interface{}, err 
 //
 // Example Usage:
 //
+//     // After injecting a logger into `ctx` all subsequent queries
+//     // that use this context will be logged.
 //     ctx = ksql.InjectLogger(ctx, ksql.Logger)
 //
+//     // All the calls below will cause KSQL to log the queries:
 //     var user User
 //     db.Insert(ctx, usersTable, &user)
 //
