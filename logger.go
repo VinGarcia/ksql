@@ -45,9 +45,24 @@ type loggerKey struct{}
 // LogValues is the argument type of ksql.LoggerFn which contains
 // the data available for logging whenever a query is executed.
 type LogValues struct {
-	Query  string        `json:"query"`
-	Params []interface{} `json:"params"`
-	Err    error         `json:"error,omitempty"`
+	Query  string
+	Params []interface{}
+	Err    error
+}
+
+func (l LogValues) MarshalJSON() ([]byte, error) {
+	var out struct {
+		Query  string        `json:"query"`
+		Params []interface{} `json:"params"`
+		Err    string        `json:"error,omitempty"`
+	}
+
+	out.Query = l.Query
+	out.Params = l.Params
+	if l.Err != nil {
+		out.Err = l.Err.Error()
+	}
+	return json.Marshal(out)
 }
 
 // LoggerFn is a the type of function received as
