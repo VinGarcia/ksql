@@ -94,4 +94,8 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
+
+	// Here we are provoking an error, so we can see an error on the log:
+	_ = db.QueryOne(ctx, &alison, "not a valid query", "someFakeParams")
+	// This logs: {"query":"not a valid query","params":["someFakeParams"],"error":"error running query: near \"not\": syntax error"}
 }
