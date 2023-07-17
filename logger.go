@@ -14,10 +14,9 @@ var _ LoggerFn = ErrorLogger
 // ErrorLogger is a builtin logger that can be passed to
 // ksql.InjectLogger() to only log when an error occurs.
 //
-// Note: Only errors that happen after KSQL sends the
+// Note that only errors that happen after KSQL sends the
 // query to the backend adapter will be logged.
-//
-// Validation errors will just return an error as usual.
+// Any errors that happen before that will not be logged.
 func ErrorLogger(ctx context.Context, values LogValues) {
 	if values.Err == nil {
 		return
@@ -31,10 +30,9 @@ var _ LoggerFn = Logger
 // Logger is a builtin logger that can be passed to
 // ksql.InjectLogger() to log every query and query errors.
 //
-// Note: Only errors that happen after KSQL sends the
+// Note that only errors that happen after KSQL sends the
 // query to the backend adapter will be logged.
-//
-// Validation errors will just return an error as usual.
+// Any errors that happen before that will not be logged.
 func Logger(ctx context.Context, values LogValues) {
 	b, _ := json.Marshal(values)
 	logPrinter(string(b))
