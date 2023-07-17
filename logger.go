@@ -56,7 +56,14 @@ func (l LogValues) MarshalJSON() ([]byte, error) {
 	}
 
 	out.Query = l.Query
+
 	out.Params = l.Params
+
+	// Force it to print Params: [], instead of Params: null
+	if out.Params == nil {
+		out.Params = []interface{}{}
+	}
+
 	if l.Err != nil {
 		out.Err = l.Err.Error()
 	}
