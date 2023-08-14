@@ -114,15 +114,14 @@ func QueryTest(
 		for _, variation := range variations {
 			t.Run(variation.desc, func(t *testing.T) {
 				t.Run("using slice of structs", func(t *testing.T) {
-					err := createTables(dialect, connStr)
+					db, closer := newDBAdapter(t)
+					err := createTables(ctx, db, dialect)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
+					defer closer.Close()
 
 					t.Run("should return 0 results correctly", func(t *testing.T) {
-						db, closer := newDBAdapter(t)
-						defer closer.Close()
-
 						c := newTestDB(db, dialect)
 						var users []user
 						err := c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
@@ -136,9 +135,6 @@ func QueryTest(
 					})
 
 					t.Run("should return a user correctly", func(t *testing.T) {
-						db, closer := newDBAdapter(t)
-						defer closer.Close()
-
 						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
 						tt.AssertNoErr(t, err)
 
@@ -154,9 +150,6 @@ func QueryTest(
 					})
 
 					t.Run("should return multiple users correctly", func(t *testing.T) {
-						db, closer := newDBAdapter(t)
-						defer closer.Close()
-
 						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
 						tt.AssertNoErr(t, err)
 
@@ -180,9 +173,6 @@ func QueryTest(
 					})
 
 					t.Run("should query joined tables correctly", func(t *testing.T) {
-						db, closer := newDBAdapter(t)
-						defer closer.Close()
-
 						// This test only makes sense with no query prefix
 						if variation.queryPrefix != "" {
 							return
@@ -244,15 +234,14 @@ func QueryTest(
 				})
 
 				t.Run("using slice of pointers to structs", func(t *testing.T) {
-					err := createTables(dialect, connStr)
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+					err := createTables(ctx, db, dialect)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
 
 					t.Run("should return 0 results correctly", func(t *testing.T) {
-						db, closer := newDBAdapter(t)
-						defer closer.Close()
-
 						c := newTestDB(db, dialect)
 						var users []*user
 						err := c.Query(ctx, &users, variation.queryPrefix+`FROM users WHERE id=1;`)
@@ -266,9 +255,6 @@ func QueryTest(
 					})
 
 					t.Run("should return a user correctly", func(t *testing.T) {
-						db, closer := newDBAdapter(t)
-						defer closer.Close()
-
 						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
 						tt.AssertNoErr(t, err)
 
@@ -284,9 +270,6 @@ func QueryTest(
 					})
 
 					t.Run("should return multiple users correctly", func(t *testing.T) {
-						db, closer := newDBAdapter(t)
-						defer closer.Close()
-
 						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Garcia', 0, '{"country":"US"}')`)
 						tt.AssertNoErr(t, err)
 
@@ -314,9 +297,6 @@ func QueryTest(
 						if variation.queryPrefix != "" {
 							return
 						}
-
-						db, closer := newDBAdapter(t)
-						defer closer.Close()
 
 						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
 						tt.AssertNoErr(t, err)
@@ -366,15 +346,15 @@ func QueryTest(
 		}
 
 		t.Run("testing error cases", func(t *testing.T) {
-			err := createTables(dialect, connStr)
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			err := createTables(ctx, db, dialect)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
 
 			t.Run("should report error if input is not a pointer to a slice of structs", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Andréa Sá', 0)`)
 				tt.AssertNoErr(t, err)
 
@@ -397,9 +377,6 @@ func QueryTest(
 			})
 
 			t.Run("should report error if the query is not valid", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 				var users []user
 				err := c.Query(ctx, &users, `SELECT * FROM not a valid query`)
@@ -407,9 +384,6 @@ func QueryTest(
 			})
 
 			t.Run("should report error if the TagInfoCache returns an error", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				// Provoque an error by sending an invalid struct:
@@ -423,9 +397,6 @@ func QueryTest(
 			})
 
 			t.Run("should report error if using nested struct and the query starts with SELECT", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 				var rows []struct {
 					User user `tablename:"users"`
@@ -437,9 +408,6 @@ func QueryTest(
 
 			t.Run("should report error for nested structs with invalid types", func(t *testing.T) {
 				t.Run("int", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 					var rows []struct {
 						Foo int `tablename:"foo"`
@@ -454,9 +422,6 @@ func QueryTest(
 				})
 
 				t.Run("*struct", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 					var rows []struct {
 						Foo *user `tablename:"foo"`
@@ -472,9 +437,6 @@ func QueryTest(
 			})
 
 			t.Run("should report error if nested struct is invalid", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 				var rows []struct {
 					User user `tablename:"users"`
@@ -563,9 +525,6 @@ func QueryTest(
 				ctx, cancel := context.WithCancel(ctx)
 				cancel()
 
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				var users []user
@@ -602,16 +561,16 @@ func QueryOneTest(
 			},
 		}
 		for _, variation := range variations {
-			err := createTables(dialect, connStr)
-			if err != nil {
-				t.Fatal("could not create test table!, reason:", err.Error())
-			}
-
 			t.Run(variation.desc, func(t *testing.T) {
-				t.Run("should return RecordNotFoundErr when there are no results", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
 
+				err := createTables(ctx, db, dialect)
+				if err != nil {
+					t.Fatal("could not create test table!, reason:", err.Error())
+				}
+
+				t.Run("should return RecordNotFoundErr when there are no results", func(t *testing.T) {
 					c := newTestDB(db, dialect)
 					u := user{}
 					err := c.QueryOne(ctx, &u, variation.queryPrefix+`FROM users WHERE id=1;`)
@@ -619,9 +578,6 @@ func QueryOneTest(
 				})
 
 				t.Run("should return a user correctly", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia', 0, '{"country":"BR"}')`)
 					tt.AssertNoErr(t, err)
 
@@ -638,9 +594,6 @@ func QueryOneTest(
 				})
 
 				t.Run("should return only the first result on multiples matches", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Andréa Sá', 0, '{"country":"US"}')`)
 					tt.AssertNoErr(t, err)
 
@@ -664,9 +617,6 @@ func QueryOneTest(
 					if variation.queryPrefix != "" {
 						return
 					}
-
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
 
 					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
 					tt.AssertNoErr(t, err)
@@ -694,9 +644,6 @@ func QueryOneTest(
 				})
 
 				t.Run("should handle column tags as case-insensitive as SQL does", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Count Olivia', 0, '{"country":"US"}')`)
 					tt.AssertNoErr(t, err)
 
@@ -809,15 +756,15 @@ func InsertTest(
 	t.Run("Insert", func(t *testing.T) {
 		t.Run("success cases", func(t *testing.T) {
 			t.Run("single primary key tables", func(t *testing.T) {
-				err := createTables(dialect, connStr)
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				err := createTables(ctx, db, dialect)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
 
 				t.Run("should insert one user correctly", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					u := user{
@@ -847,9 +794,6 @@ func InsertTest(
 					// Using columns "id" and "name" as IDs:
 					table := NewTable("users", "id", "name")
 
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					u := user{
@@ -874,9 +818,6 @@ func InsertTest(
 				})
 
 				t.Run("should work with anonymous structs", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 					err = c.Insert(ctx, usersTable, &struct {
 						ID      int                    `ksql:"id"`
@@ -887,9 +828,6 @@ func InsertTest(
 				})
 
 				t.Run("should work with preset IDs", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					usersByName := NewTable("users", "name")
@@ -907,9 +845,6 @@ func InsertTest(
 				})
 
 				t.Run("should work and retrieve the ID for structs with no attributes", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					type tsUser struct {
@@ -934,15 +869,15 @@ func InsertTest(
 			})
 
 			t.Run("composite key tables", func(t *testing.T) {
-				err := createTables(dialect, connStr)
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
+				err := createTables(ctx, db, dialect)
 				if err != nil {
 					t.Fatal("could not create test table!, reason:", err.Error())
 				}
 
 				t.Run("should insert in composite key tables correctly", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					table := NewTable("user_permissions", "id", "user_id", "perm_id")
@@ -960,9 +895,6 @@ func InsertTest(
 				})
 
 				t.Run("should accept partially provided values for composite key tables", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					// Table defined with 3 values, but we'll provide only 2,
@@ -996,9 +928,6 @@ func InsertTest(
 				})
 
 				t.Run("when inserting a struct with no values but composite keys should still retrieve the IDs", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					// Table defined with 3 values, but we'll provide only 2,
@@ -1045,15 +974,15 @@ func InsertTest(
 		})
 
 		t.Run("testing error cases", func(t *testing.T) {
-			err := createTables(dialect, connStr)
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			err := createTables(ctx, db, dialect)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
 
 			t.Run("should report error for invalid input types", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				err = c.Insert(ctx, usersTable, "foo")
@@ -1081,9 +1010,6 @@ func InsertTest(
 			})
 
 			t.Run("should report error if for some reason the InsertMethod is invalid", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				// This is an invalid value:
@@ -1094,9 +1020,6 @@ func InsertTest(
 			})
 
 			t.Run("should report error if it receives a nil pointer to a struct", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				var u *user
@@ -1105,9 +1028,6 @@ func InsertTest(
 			})
 
 			t.Run("should report error if table contains an empty ID name", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				err := c.Insert(ctx, NewTable("users", ""), &user{Name: "fake-name"})
@@ -1115,9 +1035,6 @@ func InsertTest(
 			})
 
 			t.Run("should report error if ksql.Table.name is empty", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				err := c.Insert(ctx, NewTable("", "id"), &user{Name: "fake-name"})
@@ -1125,9 +1042,6 @@ func InsertTest(
 			})
 
 			t.Run("should not panic if a column doesn't exist in the database", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				err = c.Insert(ctx, usersTable, &struct {
@@ -1140,9 +1054,6 @@ func InsertTest(
 			})
 
 			t.Run("should not panic if the ID column doesn't exist in the database", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				brokenTable := NewTable("users", "non_existing_id")
@@ -1155,9 +1066,6 @@ func InsertTest(
 			})
 
 			t.Run("should not panic if the ID column is missing in the struct", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				err = c.Insert(ctx, usersTable, &struct {
@@ -1174,9 +1082,6 @@ func InsertTest(
 			})
 
 			t.Run("should report error context.Canceled the context has been canceled", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				ctx, cancel := context.WithCancel(ctx)
 				cancel()
 
@@ -1219,7 +1124,10 @@ func DeleteTest(
 	ctx := context.Background()
 
 	t.Run("Delete", func(t *testing.T) {
-		err := createTables(dialect, connStr)
+		db, closer := newDBAdapter(t)
+		defer closer.Close()
+
+		err := createTables(ctx, db, dialect)
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
@@ -1251,9 +1159,6 @@ func DeleteTest(
 
 			for _, test := range tests {
 				t.Run(test.desc, func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					u1 := user{
@@ -1301,9 +1206,6 @@ func DeleteTest(
 
 		t.Run("should delete from tables with composite primary keys correctly", func(t *testing.T) {
 			t.Run("using structs", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				// This permission should not be deleted, we'll use the id to check it:
@@ -1336,9 +1238,6 @@ func DeleteTest(
 			})
 
 			t.Run("using maps", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				// This permission should not be deleted, we'll use the id to check it:
@@ -1375,9 +1274,6 @@ func DeleteTest(
 		})
 
 		t.Run("should return ErrRecordNotFound if no rows were deleted", func(t *testing.T) {
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
-
 			c := newTestDB(db, dialect)
 
 			err = c.Delete(ctx, usersTable, 4200)
@@ -1385,9 +1281,6 @@ func DeleteTest(
 		})
 
 		t.Run("should report error if it receives a nil pointer to a struct", func(t *testing.T) {
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
-
 			c := newTestDB(db, dialect)
 
 			var u *user
@@ -1398,9 +1291,6 @@ func DeleteTest(
 		t.Run("should report error if one of the ids is missing from the input", func(t *testing.T) {
 			t.Run("single id", func(t *testing.T) {
 				t.Run("struct with missing attr", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					err := c.Delete(ctx, NewTable("users", "id"), &struct {
@@ -1411,9 +1301,6 @@ func DeleteTest(
 				})
 
 				t.Run("struct with NULL attr", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					err := c.Delete(ctx, NewTable("users", "id"), &struct {
@@ -1425,9 +1312,6 @@ func DeleteTest(
 				})
 
 				t.Run("struct with zero attr", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					err := c.Delete(ctx, NewTable("users", "id"), &struct {
@@ -1441,9 +1325,6 @@ func DeleteTest(
 
 			t.Run("multiple ids", func(t *testing.T) {
 				t.Run("struct with missing attr", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					err := c.Delete(ctx, userPermissionsTable, &struct {
@@ -1458,9 +1339,6 @@ func DeleteTest(
 				})
 
 				t.Run("map with missing attr", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					err := c.Delete(ctx, userPermissionsTable, map[string]interface{}{
@@ -1472,9 +1350,6 @@ func DeleteTest(
 				})
 
 				t.Run("struct with NULL attr", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					err := c.Delete(ctx, userPermissionsTable, &struct {
@@ -1491,9 +1366,6 @@ func DeleteTest(
 				})
 
 				t.Run("map with NULL attr", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					err := c.Delete(ctx, userPermissionsTable, map[string]interface{}{
@@ -1506,9 +1378,6 @@ func DeleteTest(
 				})
 
 				t.Run("struct with zero attr", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					err := c.Delete(ctx, userPermissionsTable, &struct {
@@ -1525,9 +1394,6 @@ func DeleteTest(
 				})
 
 				t.Run("map with zero attr", func(t *testing.T) {
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
-
 					c := newTestDB(db, dialect)
 
 					err := c.Delete(ctx, userPermissionsTable, map[string]interface{}{
@@ -1542,9 +1408,6 @@ func DeleteTest(
 		})
 
 		t.Run("should report error if table contains an empty ID name", func(t *testing.T) {
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
-
 			c := newTestDB(db, dialect)
 
 			err := c.Delete(ctx, NewTable("users", ""), &user{ID: 42, Name: "fake-name"})
@@ -1552,9 +1415,6 @@ func DeleteTest(
 		})
 
 		t.Run("should report error if ksql.Table.name is empty", func(t *testing.T) {
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
-
 			c := newTestDB(db, dialect)
 
 			err := c.Delete(ctx, NewTable("", "id"), &user{Name: "fake-name"})
@@ -1562,9 +1422,6 @@ func DeleteTest(
 		})
 
 		t.Run("should report error context.Canceled the context has been canceled", func(t *testing.T) {
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
-
 			ctx, cancel := context.WithCancel(ctx)
 			cancel()
 
@@ -1587,15 +1444,15 @@ func PatchTest(
 	ctx := context.Background()
 
 	t.Run("Patch", func(t *testing.T) {
-		err := createTables(dialect, connStr)
+		db, closer := newDBAdapter(t)
+		defer closer.Close()
+
+		err := createTables(ctx, db, dialect)
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
 
 		t.Run("should update one user{} correctly", func(t *testing.T) {
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
-
 			c := newTestDB(db, dialect)
 
 			u := user{
@@ -1621,9 +1478,6 @@ func PatchTest(
 		})
 
 		t.Run("should update one &user{} correctly", func(t *testing.T) {
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
-
 			c := newTestDB(db, dialect)
 
 			u := user{
@@ -1649,9 +1503,6 @@ func PatchTest(
 		})
 
 		t.Run("should update tables with composite keys correctly", func(t *testing.T) {
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
-
 			c := newTestDB(db, dialect)
 
 			err = createUserPermission(db, c.dialect, userPermission{
@@ -1685,9 +1536,6 @@ func PatchTest(
 		})
 
 		t.Run("should ignore null pointers on partial updates", func(t *testing.T) {
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
-
 			c := newTestDB(db, dialect)
 
 			type partialUser struct {
@@ -1721,9 +1569,6 @@ func PatchTest(
 		})
 
 		t.Run("should update valid pointers on partial updates", func(t *testing.T) {
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
-
 			c := newTestDB(db, dialect)
 
 			type partialUser struct {
@@ -1757,9 +1602,6 @@ func PatchTest(
 		})
 
 		t.Run("should return ErrRecordNotFound when asked to update an inexistent user", func(t *testing.T) {
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
-
 			c := newTestDB(db, dialect)
 
 			err = c.Patch(ctx, usersTable, user{
@@ -1770,9 +1612,6 @@ func PatchTest(
 		})
 
 		t.Run("should report database errors correctly", func(t *testing.T) {
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
-
 			c := newTestDB(db, dialect)
 
 			err = c.Patch(ctx, NewTable("non_existing_table"), user{
@@ -1783,9 +1622,6 @@ func PatchTest(
 		})
 
 		t.Run("should report error if it receives a nil pointer to a struct", func(t *testing.T) {
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
-
 			c := newTestDB(db, dialect)
 
 			var u *user
@@ -1794,9 +1630,6 @@ func PatchTest(
 		})
 
 		t.Run("should report error if the struct has no fields to update", func(t *testing.T) {
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
-
 			c := newTestDB(db, dialect)
 
 			err = c.Patch(ctx, usersTable, struct {
@@ -1812,9 +1645,6 @@ func PatchTest(
 
 		t.Run("should report error if the id is missing", func(t *testing.T) {
 			t.Run("with a single primary key", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				err := c.Patch(ctx, usersTable, &user{
@@ -1825,9 +1655,6 @@ func PatchTest(
 			})
 
 			t.Run("with composite keys", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				err := c.Patch(ctx, NewTable("user_permissions", "id", "user_id", "perm_id"), &userPermission{
@@ -1841,9 +1668,6 @@ func PatchTest(
 
 		t.Run("should report error if the struct has no id", func(t *testing.T) {
 			t.Run("with a single primary key", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				err := c.Patch(ctx, usersTable, &struct {
@@ -1856,9 +1680,6 @@ func PatchTest(
 			})
 
 			t.Run("with composite keys", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				err := c.Patch(ctx, NewTable("user_permissions", "id", "user_id", "perm_id"), &struct {
@@ -1874,9 +1695,6 @@ func PatchTest(
 		})
 
 		t.Run("should report error context.Canceled the context has been canceled", func(t *testing.T) {
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
-
 			ctx, cancel := context.WithCancel(ctx)
 			cancel()
 
@@ -1917,14 +1735,14 @@ func QueryChunksTest(
 		}
 		for _, variation := range variations {
 			t.Run(variation.desc, func(t *testing.T) {
+				db, closer := newDBAdapter(t)
+				defer closer.Close()
+
 				t.Run("should query a single row correctly", func(t *testing.T) {
-					err := createTables(dialect, connStr)
+					err := createTables(ctx, db, dialect)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
-
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
 
 					c := newTestDB(db, dialect)
 
@@ -1957,13 +1775,13 @@ func QueryChunksTest(
 				})
 
 				t.Run("should query one chunk correctly", func(t *testing.T) {
-					err := createTables(dialect, connStr)
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					err := createTables(ctx, db, dialect)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
-
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
 
 					c := newTestDB(db, dialect)
 
@@ -1998,13 +1816,13 @@ func QueryChunksTest(
 				})
 
 				t.Run("should query chunks of 1 correctly", func(t *testing.T) {
-					err := createTables(dialect, connStr)
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					err := createTables(ctx, db, dialect)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
-
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
 
 					c := newTestDB(db, dialect)
 
@@ -2039,13 +1857,13 @@ func QueryChunksTest(
 				})
 
 				t.Run("should load partially filled chunks correctly", func(t *testing.T) {
-					err := createTables(dialect, connStr)
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					err := createTables(ctx, db, dialect)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
-
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
 
 					c := newTestDB(db, dialect)
 
@@ -2078,15 +1896,11 @@ func QueryChunksTest(
 					tt.AssertEqual(t, lengths, []int{2, 1})
 				})
 
-				// xxx
 				t.Run("should query joined tables correctly", func(t *testing.T) {
 					// This test only makes sense with no query prefix
 					if variation.queryPrefix != "" {
 						return
 					}
-
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
 
 					joao := user{
 						Name: "Thiago Ribeiro",
@@ -2150,13 +1964,13 @@ func QueryChunksTest(
 				})
 
 				t.Run("should abort the first iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
-					err := createTables(dialect, connStr)
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					err := createTables(ctx, db, dialect)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
-
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
 
 					c := newTestDB(db, dialect)
 
@@ -2188,13 +2002,13 @@ func QueryChunksTest(
 				})
 
 				t.Run("should abort the last iteration when the callback returns an ErrAbortIteration", func(t *testing.T) {
-					err := createTables(dialect, connStr)
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					err := createTables(ctx, db, dialect)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
-
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
 
 					c := newTestDB(db, dialect)
 
@@ -2230,13 +2044,13 @@ func QueryChunksTest(
 				})
 
 				t.Run("should return error if the callback returns an error in the first iteration", func(t *testing.T) {
-					err := createTables(dialect, connStr)
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					err := createTables(ctx, db, dialect)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
-
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
 
 					c := newTestDB(db, dialect)
 
@@ -2268,13 +2082,13 @@ func QueryChunksTest(
 				})
 
 				t.Run("should return error if the callback returns an error in the last iteration", func(t *testing.T) {
-					err := createTables(dialect, connStr)
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+
+					err := createTables(ctx, db, dialect)
 					if err != nil {
 						t.Fatal("could not create test table!, reason:", err.Error())
 					}
-
-					db, closer := newDBAdapter(t)
-					defer closer.Close()
 
 					c := newTestDB(db, dialect)
 
@@ -2430,13 +2244,13 @@ func TransactionTest(
 
 	t.Run("Transaction", func(t *testing.T) {
 		t.Run("should query a single row correctly", func(t *testing.T) {
-			err := createTables(dialect, connStr)
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			err := createTables(ctx, db, dialect)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
-
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
 
 			c := newTestDB(db, dialect)
 
@@ -2456,13 +2270,13 @@ func TransactionTest(
 		})
 
 		t.Run("should work normally in nested transactions", func(t *testing.T) {
-			err := createTables(dialect, connStr)
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			err := createTables(ctx, db, dialect)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
-
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
 
 			c := newTestDB(db, dialect)
 
@@ -2492,13 +2306,13 @@ func TransactionTest(
 		})
 
 		t.Run("should rollback when there are errors", func(t *testing.T) {
-			err := createTables(dialect, connStr)
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			err := createTables(ctx, db, dialect)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
-
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
 
 			c := newTestDB(db, dialect)
 
@@ -2528,13 +2342,13 @@ func TransactionTest(
 		})
 
 		t.Run("should rollback when the fn call panics", func(t *testing.T) {
-			err := createTables(dialect, connStr)
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			err := createTables(ctx, db, dialect)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
-
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
 
 			c := newTestDB(db, dialect)
 
@@ -2565,13 +2379,13 @@ func TransactionTest(
 		})
 
 		t.Run("should handle rollback errors when the fn call panics", func(t *testing.T) {
-			err := createTables(dialect, connStr)
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			err := createTables(ctx, db, dialect)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
-
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
 
 			c := newTestDB(db, dialect)
 
@@ -2599,13 +2413,13 @@ func TransactionTest(
 		})
 
 		t.Run("should handle rollback errors when fn returns an error", func(t *testing.T) {
-			err := createTables(dialect, connStr)
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			err := createTables(ctx, db, dialect)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
-
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
 
 			c := newTestDB(db, dialect)
 
@@ -2649,13 +2463,13 @@ func TransactionTest(
 		})
 
 		t.Run("should report error if DBAdapter can't create transactions", func(t *testing.T) {
-			err := createTables(dialect, connStr)
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			err := createTables(ctx, db, dialect)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
-
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
 
 			c := newTestDB(db, dialect)
 
@@ -2693,16 +2507,16 @@ func ModifiersTest(
 	ctx := context.Background()
 
 	t.Run("Modifiers", func(t *testing.T) {
-		err := createTables(dialect, connStr)
+		db, closer := newDBAdapter(t)
+		defer closer.Close()
+
+		err := createTables(ctx, db, dialect)
 		if err != nil {
 			t.Fatal("could not create test table!, reason:", err.Error())
 		}
 
 		t.Run("timeNowUTC modifier", func(t *testing.T) {
 			t.Run("should be set to time.Now().UTC() on insertion", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				type tsUser struct {
@@ -2733,9 +2547,6 @@ func ModifiersTest(
 			})
 
 			t.Run("should be set to time.Now().UTC() on updates", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				type userWithNoTags struct {
@@ -2777,9 +2588,6 @@ func ModifiersTest(
 			})
 
 			t.Run("should not alter the value on queries", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				type userWithNoTags struct {
@@ -2811,9 +2619,6 @@ func ModifiersTest(
 
 		t.Run("timeNowUTC/skipUpdates modifier", func(t *testing.T) {
 			t.Run("should be set to time.Now().UTC() on insertion", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				type tsUser struct {
@@ -2844,9 +2649,6 @@ func ModifiersTest(
 			})
 
 			t.Run("should be ignored on updates", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				type userWithNoTags struct {
@@ -2884,9 +2686,6 @@ func ModifiersTest(
 			})
 
 			t.Run("should not alter the value on queries", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				type userWithNoTags struct {
@@ -2918,9 +2717,6 @@ func ModifiersTest(
 
 		t.Run("skipInserts modifier", func(t *testing.T) {
 			t.Run("should ignore the field during insertions", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				type tsUser struct {
@@ -2948,9 +2744,6 @@ func ModifiersTest(
 			})
 
 			t.Run("should have no effect on updates", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				type userWithNoTags struct {
@@ -2987,9 +2780,6 @@ func ModifiersTest(
 			})
 
 			t.Run("should not alter the value on queries", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				type userWithNoTags struct {
@@ -3016,9 +2806,6 @@ func ModifiersTest(
 
 		t.Run("skipUpdates modifier", func(t *testing.T) {
 			t.Run("should set the field on insertion", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				type tsUser struct {
@@ -3042,9 +2829,6 @@ func ModifiersTest(
 			})
 
 			t.Run("should be ignored on updates", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				type userWithNoTags struct {
@@ -3081,9 +2865,6 @@ func ModifiersTest(
 			})
 
 			t.Run("should not alter the value on queries", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				type userWithNoTags struct {
@@ -3110,9 +2891,6 @@ func ModifiersTest(
 
 		t.Run("nullable modifier", func(t *testing.T) {
 			t.Run("should prevent null fields from being ignored during insertions", func(t *testing.T) {
-				db, closer := newDBAdapter(t)
-				defer closer.Close()
-
 				c := newTestDB(db, dialect)
 
 				// The default value of the column "nullable_field"
@@ -3267,13 +3045,14 @@ func ScanRowsTest(
 
 	t.Run("ScanRows", func(t *testing.T) {
 		t.Run("should scan users correctly", func(t *testing.T) {
-			err := createTables(dialect, connStr)
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			err := createTables(ctx, db, dialect)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
 
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
 			c := newTestDB(db, dialect)
 			_ = c.Insert(ctx, usersTable, &user{Name: "User1", Age: 22})
 			_ = c.Insert(ctx, usersTable, &user{Name: "User2", Age: 14})
@@ -3294,11 +3073,12 @@ func ScanRowsTest(
 		})
 
 		t.Run("should ignore extra columns from query", func(t *testing.T) {
-			err := createTables(dialect, connStr)
-			tt.AssertNoErr(t, err)
-
 			db, closer := newDBAdapter(t)
 			defer closer.Close()
+
+			err := createTables(ctx, db, dialect)
+			tt.AssertNoErr(t, err)
+
 			c := newTestDB(db, dialect)
 			_ = c.Insert(ctx, usersTable, &user{Name: "User1", Age: 22})
 
@@ -3390,11 +3170,12 @@ func ScanRowsTest(
 
 			for _, test := range tests {
 				t.Run(test.desc, func(t *testing.T) {
-					err := createTables(dialect, connStr)
-					tt.AssertNoErr(t, err)
-
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
+
+					err := createTables(ctx, db, dialect)
+					tt.AssertNoErr(t, err)
+
 					c := newTestDB(db, dialect)
 
 					u := user{Name: "User22", Age: 22}
@@ -3416,13 +3197,13 @@ func ScanRowsTest(
 		})
 
 		t.Run("should report error for closed rows", func(t *testing.T) {
-			err := createTables(dialect, connStr)
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			err := createTables(ctx, db, dialect)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
-
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
 
 			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
 			tt.AssertNoErr(t, err)
@@ -3435,13 +3216,13 @@ func ScanRowsTest(
 		})
 
 		t.Run("should report if record is not a pointer", func(t *testing.T) {
-			err := createTables(dialect, connStr)
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			err := createTables(ctx, db, dialect)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
-
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
 
 			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
 			tt.AssertNoErr(t, err)
@@ -3453,13 +3234,13 @@ func ScanRowsTest(
 		})
 
 		t.Run("should report if record is not a pointer to struct", func(t *testing.T) {
-			err := createTables(dialect, connStr)
+			db, closer := newDBAdapter(t)
+			defer closer.Close()
+
+			err := createTables(ctx, db, dialect)
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
-
-			db, closer := newDBAdapter(t)
-			defer closer.Close()
 
 			rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE name='User2'")
 			tt.AssertNoErr(t, err)
@@ -3472,24 +3253,12 @@ func ScanRowsTest(
 	})
 }
 
-func createTables(dialect sqldialect.Provider, connStr string) error {
-	driver := dialect.DriverName()
+func createTables(ctx context.Context, db DBAdapter, dialect sqldialect.Provider) (err error) {
+	db.ExecContext(ctx, `DROP TABLE users`)
 
-	if connStr == "" {
-		return fmt.Errorf("unsupported dialect: '%s'", driver)
-	}
-
-	db, err := sql.Open(driver, connStr)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	db.Exec(`DROP TABLE users`)
-
-	switch driver {
+	switch dialect.DriverName() {
 	case "sqlite3":
-		_, err = db.Exec(`CREATE TABLE users (
+		_, err = db.ExecContext(ctx, `CREATE TABLE users (
 		  id INTEGER PRIMARY KEY,
 			age INTEGER,
 			name TEXT,
@@ -3499,7 +3268,7 @@ func createTables(dialect sqldialect.Provider, connStr string) error {
 			nullable_field TEXT DEFAULT "not_null"
 		)`)
 	case "postgres":
-		_, err = db.Exec(`CREATE TABLE users (
+		_, err = db.ExecContext(ctx, `CREATE TABLE users (
 		  id serial PRIMARY KEY,
 			age INT,
 			name VARCHAR(50),
@@ -3509,7 +3278,7 @@ func createTables(dialect sqldialect.Provider, connStr string) error {
 			nullable_field VARCHAR(50) DEFAULT 'not_null'
 		)`)
 	case "mysql":
-		_, err = db.Exec(`CREATE TABLE users (
+		_, err = db.ExecContext(ctx, `CREATE TABLE users (
 			id INT AUTO_INCREMENT PRIMARY KEY,
 			age INT,
 			name VARCHAR(50),
@@ -3519,7 +3288,7 @@ func createTables(dialect sqldialect.Provider, connStr string) error {
 			nullable_field VARCHAR(50) DEFAULT "not_null"
 		)`)
 	case "sqlserver":
-		_, err = db.Exec(`CREATE TABLE users (
+		_, err = db.ExecContext(ctx, `CREATE TABLE users (
 			id INT IDENTITY(1,1) PRIMARY KEY,
 			age INT,
 			name VARCHAR(50),
@@ -3533,29 +3302,29 @@ func createTables(dialect sqldialect.Provider, connStr string) error {
 		return fmt.Errorf("failed to create new users table: %s", err.Error())
 	}
 
-	db.Exec(`DROP TABLE posts`)
+	db.ExecContext(ctx, `DROP TABLE posts`)
 
-	switch driver {
+	switch dialect.DriverName() {
 	case "sqlite3":
-		_, err = db.Exec(`CREATE TABLE posts (
+		_, err = db.ExecContext(ctx, `CREATE TABLE posts (
 		  id INTEGER PRIMARY KEY,
 		  user_id INTEGER,
 			title TEXT
 		)`)
 	case "postgres":
-		_, err = db.Exec(`CREATE TABLE posts (
+		_, err = db.ExecContext(ctx, `CREATE TABLE posts (
 		  id serial PRIMARY KEY,
 			user_id INT,
 			title VARCHAR(50)
 		)`)
 	case "mysql":
-		_, err = db.Exec(`CREATE TABLE posts (
+		_, err = db.ExecContext(ctx, `CREATE TABLE posts (
 			id INT AUTO_INCREMENT PRIMARY KEY,
 			user_id INT,
 			title VARCHAR(50)
 		)`)
 	case "sqlserver":
-		_, err = db.Exec(`CREATE TABLE posts (
+		_, err = db.ExecContext(ctx, `CREATE TABLE posts (
 			id INT IDENTITY(1,1) PRIMARY KEY,
 			user_id INT,
 			title VARCHAR(50)
@@ -3565,11 +3334,11 @@ func createTables(dialect sqldialect.Provider, connStr string) error {
 		return fmt.Errorf("failed to create new posts table: %s", err.Error())
 	}
 
-	db.Exec(`DROP TABLE user_permissions`)
+	db.ExecContext(ctx, `DROP TABLE user_permissions`)
 
-	switch driver {
+	switch dialect.DriverName() {
 	case "sqlite3":
-		_, err = db.Exec(`CREATE TABLE user_permissions (
+		_, err = db.ExecContext(ctx, `CREATE TABLE user_permissions (
 			id INTEGER PRIMARY KEY,
 			user_id INTEGER,
 			perm_id INTEGER,
@@ -3577,7 +3346,7 @@ func createTables(dialect sqldialect.Provider, connStr string) error {
 			UNIQUE (user_id, perm_id)
 		)`)
 	case "postgres":
-		_, err = db.Exec(`CREATE TABLE user_permissions (
+		_, err = db.ExecContext(ctx, `CREATE TABLE user_permissions (
 			id serial PRIMARY KEY,
 			user_id INT,
 			perm_id INT,
@@ -3585,7 +3354,7 @@ func createTables(dialect sqldialect.Provider, connStr string) error {
 			UNIQUE (user_id, perm_id)
 		)`)
 	case "mysql":
-		_, err = db.Exec(`CREATE TABLE user_permissions (
+		_, err = db.ExecContext(ctx, `CREATE TABLE user_permissions (
 			id INT AUTO_INCREMENT PRIMARY KEY,
 			user_id INT,
 			perm_id INT,
@@ -3593,7 +3362,7 @@ func createTables(dialect sqldialect.Provider, connStr string) error {
 			UNIQUE KEY (user_id, perm_id)
 		)`)
 	case "sqlserver":
-		_, err = db.Exec(`CREATE TABLE user_permissions (
+		_, err = db.ExecContext(ctx, `CREATE TABLE user_permissions (
 			id INT IDENTITY(1,1) PRIMARY KEY,
 			user_id INT,
 			perm_id INT,
