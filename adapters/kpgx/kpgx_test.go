@@ -2,7 +2,6 @@ package kpgx
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"io"
 	"log"
@@ -17,11 +16,13 @@ import (
 )
 
 func TestAdapter(t *testing.T) {
-	postgresURL, closePostgres := startPostgresDB("ksql")
+	ctx := context.Background()
+
+	postgresURL, closePostgres := startPostgresDB(ctx, "ksql")
 	defer closePostgres()
 
 	ksql.RunTestsForAdapter(t, "kpgx", sqldialect.PostgresDialect{}, postgresURL, func(t *testing.T) (ksql.DBAdapter, io.Closer) {
-		pool, err := pgxpool.Connect(context.TODO(), postgresURL)
+		pool, err := pgxpool.Connect(ctx, postgresURL)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -38,15 +39,15 @@ func (c closerAdapter) Close() error {
 	return nil
 }
 
-func startPostgresDB(dbName string) (databaseURL string, closer func()) {
+func startPostgresDB(ctx context.Context, dbName string) (databaseURL string, closer func()) {
 	// uses a sensible default on windows (tcp/http) and linux/osx (socket)
-	pool, err := dockertest.NewPool("")
+	dockerPool, err := dockertest.NewPool("")
 	if err != nil {
 		log.Fatalf("Could not connect to docker: %s", err)
 	}
 
 	// pulls an image, creates a container based on it and runs it
-	resource, err := pool.RunWithOptions(
+	resource, err := dockerPool.RunWithOptions(
 		&dockertest.RunOptions{
 			Repository: "postgres",
 			Tag:        "14.0",
@@ -74,15 +75,16 @@ func startPostgresDB(dbName string) (databaseURL string, closer func()) {
 
 	resource.Expire(40) // Tell docker to hard kill the container in 40 seconds
 
-	var sqlDB *sql.DB
+	var sqlDB *pgxpool.Pool
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
-	pool.MaxWait = 10 * time.Second
-	pool.Retry(func() error {
-		sqlDB, err = sql.Open("postgres", databaseUrl)
+	dockerPool.MaxWait = 10 * time.Second
+	dockerPool.Retry(func() error {
+		sqlDB, err = pgxpool.Connect(ctx, databaseUrl)
 		if err != nil {
 			return err
 		}
-		return sqlDB.Ping()
+
+		return sqlDB.Ping(ctx)
 	})
 	if err != nil {
 		log.Fatalf("Could not connect to docker: %s", err)
@@ -90,7 +92,7 @@ func startPostgresDB(dbName string) (databaseURL string, closer func()) {
 	sqlDB.Close()
 
 	return databaseUrl, func() {
-		if err := pool.Purge(resource); err != nil {
+		if err := dockerPool.Purge(resource); err != nil {
 			log.Fatalf("Could not purge resource: %s", err)
 		}
 	}
