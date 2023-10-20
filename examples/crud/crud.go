@@ -51,15 +51,6 @@ var UsersTable = ksql.NewTable("users")
 func main() {
 	ctx := context.Background()
 
-	// The available adapters are:
-	// - kpgx.New(ctx, connURL, ksql.Config{})
-	// - kmysql.New(ctx, connURL, ksql.Config{})
-	// - ksqlserver.New(ctx, connURL, ksql.Config{})
-	// - ksqlite3.New(ctx, connURL, ksql.Config{})
-	//
-	// For more detailed examples see:
-	// - `./examples/all_adapters/all_adapters.go`
-	//
 	// In this example we'll use sqlite3:
 	db, err := ksqlite3.New(ctx, "/tmp/hello.sqlite", ksql.Config{
 		MaxOpenConns: 1,

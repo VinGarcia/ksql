@@ -91,15 +91,43 @@ func main() {
 }
 ```
 
-We currently have 4 constructors available,
-one of them is illustrated above (`kpgx.New()`),
-the other ones have the exact same signature
-but work on different databases, they are:
+## Supported Adapters:
 
-- `kpgx.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for Postgres, it works on top of `pgxpool`
+We support a few different adapters,
+one of them is illustrated above (`kpgx`),
+the other ones have the exact same signature
+but work on different databases or driver versions,
+they are:
+
+- `kpgx.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for Postgres, it works on top of `pgxpool` and pgx version 4
+  ```bash
+  go get github.com/vingarcia/ksql/adapters/kpgx
+  ```
+- `kpgx5.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for Postgres, it works on top of `pgxpool` and pgx version 5
+  ```bash
+  go get github.com/vingarcia/ksql/adapters/kpgx5
+  ```
 - `kmysql.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for MySQL, it works on top of `database/sql`
+  ```bash
+  go get github.com/vingarcia/ksql/adapters/kmysql
+  ```
 - `ksqlserver.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for SQLServer, it works on top of `database/sql`
-- `ksqlite3.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for SQLite3, it works on top of `database/sql`
+  ```bash
+  go get github.com/vingarcia/ksql/adapters/ksqlserver
+  ```
+- `ksqlite3.New(ctx, os.Getenv("DATABASE_PATH"), ksql.Config{})` for SQLite3, it works on top of `database/sql`
+  and `mattn/go-sqlite3` which relies on CGO.
+  ```bash
+  go get github.com/vingarcia/ksql/adapters/ksqlite3
+  ```
+- `ksqlite.New(ctx, os.Getenv("DATABASE_PATH"), ksql.Config{})` for SQLite, it works on top of `database/sql`
+  and `modernc.org/sqlite` which does not require CGO.
+  ```bash
+  go get github.com/vingarcia/ksql/adapters/modernc-ksqlite
+  ```
+
+For more detailed examples see:
+- `./examples/all_adapters/all_adapters.go`
 
 ## The KSQL Interface
 
@@ -206,15 +234,6 @@ var UsersTable = ksql.NewTable("users")
 func main() {
 	ctx := context.Background()
 
-	// The available adapters are:
-	// - kpgx.New(ctx, connURL, ksql.Config{})
-	// - kmysql.New(ctx, connURL, ksql.Config{})
-	// - ksqlserver.New(ctx, connURL, ksql.Config{})
-	// - ksqlite3.New(ctx, connURL, ksql.Config{})
-	//
-	// For more detailed examples see:
-	// - `./examples/all_adapters/all_adapters.go`
-	//
 	// In this example we'll use sqlite3:
 	db, err := ksqlite3.New(ctx, "/tmp/hello.sqlite", ksql.Config{
 		MaxOpenConns: 1,
