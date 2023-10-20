@@ -17,7 +17,7 @@ require (
 	github.com/opencontainers/runc v1.1.0 // indirect
 	github.com/ory/dockertest v3.3.5+incompatible
 	github.com/stretchr/testify v1.8.4 // indirect
-	github.com/vingarcia/ksql v1.9.1
+	github.com/vingarcia/ksql v1.10.0
 	golang.org/x/crypto v0.12.0 // indirect
 	gotest.tools v2.2.0+incompatible // indirect
 )
