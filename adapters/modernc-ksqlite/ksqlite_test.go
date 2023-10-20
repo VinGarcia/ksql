@@ -1,4 +1,4 @@
-package ksqlite3
+package ksqlite
 
 import (
 	"database/sql"
@@ -10,8 +10,8 @@ import (
 )
 
 func TestAdapter(t *testing.T) {
-	ksql.RunTestsForAdapter(t, "ksqlite3", sqldialect.Sqlite3Dialect{}, "/tmp/ksql.db", func(t *testing.T) (ksql.DBAdapter, io.Closer) {
-		db, err := sql.Open("sqlite3", "/tmp/ksql.db")
+	ksql.RunTestsForAdapter(t, "modernc-ksqlite", sqldialect.Sqlite3Dialect{}, "/tmp/modernc-ksqlite.db", func(t *testing.T) (ksql.DBAdapter, io.Closer) {
+		db, err := sql.Open("sqlite", "/tmp/modernc-ksqlite.db")
 		if err != nil {
 			t.Fatal(err.Error())
 		}

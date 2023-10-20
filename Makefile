@@ -14,6 +14,7 @@ test: setup go-mod-tidy
 	@( cd adapters/kmysql ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
 	@( cd adapters/ksqlserver ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
 	@( cd adapters/ksqlite3 ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
+	@( cd adapters/modernc-ksqlite ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
 
 bench: go-mod-tidy
 	@make --no-print-directory -C benchmarks TIME=$(TIME) | tee benchmark.tmp

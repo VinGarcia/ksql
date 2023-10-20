@@ -21,6 +21,7 @@ export PATH=$PATH:$(pwd)/scripts
 ( cd adapters/kpgx ; run-with-replace.sh go test -coverprofile=coverage.txt -covermode=atomic -coverpkg=github.com/vingarcia/ksql ./... )
 ( cd adapters/kpgx5 ; run-with-replace.sh go test -coverprofile=coverage.txt -covermode=atomic -coverpkg=github.com/vingarcia/ksql ./... )
 ( cd adapters/ksqlite3 ; run-with-replace.sh go test -coverprofile=coverage.txt -covermode=atomic -coverpkg=github.com/vingarcia/ksql ./... )
+( cd adapters/modernc-ksqlite ; run-with-replace.sh go test -coverprofile=coverage.txt -covermode=atomic -coverpkg=github.com/vingarcia/ksql ./... )
 ( cd adapters/ksqlserver ; run-with-replace.sh go test -coverprofile=coverage.txt -covermode=atomic -coverpkg=github.com/vingarcia/ksql ./... )
 ( cd adapters/kmysql ; run-with-replace.sh go test -coverprofile=coverage.txt -covermode=atomic -coverpkg=github.com/vingarcia/ksql ./... )
 
