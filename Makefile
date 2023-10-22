@@ -31,6 +31,7 @@ lint: setup go-mod-tidy
 	@echo "StaticCheck & Go Vet found no problems on your code!"
 
 # Run go mod tidy for all submodules:
+tidy: go-mod-tidy
 go-mod-tidy:
 	find . -name go.mod -execdir go mod tidy \;
 

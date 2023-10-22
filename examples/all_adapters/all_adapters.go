@@ -11,6 +11,7 @@ import (
 	"github.com/vingarcia/ksql/adapters/kpgx"
 	"github.com/vingarcia/ksql/adapters/ksqlite3"
 	"github.com/vingarcia/ksql/adapters/ksqlserver"
+	ksqlite "github.com/vingarcia/ksql/adapters/modernc-ksqlite"
 )
 
 // User ...
@@ -99,6 +100,26 @@ func main() {
 		}
 	case "", "sqlite3":
 		db, err = ksqlite3.New(ctx, "/tmp/ksql.sqlite", ksql.Config{
+			MaxOpenConns: 1,
+		})
+		if err != nil {
+			log.Fatalf("unable to open database: %s", err)
+		}
+		defer db.Close()
+
+		// In the definition below, please note that BLOB is
+		// the only type we can use in sqlite for storing JSON.
+		_, err = db.Exec(ctx, `CREATE TABLE IF NOT EXISTS users (
+			id INTEGER PRIMARY KEY,
+			age INTEGER,
+			name TEXT,
+			address BLOB
+		)`)
+		if err != nil {
+			log.Fatalf("unable to create users table: %s", err)
+		}
+	case "sqlite":
+		db, err = ksqlite.New(ctx, "/tmp/ksql.modernc-sqlite", ksql.Config{
 			MaxOpenConns: 1,
 		})
 		if err != nil {
