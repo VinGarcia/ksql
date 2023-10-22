@@ -16,6 +16,7 @@ test: setup go-mod-tidy
 	@( cd adapters/ksqlite3 ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
 	@( cd adapters/modernc-ksqlite ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
 
+benchmark.tmp: bench
 bench: go-mod-tidy
 	@make --no-print-directory -C benchmarks TIME=$(TIME) | tee benchmark.tmp
 	@echo "Benchmark executed at: $$(date --iso)" | tee -a benchmark.tmp

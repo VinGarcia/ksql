@@ -423,43 +423,43 @@ goos: linux
 goarch: amd64
 pkg: github.com/vingarcia/ksql/benchmarks
 cpu: Intel(R) Core(TM) i7-10750H CPU @ 2.60GHz
-BenchmarkInsert/ksql/sql-adapter/insert-one-12         	    9373	    658434 ns/op
-BenchmarkInsert/ksql/pgx-adapter/insert-one-12         	   10000	    571623 ns/op
-BenchmarkInsert/sql/insert-one-12                      	    9423	    627719 ns/op
-BenchmarkInsert/sql/prep-stmt/insert-one-12            	   10000	    559441 ns/op
-BenchmarkInsert/sqlx/insert-one-12                     	    9651	    637823 ns/op
-BenchmarkInsert/sqlx/prep-stmt/insert-one-12           	   10000	    574260 ns/op
-BenchmarkInsert/pgxpool/insert-one-12                  	   10000	    568112 ns/op
-BenchmarkInsert/gorm/insert-one-12                     	    8504	    696791 ns/op
-BenchmarkInsert/sqlc/insert-one-12                     	    9504	    662484 ns/op
-BenchmarkInsert/sqlc/prep-stmt/insert-one-12           	   10000	    568876 ns/op
-BenchmarkInsert/sqlboiler/insert-one-12                	    9298	    667913 ns/op
-BenchmarkQuery/ksql/sql-adapter/single-row-12          	   39939	    150412 ns/op
-BenchmarkQuery/ksql/sql-adapter/multiple-rows-12       	   35901	    156905 ns/op
-BenchmarkQuery/ksql/pgx-adapter/single-row-12          	   83677	     72461 ns/op
-BenchmarkQuery/ksql/pgx-adapter/multiple-rows-12       	   71182	     89788 ns/op
-BenchmarkQuery/sql/single-row-12                       	   40140	    147991 ns/op
-BenchmarkQuery/sql/multiple-rows-12                    	   39210	    154899 ns/op
-BenchmarkQuery/sql/prep-stmt/single-row-12             	   82580	     76769 ns/op
-BenchmarkQuery/sql/prep-stmt/multiple-rows-12          	   76880	     77115 ns/op
-BenchmarkQuery/sqlx/single-row-12                      	   42120	    144501 ns/op
-BenchmarkQuery/sqlx/multiple-rows-12                   	   39396	    155193 ns/op
-BenchmarkQuery/sqlx/prep-stmt/single-row-12            	   84583	     72094 ns/op
-BenchmarkQuery/sqlx/prep-stmt/multiple-rows-12         	   75465	     78078 ns/op
-BenchmarkQuery/pgxpool/single-row-12                   	   87724	     72368 ns/op
-BenchmarkQuery/pgxpool/multiple-rows-12                	   77012	     77658 ns/op
-BenchmarkQuery/gorm/single-row-12                      	   74268	     80303 ns/op
-BenchmarkQuery/gorm/multiple-rows-12                   	   63933	    100220 ns/op
-BenchmarkQuery/sqlc/single-row-12                      	   39211	    149178 ns/op
-BenchmarkQuery/sqlc/multiple-rows-12                   	   38748	    153076 ns/op
-BenchmarkQuery/sqlc/prep-stmt/single-row-12            	   83739	     76111 ns/op
-BenchmarkQuery/sqlc/prep-stmt/multiple-rows-12         	   75025	     80939 ns/op
-BenchmarkQuery/sqlboiler/single-row-12                 	   63660	     95534 ns/op
-BenchmarkQuery/sqlboiler/multiple-rows-12              	   64256	     98597 ns/op
+BenchmarkInsert/ksql/sql-adapter/insert-one-12         	    9711	    618727 ns/op
+BenchmarkInsert/ksql/pgx-adapter/insert-one-12         	   10000	    555967 ns/op
+BenchmarkInsert/sql/insert-one-12                      	    9450	    624334 ns/op
+BenchmarkInsert/sql/prep-stmt/insert-one-12            	   10000	    555119 ns/op
+BenchmarkInsert/sqlx/insert-one-12                     	    9552	    632986 ns/op
+BenchmarkInsert/sqlx/prep-stmt/insert-one-12           	   10000	    560244 ns/op
+BenchmarkInsert/pgxpool/insert-one-12                  	   10000	    553535 ns/op
+BenchmarkInsert/gorm/insert-one-12                     	    9231	    668423 ns/op
+BenchmarkInsert/sqlc/insert-one-12                     	    9589	    632277 ns/op
+BenchmarkInsert/sqlc/prep-stmt/insert-one-12           	   10803	    560301 ns/op
+BenchmarkInsert/sqlboiler/insert-one-12                	    9790	    631464 ns/op
+BenchmarkQuery/ksql/sql-adapter/single-row-12          	   44436	    131191 ns/op
+BenchmarkQuery/ksql/sql-adapter/multiple-rows-12       	   42087	    143795 ns/op
+BenchmarkQuery/ksql/pgx-adapter/single-row-12          	   86192	     65447 ns/op
+BenchmarkQuery/ksql/pgx-adapter/multiple-rows-12       	   74106	     79004 ns/op
+BenchmarkQuery/sql/single-row-12                       	   44719	    134491 ns/op
+BenchmarkQuery/sql/multiple-rows-12                    	   43218	    138309 ns/op
+BenchmarkQuery/sql/prep-stmt/single-row-12             	   89328	     64162 ns/op
+BenchmarkQuery/sql/prep-stmt/multiple-rows-12          	   84282	     71454 ns/op
+BenchmarkQuery/sqlx/single-row-12                      	   44118	    132928 ns/op
+BenchmarkQuery/sqlx/multiple-rows-12                   	   43824	    137235 ns/op
+BenchmarkQuery/sqlx/prep-stmt/single-row-12            	   87570	     66610 ns/op
+BenchmarkQuery/sqlx/prep-stmt/multiple-rows-12         	   82202	     72660 ns/op
+BenchmarkQuery/pgxpool/single-row-12                   	   94034	     63373 ns/op
+BenchmarkQuery/pgxpool/multiple-rows-12                	   86275	     70275 ns/op
+BenchmarkQuery/gorm/single-row-12                      	   83052	     71539 ns/op
+BenchmarkQuery/gorm/multiple-rows-12                   	   62636	     89652 ns/op
+BenchmarkQuery/sqlc/single-row-12                      	   44329	    132659 ns/op
+BenchmarkQuery/sqlc/multiple-rows-12                   	   44440	    139026 ns/op
+BenchmarkQuery/sqlc/prep-stmt/single-row-12            	   91486	     66679 ns/op
+BenchmarkQuery/sqlc/prep-stmt/multiple-rows-12         	   78583	     72583 ns/op
+BenchmarkQuery/sqlboiler/single-row-12                 	   70030	     87089 ns/op
+BenchmarkQuery/sqlboiler/multiple-rows-12              	   69961	     84376 ns/op
 PASS
-ok  	github.com/vingarcia/ksql/benchmarks	224.967s
-Benchmark executed at: 2022-12-04
-Benchmark executed on commit: e7896dc16ef8ede091e5d1568bd53096af65a1ef
+ok  	github.com/vingarcia/ksql/benchmarks	221.596s
+Benchmark executed at: 2023-10-22
+Benchmark executed on commit: 35b6882317e82de7773fb3908332e8ac3d127010
 ```
 
 ## Running the KSQL tests (for contributors)
