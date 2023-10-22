@@ -22,11 +22,20 @@ useful in some situations.
 In this README you will find examples for "Getting Started" with the library,
 for more advanced use-cases [please read our Wiki](https://github.com/VinGarcia/ksql/wiki).
 
+## Outstanding Features
+
+- Every operation returns errors a single time, so its easier to handle them
+- Helper functions for everyday operations, namely: Insert, Patch and Delete
+- Generic and powerful functions for Querying and Scanning data into structs
+- Works on top of existing battle-tested libraries such as `database/sql` and `pgx`
+- Supports `sql.Scanner` and `sql.Valuer` and also all `pgx` special types (when using `kpgx`)
+- And many other features designed to make your life easier
+
 ## Let's start with some Code:
 
-This short example below is a TLDR version for illustrating how easy it is to use KSQL.
+This short example below is a TLDR version to illustrate how easy it is to use KSQL.
 
-You will find more complete examples on the sections below.
+You will find more complete examples in the sections below.
 
 ```golang
 package main
@@ -82,15 +91,53 @@ func main() {
 }
 ```
 
-We currently have 4 constructors available,
-one of them is illustrated above (`kpgx.New()`),
+## Supported Adapters:
+
+We support a few different adapters,
+one of them is illustrated above (`kpgx`),
 the other ones have the exact same signature
-but work on different databases, they are:
+but work on different databases or driver versions,
+they are:
 
 - `kpgx.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for Postgres, it works on top of `pgxpool`
-- `kmysql.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for MySQL, it works on top of `database/sql`
-- `ksqlserver.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for SQLServer, it works on top of `database/sql`
-- `ksqlite3.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for SQLite3, it works on top of `database/sql`
+  and [pgx](https://github.com/jackc/pgx) version 4, download it with:
+
+  ```bash
+  go get github.com/vingarcia/ksql/adapters/kpgx
+  ```
+- `kpgx5.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for Postgres, it works on top of `pgxpool`
+  and [pgx](https://github.com/jackc/pgx) version 5, download it with:
+
+  ```bash
+  go get github.com/vingarcia/ksql/adapters/kpgx5
+  ```
+- `kmysql.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for MySQL, it works on top of `database/sql`,
+  download it with:
+
+  ```bash
+  go get github.com/vingarcia/ksql/adapters/kmysql
+  ```
+- `ksqlserver.New(ctx, os.Getenv("DATABASE_URL"), ksql.Config{})` for SQLServer, it works on top of `database/sql`,
+  download it with:
+
+  ```bash
+  go get github.com/vingarcia/ksql/adapters/ksqlserver
+  ```
+- `ksqlite3.New(ctx, os.Getenv("DATBAASE_PATH"), ksql.Config{})` for SQLite3, it works on top of `database/sql`
+  and [mattn/go-sqlite3](https://github.com/mattn/go-sqlite3) which relies on CGO, download it with:
+
+  ```bash
+  go get github.com/vingarcia/ksql/adapters/ksqlite3
+  ```
+- `ksqlite.New(ctx, os.Getenv("DATABASE_PATH"), ksql.Config{})` for SQLite, it works on top of `database/sql`
+  and [modernc.org/sqlite](https://modernc.org/sqlite) which does not require CGO, download it with:
+
+  ```bash
+  go get github.com/vingarcia/ksql/adapters/modernc-ksqlite
+  ```
+
+For more detailed examples see:
+- `./examples/all_adapters/all_adapters.go`
 
 ## The KSQL Interface
 
@@ -100,7 +147,7 @@ and it is also used for making it easy to mock the whole library if needed.
 This interface is declared in the project as `ksql.Provider` and is displayed below.
 
 We plan on keeping it very simple with a small number
-of well thought functions that cover all use-cases,
+of well-thought functions that cover all use cases,
 so don't expect many additions:
 
 ```go
@@ -124,7 +171,7 @@ type Provider interface {
 
 ## Using KSQL
 
-In the example below we'll cover all the most common use-cases such as:
+In the example below we'll cover all the most common use cases such as:
 
 1. Inserting records
 2. Updating records
@@ -139,7 +186,7 @@ More advanced use cases are illustrated on their own pages on [our Wiki](https:/
 - [Reusing Existing Structs on Queries with JOINs](https://github.com/VinGarcia/ksql/wiki/Reusing-Existing-Structs-on-Queries-with-JOINs)
 - [Testing Tools and `ksql.Mock`](https://github.com/VinGarcia/ksql/wiki/Testing-Tools-and-ksql.Mock)
 
-For the more common use-cases please read the example below,
+For the more common use cases please read the example below,
 which is also available [here](./examples/crud/crud.go)
 if you want to compile it yourself.
 
@@ -151,7 +198,7 @@ if you want to compile it yourself.
 
 The results of the benchmark are good:
 they show that KSQL is in practical terms,
-as fast as sqlx which was our goal from the start.
+as fast as `sqlx` which was our goal from the start.
 
 To understand the benchmark below you must know
 that all tests are performed using Postgres 12.1 and
@@ -166,17 +213,17 @@ that we are comparing the following tools:
 - `sqlc`
 - `sqlboiler`
 
-For each of these tools we are running 3 different queries:
+For each of these tools, we are running 3 different queries:
 
-The `insert-one` query looks like:
+The `insert-one` query looks like this:
 
 `INSERT INTO users (name, age) VALUES ($1, $2) RETURNING id`
 
-The `single-row` query looks like:
+The `single-row` query looks like this:
 
 `SELECT id, name, age FROM users OFFSET $1 LIMIT 1`
 
-The `multiple-rows` query looks like:
+The `multiple-rows` query looks like this:
 
 `SELECT id, name, age FROM users OFFSET $1 LIMIT 10`
 
@@ -205,7 +252,7 @@ which means that:
   ```
   And then restart your login session (or just reboot)
 
-After that you can just run the tests by using:
+After that, you can just run the tests by using:
 
 ```bash
 make test
@@ -219,7 +266,7 @@ docker pull mysql:8.0.27
 docker pull mcr.microsoft.com/mssql/server:2017-latest
 ```
 
-Otherwise the first attempt to run the tests will
+Otherwise, the first attempt to run the tests will
 spend a long time downloading these images
 and then fail because the `TestMain()` function
 is configured to kill the containers after 20 seconds.
@@ -229,12 +276,12 @@ is configured to kill the containers after 20 seconds.
 - Update `ksqltest.FillStructWith` to work with `ksql:"..,json"` tagged attributes
 - Improve error messages (ongoing)
 
-## Optimization Oportunities
+## Optimization Opportunities
 
 - Test if using a pointer on the field info is faster or not
-- Consider passing the cached structInfo as argument for all the functions that use it,
+- Consider passing the cached structInfo as an argument for all the functions that use it,
   so that we don't need to get it more than once in the same call.
-- Use a cache to store often used queries (like pgx)
+- Use a cache to store often-used queries (like pgx)
 - Preload the insert method for all dialects inside `ksql.NewTable()`
 - Use prepared statements for the helper functions, `Update`, `Insert` and `Delete`.
 
