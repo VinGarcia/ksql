@@ -378,9 +378,44 @@ func main() {
 
 ## Benchmark Comparison
 
-The results of the benchmark are good:
-they show that KSQL is in practical terms,
-as fast as `sqlx` which was our goal from the start.
+The results of the benchmark are good for KSQL, but not flawless.
+
+The next section summarizes the results so its more comprehensible,
+but if you prefer to read the raw benchmark data just scroll down to the
+[Benchmark Results](https://github.com/VinGarcia/ksql#benchmark-results) section.
+
+### Summary
+
+For transparency purposes this summary will focus
+at the benchmark showing the _worst_ results for KSQL
+which is querying multiple lines, this is the summary:
+
+Comparing KSQL running on top of `database/sql` with `sqlx`, `sqlx` is
+5% faster than KSQL, which is in practical terms an insignificant difference.
+And if KSQL is running on top of `pgx` then KSQL becomes 42% faster
+because `pgx` is significantly faster than `sqlx`.
+Finally if you are using `sqlx` with prepared statements everytime
+then `sqlx` is 7.5% faster than KSQL on top of `pgx`.
+
+So between KSQL vs `sqlx` the performance difference is very small, and
+if you are using Postgres odds are KSQL will be much faster.
+
+Comparing KSQL running on top of `pgx` with `pgx` itself, KSQL
+is 13.66% slower (on average), which is not insignificant but isn't much either.
+
+Comparing KSQL running on top `pgx` with `gorm`, KSQL is
+11.87% faster than `gorm` or inversely `gorm` is 13.4% slower.
+
+> It is worth noting that KSQL is only caching of prepared statements
+> when using postgres, because this is performed by `pgx`, and this
+> means that when using MySQL, SQLServer or SQLite, if you plan
+> on also using prepared statements other libaries such as `sqlx` will
+> be significantly faster than KSQL.
+>
+> We are working on adding support for cached prepared statements for
+> these other databases in the future.
+
+### Benchmark Results
 
 To understand the benchmark below you must know
 that all tests are performed using Postgres 12.1 and
