@@ -1161,7 +1161,7 @@ func buildDeleteQuery(
 
 	return fmt.Sprintf(
 		"DELETE FROM %s WHERE %s",
-		dialect.Escape(table.name),
+		table.name,
 		strings.Join(whereQuery, " AND "),
 	), params
 }

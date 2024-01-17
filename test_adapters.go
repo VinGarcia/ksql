@@ -1308,6 +1308,62 @@ func DeleteTest(
 			})
 		})
 
+		t.Run("should work even when ksql.NewTable receives a qualified table name", func(t *testing.T) {
+			c := newTestDB(db, dialect)
+
+			u1 := user{
+				Name: "Fernanda",
+			}
+
+			err := c.Insert(ctx, usersTable, &u1)
+			tt.AssertNoErr(t, err)
+			tt.AssertNotEqual(t, u1.ID, uint(0))
+
+			result := user{}
+			err = getUserByID(c.db, c.dialect, &result, u1.ID)
+			tt.AssertNoErr(t, err)
+			tt.AssertEqual(t, result.ID, u1.ID)
+
+			u2 := user{
+				Name: "Won't be deleted",
+			}
+
+			err = c.Insert(ctx, usersTable, &u2)
+			tt.AssertNoErr(t, err)
+			tt.AssertNotEqual(t, u2.ID, uint(0))
+
+			result = user{}
+			err = getUserByID(c.db, c.dialect, &result, u2.ID)
+			tt.AssertNoErr(t, err)
+			tt.AssertEqual(t, result.ID, u2.ID)
+
+			switch dialect.DriverName() {
+			case "postgres":
+				// public is the default schema name for postgres:
+				err = c.Delete(ctx, NewTable("public.users"), u1.ID)
+			case "sqlserver":
+				// dbo is the default schema name for sqlserver:
+				err = c.Delete(ctx, NewTable("dbo.users"), u1.ID)
+			case "sqlite3":
+				// main is the default schema name for sqlite:
+				err = c.Delete(ctx, NewTable("main.users"), u1.ID)
+			case "mysql":
+				err = c.Delete(ctx, NewTable("ksql.users"), u1.ID)
+			}
+			tt.AssertNoErr(t, err)
+
+			result = user{}
+			err = getUserByID(c.db, c.dialect, &result, u1.ID)
+			tt.AssertEqual(t, err, sql.ErrNoRows)
+
+			result = user{}
+			err = getUserByID(c.db, c.dialect, &result, u2.ID)
+			tt.AssertNoErr(t, err)
+
+			tt.AssertNotEqual(t, result.ID, uint(0))
+			tt.AssertEqual(t, result.Name, "Won't be deleted")
+		})
+
 		t.Run("should return ErrRecordNotFound if no rows were deleted", func(t *testing.T) {
 			c := newTestDB(db, dialect)
 
