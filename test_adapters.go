@@ -1636,6 +1636,40 @@ func PatchTest(
 			tt.AssertEqual(t, result.Age, 42)
 		})
 
+		t.Run("should work even when ksql.NewTable receives a qualified table name", func(t *testing.T) {
+			c := newTestDB(db, dialect)
+
+			u := user{
+				Name: "Letícia",
+			}
+			_, err := db.ExecContext(ctx, `INSERT INTO users (name, age) VALUES ('Letícia', 0)`)
+			tt.AssertNoErr(t, err)
+
+			err = getUserByName(db, dialect, &u, "Letícia")
+			tt.AssertNoErr(t, err)
+			tt.AssertNotEqual(t, u.ID, uint(0))
+
+			switch dialect.DriverName() {
+			case "postgres":
+				// public is the default schema name for postgres:
+				err = c.Patch(ctx, NewTable("public.users"), &user{ID: u.ID, Name: "Thayane"})
+			case "sqlserver":
+				// dbo is the default schema name for sqlserver:
+				err = c.Patch(ctx, NewTable("dbo.users"), &user{ID: u.ID, Name: "Thayane"})
+			case "sqlite3":
+				// main is the default schema name for sqlite:
+				err = c.Patch(ctx, NewTable("main.users"), &user{ID: u.ID, Name: "Thayane"})
+			case "mysql":
+				err = c.Patch(ctx, NewTable("ksql.users"), &user{ID: u.ID, Name: "Thayane"})
+			}
+			tt.AssertNoErr(t, err)
+
+			var result user
+			err = getUserByID(c.db, c.dialect, &result, u.ID)
+			tt.AssertNoErr(t, err)
+			tt.AssertEqual(t, result.Name, "Thayane")
+		})
+
 		t.Run("should return ErrRecordNotFound when asked to update an inexistent user", func(t *testing.T) {
 			c := newTestDB(db, dialect)
 

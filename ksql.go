@@ -899,7 +899,7 @@ func buildUpdateQuery(
 
 	query = fmt.Sprintf(
 		"UPDATE %s SET %s WHERE %s",
-		dialect.Escape(tableName),
+		tableName,
 		strings.Join(setQuery, ", "),
 		strings.Join(whereQuery, " AND "),
 	)
