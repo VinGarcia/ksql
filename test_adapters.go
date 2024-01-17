@@ -866,6 +866,41 @@ func InsertTest(
 					tt.AssertNoErr(t, err)
 					tt.AssertEqual(t, untaggedUser.Name, (*string)(nil))
 				})
+
+				t.Run("should work even when ksql.NewTable receives a qualified table name", func(t *testing.T) {
+					c := newTestDB(db, dialect)
+
+					u := user{
+						Name: "Amanda",
+						Address: address{
+							Country: "Brasil",
+						},
+					}
+
+					var err error
+					switch dialect.DriverName() {
+					case "postgres":
+						// public is the default schema name for postgres:
+						err = c.Insert(ctx, NewTable("public.users"), &u)
+					case "sqlserver":
+						// dbo is the default schema name for sqlserver:
+						err = c.Insert(ctx, NewTable("dbo.users"), &u)
+					case "sqlite3":
+						// main is the default schema name for sqlite:
+						err = c.Insert(ctx, NewTable("main.users"), &u)
+					case "mysql":
+						err = c.Insert(ctx, NewTable("ksql.users"), &u)
+					}
+					tt.AssertNoErr(t, err)
+					tt.AssertNotEqual(t, u.ID, 0)
+
+					result := user{}
+					err = getUserByID(c.db, c.dialect, &result, u.ID)
+					tt.AssertNoErr(t, err)
+
+					tt.AssertEqual(t, result.Name, u.Name)
+					tt.AssertEqual(t, result.Address, u.Address)
+				})
 			})
 
 			t.Run("composite key tables", func(t *testing.T) {

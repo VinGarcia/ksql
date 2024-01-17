@@ -807,7 +807,7 @@ func buildInsertQuery(
 	if len(columnNames) == 0 && dialect.DriverName() != "mysql" {
 		query = fmt.Sprintf(
 			"INSERT INTO %s%s DEFAULT VALUES%s",
-			dialect.Escape(table.name),
+			table.name,
 			outputQuery,
 			returningQuery,
 		)
@@ -818,7 +818,7 @@ func buildInsertQuery(
 	// on the selected driver, thus, they might be empty strings.
 	query = fmt.Sprintf(
 		"INSERT INTO %s (%s)%s VALUES (%s)%s",
-		dialect.Escape(table.name),
+		table.name,
 		strings.Join(escapedColumnNames, ", "),
 		outputQuery,
 		strings.Join(valuesQuery, ", "),
