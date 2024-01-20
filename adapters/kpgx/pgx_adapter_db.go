@@ -3,11 +3,11 @@ package kpgx
 import (
 	"context"
 	"database/sql"
+
+	"github.com/vingarcia/ksql"
 	"strconv"
 	"strings"
 	"unicode"
-
-	"github.com/vingarcia/ksql"
 )
 
 // SQLAdapter adapts the sql.DB type to be compatible with the `DBAdapter` interface
