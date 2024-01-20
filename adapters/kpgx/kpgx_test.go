@@ -2,6 +2,7 @@ package kpgx
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"log"
@@ -27,6 +28,22 @@ func TestAdapter(t *testing.T) {
 			t.Fatal(err.Error())
 		}
 		return PGXAdapter{pool}, closerAdapter{close: pool.Close}
+	})
+}
+
+func TestSQLAdapter(t *testing.T) {
+	ctx := context.Background()
+
+	postgresURL, closePostgres := startPostgresDB(ctx, "ksql")
+	defer closePostgres()
+
+	ksql.RunTestsForAdapter(t, "kpgx", sqldialect.PostgresDialect{}, postgresURL, func(t *testing.T) (ksql.DBAdapter, io.Closer) {
+		sqldb, err := sql.Open("pgx", postgresURL)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+
+		return SQLAdapter{sqldb}, sqldb
 	})
 }
 
