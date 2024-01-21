@@ -2,8 +2,6 @@ package kpgx
 
 import (
 	"context"
-	"database/sql"
-
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/vingarcia/ksql"
 	"github.com/vingarcia/ksql/sqldialect"
@@ -12,10 +10,6 @@ import (
 // NewFromPgxPool builds a ksql.DB from a *pgxpool.Pool instance
 func NewFromPgxPool(pool *pgxpool.Pool) (db ksql.DB, err error) {
 	return ksql.NewWithAdapter(NewPGXAdapter(pool), sqldialect.PostgresDialect{})
-}
-
-func NewFromSQLDB(db *sql.DB) (ksql.DB, error) {
-	return ksql.NewWithAdapter(NewSQLAdapter(db), sqldialect.PostgresDialect{})
 }
 
 // New instantiates a new ksql.Client using pgx as the backend driver
