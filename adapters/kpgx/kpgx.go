@@ -2,6 +2,7 @@ package kpgx
 
 import (
 	"context"
+
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/vingarcia/ksql"
 	"github.com/vingarcia/ksql/sqldialect"

@@ -4,16 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"io"
+	"log"
+	"testing"
+	"time"
+
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest"
 	"github.com/ory/dockertest/docker"
 	"github.com/vingarcia/ksql"
 	"github.com/vingarcia/ksql/sqldialect"
-	"io"
-	"log"
-	"testing"
-	"time"
 )
 
 func TestSQLAdapter(t *testing.T) {
@@ -22,7 +22,7 @@ func TestSQLAdapter(t *testing.T) {
 	postgresURL, closePostgres := startPostgresDB(ctx, "ksql")
 	defer closePostgres()
 
-	ksql.RunTestsForAdapter(t, "kpgx", sqldialect.PostgresDialect{}, postgresURL, func(t *testing.T) (ksql.DBAdapter, io.Closer) {
+	ksql.RunTestsForAdapter(t, "kpostgres", sqldialect.PostgresDialect{}, postgresURL, func(t *testing.T) (ksql.DBAdapter, io.Closer) {
 		sqldb, err := sql.Open("postgres", postgresURL)
 		if err != nil {
 			t.Fatal(err.Error())
@@ -68,16 +68,16 @@ func startPostgresDB(ctx context.Context, dbName string) (databaseURL string, cl
 
 	resource.Expire(40) // Tell docker to hard kill the container in 40 seconds
 
-	var sqlDB *pgxpool.Pool
+	var sqlDB *sql.DB
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
 	dockerPool.MaxWait = 10 * time.Second
 	dockerPool.Retry(func() error {
-		sqlDB, err = pgxpool.Connect(ctx, databaseUrl)
+		sqlDB, err = sql.Open("postgres", databaseUrl)
 		if err != nil {
 			return err
 		}
 
-		return sqlDB.Ping(ctx)
+		return sqlDB.Ping()
 	})
 	if err != nil {
 		log.Fatalf("Could not connect to docker: %s", err)

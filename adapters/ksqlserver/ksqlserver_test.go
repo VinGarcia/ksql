@@ -78,7 +78,7 @@ func startSQLServerDB(dbName string) (databaseURL string, closer func()) {
 
 	return databaseUrl, func() {
 		if err := pool.Purge(resource); err != nil {
-			log.Fatalf("Could not purge resource: %s", err)
+			fmt.Printf("Could not purge resource: %s\n", err)
 		}
 	}
 }

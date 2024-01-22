@@ -3,16 +3,16 @@ package kpgx
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx/v4/pgxpool"
-	_ "github.com/lib/pq"
-	"github.com/ory/dockertest"
-	"github.com/ory/dockertest/docker"
-	"github.com/vingarcia/ksql"
-	"github.com/vingarcia/ksql/sqldialect"
 	"io"
 	"log"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/ory/dockertest"
+	"github.com/ory/dockertest/docker"
+	"github.com/vingarcia/ksql"
+	"github.com/vingarcia/ksql/sqldialect"
 )
 
 func TestAdapter(t *testing.T) {

@@ -2738,7 +2738,7 @@ func ModifiersTest(
 				tt.AssertNoErr(t, err)
 				tt.AssertEqual(t, taggedUser.ID, untaggedUser.ID)
 				tt.AssertEqual(t, taggedUser.Name, "Marta Ribeiro")
-				tt.AssertEqual(t, taggedUser.UpdatedAt, tt.ParseTime(t, "2000-08-05T14:00:00Z"))
+				tt.AssertEqual(t, taggedUser.UpdatedAt.UTC(), tt.ParseTime(t, "2000-08-05T14:00:00Z"))
 			})
 		})
 
@@ -2807,7 +2807,7 @@ func ModifiersTest(
 				var untaggedUser2 userWithNoTags
 				err = c.QueryOne(ctx, &untaggedUser2, "FROM users WHERE id = "+c.dialect.Placeholder(0), u.ID)
 				tt.AssertNoErr(t, err)
-				tt.AssertEqual(t, untaggedUser2.CreatedAt, tt.ParseTime(t, "2000-08-05T14:00:00Z"))
+				tt.AssertEqual(t, untaggedUser2.CreatedAt.UTC(), tt.ParseTime(t, "2000-08-05T14:00:00Z"))
 			})
 
 			t.Run("should not alter the value on queries", func(t *testing.T) {
@@ -2836,7 +2836,7 @@ func ModifiersTest(
 				tt.AssertNoErr(t, err)
 				tt.AssertEqual(t, taggedUser.ID, untaggedUser.ID)
 				tt.AssertEqual(t, taggedUser.Name, "Marta Ribeiro")
-				tt.AssertEqual(t, taggedUser.CreatedAt, tt.ParseTime(t, "2000-08-05T14:00:00Z"))
+				tt.AssertEqual(t, taggedUser.CreatedAt.UTC(), tt.ParseTime(t, "2000-08-05T14:00:00Z"))
 			})
 		})
 
