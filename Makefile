@@ -38,7 +38,7 @@ go-mod-tidy:
 	find . -name go.mod -execdir go mod tidy \;
 
 # Create new tag and update adapters to use a new ksql tag:
-version=v1.11.1
+version=v1.12.0
 update:
 	git tag $(version)
 	git push origin master $(version)
