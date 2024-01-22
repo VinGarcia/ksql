@@ -21,7 +21,7 @@ sqlboilerfiles: $(GOBIN)/sqlboiler
 	sqlboiler psql -c sqlboiler.toml --wipe --no-tests
 
 $(GOBIN)/sqlc:
-	go install github.com/kyleconroy/sqlc/cmd/sqlc@latest
+	go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 
 $(GOBIN)/sqlboiler:
 	go install github.com/volatiletech/sqlboiler/v4@latest

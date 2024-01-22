@@ -7,7 +7,7 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/jackc/pgx/v4 v4.18.1
 	github.com/jmoiron/sqlx v1.3.4
-	github.com/lib/pq v1.10.4
+	github.com/lib/pq v1.10.9
 	github.com/mattn/go-sqlite3 v1.14.12 // indirect
 	github.com/vingarcia/ksql v1.11.1
 	github.com/vingarcia/ksql/adapters/kpgx v0.0.0-00010101000000-000000000000
