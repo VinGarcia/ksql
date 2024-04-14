@@ -5,17 +5,24 @@ GOBIN=$(shell go env GOPATH)/bin
 
 TIME=5s
 
+# If your tests are timing out you probably need to run
+# the recipe below once just so all images are cached:
+pre-download-all-images:
+	docker pull postgres:14.0
+	docker pull mcr.microsoft.com/mssql/server:2022-latest
+	docker pull mariadb:10.8
+
 test: setup go-mod-tidy
 	$(GOBIN)/richgo test $(path) $(args)
 	@( cd benchmarks ; $(GOBIN)/richgo test $(path) $(args) )
 	@( cd examples ; $(GOBIN)/richgo test $(path) $(args) )
-	@( cd adapters/kpgx ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
-	@( cd adapters/kpgx5 ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
-	@( cd adapters/kmysql ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
-	@( cd adapters/kpostgres ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
-	@( cd adapters/ksqlserver ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
-	@( cd adapters/ksqlite3 ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
-	@( cd adapters/modernc-ksqlite ; $(GOBIN)/richgo test $(path) $(args) -timeout=20s )
+	@( cd adapters/kpgx ; $(GOBIN)/richgo test $(path) $(args) -timeout=60s )
+	@( cd adapters/kpgx5 ; $(GOBIN)/richgo test $(path) $(args) -timeout=60s )
+	@( cd adapters/kmysql ; $(GOBIN)/richgo test $(path) $(args) -timeout=60s )
+	@( cd adapters/kpostgres ; $(GOBIN)/richgo test $(path) $(args) -timeout=60s )
+	@( cd adapters/ksqlserver ; $(GOBIN)/richgo test $(path) $(args) -timeout=60s )
+	@( cd adapters/ksqlite3 ; $(GOBIN)/richgo test $(path) $(args) -timeout=60s )
+	@( cd adapters/modernc-ksqlite ; $(GOBIN)/richgo test $(path) $(args) -timeout=60s )
 
 benchmark.tmp: bench
 bench: go-mod-tidy

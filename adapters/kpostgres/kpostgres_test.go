@@ -10,8 +10,8 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
-	"github.com/ory/dockertest"
-	"github.com/ory/dockertest/docker"
+	"github.com/ory/dockertest/v3"
+	"github.com/ory/dockertest/v3/docker"
 	"github.com/vingarcia/ksql"
 	"github.com/vingarcia/ksql/sqldialect"
 )
