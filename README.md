@@ -521,8 +521,11 @@ make test
 
 ## TODO List
 
+- Add an `Upsert` helper method
+- Try to implement an automatic prepared statements cache like pgx does.
 - Update `ksqltest.FillStructWith` to work with `ksql:"..,json"` tagged attributes
 - Improve error messages (ongoing)
+- Finish the `kbuilder` package
 
 ## Optimization Opportunities
 
