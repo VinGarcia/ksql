@@ -91,6 +91,12 @@ func main() {
 }
 ```
 
+> Note: In the example above we are using the `$1`, `$2` and `$3` as placeholders on the query
+> because this example is meant to run on top of Postgres.
+>
+> If you are running on top of MySQL or SQLite use `?` instead, and if you are running
+> on top of SQLServer use `@p1`, `@p2` and `@p3` instead.
+
 ## Supported Adapters:
 
 We support a few different adapters,
@@ -297,8 +303,11 @@ make test
 
 ## TODO List
 
+- Add an `Upsert` helper method
+- Try to implement an automatic prepared statements cache like pgx does.
 - Update `ksqltest.FillStructWith` to work with `ksql:"..,json"` tagged attributes
 - Improve error messages (ongoing)
+- Finish the `kbuilder` package
 
 ## Optimization Opportunities
 
