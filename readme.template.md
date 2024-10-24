@@ -38,57 +38,7 @@ This short example below is a TLDR version to illustrate how easy it is to use K
 You will find more complete examples in the sections below.
 
 ```golang
-package main
-
-import (
-	"context"
-	"fmt"
-	"log"
-	"os"
-
-	"github.com/vingarcia/ksql"
-	"github.com/vingarcia/ksql/adapters/kpgx"
-)
-
-var UsersTable = ksql.NewTable("users", "user_id")
-
-type User struct {
-	ID   int    `ksql:"user_id"`
-	Name string `ksql:"name"`
-	Type string `ksql:"type"`
-}
-
-func main() {
-	ctx := context.Background()
-	db, err := kpgx.New(ctx, os.Getenv("POSTGRES_URL"), ksql.Config{})
-	if err != nil {
-		log.Fatalf("unable connect to database: %s", err)
-	}
-	defer db.Close()
-
-	// For querying only some attributes you can
-	// create a custom struct like this:
-	var count []struct {
-		Count string `ksql:"count"`
-		Type string `ksql:"type"`
-	}
-	err = db.Query(ctx, &count, "SELECT type, count(*) as count FROM users WHERE type = $1 GROUP BY type", "admin")
-	if err != nil {
-		log.Fatalf("unable to query users: %s", err)
-	}
-
-	fmt.Println("number of users by type:", count)
-
-	// For loading entities from the database KSQL can build
-	// the SELECT part of the query for you if you omit it like this:
-	var users []User
-	err = db.Query(ctx, &users, "FROM users WHERE type = $1", "admin")
-	if err != nil {
-		log.Fatalf("unable to query users: %s", err)
-	}
-
-	fmt.Println("users:", users)
-}
+{{ readFile "examples/overview/main.go" -}}
 ```
 
 > Note: In the example above we are using the `$1`, `$2` and `$3` as placeholders on the query
@@ -197,7 +147,7 @@ which is also available [here](./examples/crud/crud.go)
 if you want to compile it yourself.
 
 ```Go
-{{ .crudExample -}}
+{{ readFile "examples/crud/crud.go" -}}
 ```
 
 ## Benchmark Comparison
@@ -276,7 +226,7 @@ Without further ado, here are the results:
 
 ```bash
 $ make bench TIME=5s
-{{ .benchmark -}}
+{{ readFile "benchmark.tmp" -}}
 ```
 
 ## Running the KSQL tests (for contributors)

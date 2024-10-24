@@ -31,7 +31,7 @@ bench: go-mod-tidy
 	@echo "Benchmark executed on commit: $$(git rev-parse HEAD)" | tee -a benchmark.tmp
 
 readme: benchmark.tmp readme.template.md
-	go run scripts/build-readme-from-template.go readme.template.md examples/crud/crud.go benchmark.tmp
+	go run scripts/build-readme-from-template.go readme.template.md
 
 lint: setup go-mod-tidy
 	@$(GOBIN)/staticcheck $(path) $(args)
@@ -77,11 +77,14 @@ $(GOBIN)/mockgen:
 	go install github.com/golang/mock/mockgen@latest
 
 # Running examples:
-exampleservice: mock
+example_service: mock
 	$(GOBIN)/richgo test ./examples/example_service/.
 
-examplelogger: mock
+example_logger: mock
 	go run ./examples/logging_queries/.
+
+example_overview: mock
+	go run ./examples/from_readme/.
 
 PG_URL=
 pgxsupport:
