@@ -37,6 +37,8 @@ This short example below is a TLDR version to illustrate how easy it is to use K
 
 You will find more complete examples in the sections below.
 
+> This example is available on ./examples/overview/main.go if you want to run it
+
 ```golang
 {{ readFile "examples/overview/main.go" -}}
 ```
