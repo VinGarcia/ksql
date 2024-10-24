@@ -11,9 +11,25 @@ import (
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
 	"github.com/vingarcia/ksql"
+	"github.com/vingarcia/ksql/adapters/kpgx"
 )
 
-func createTablesAndRecords(ctx context.Context, db ksql.DB) error {
+func startExampleDB(ctx context.Context) (dbURL string, closer func()) {
+	dbURL, closeDB := startPostgresDB(ctx)
+	db, err := kpgx.New(ctx, dbURL, ksql.Config{})
+	if err != nil {
+		log.Fatalf("startExampleDB(): unable connect to database: %s", err)
+	}
+
+	err = populateDatabase(ctx, db)
+	if err != nil {
+		log.Fatalf("startExampleDB(): error populating example database: %s", err)
+	}
+
+	return dbURL, closeDB
+}
+
+func populateDatabase(ctx context.Context, db ksql.DB) error {
 	return errors.Join(
 		exec(ctx, db,
 			`CREATE TABLE users (

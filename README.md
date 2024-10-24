@@ -72,10 +72,7 @@ type Post struct {
 }
 
 // Address have a one to one relationship with User
-//
-// Note that we are omitting the name of the ID column
-// below because "id" is already the default:
-var AddressesTable = ksql.NewTable("addresses")
+var AddressesTable = ksql.NewTable("addresses", "id")
 
 type Address struct {
 	ID       int    `ksql:"id"`
@@ -85,7 +82,7 @@ type Address struct {
 
 func main() {
 	ctx := context.Background()
-	dbURL, closeDB := startPostgresDB(ctx)
+	dbURL, closeDB := startExampleDB(ctx)
 	defer closeDB()
 
 	db, err := kpgx.New(ctx, dbURL, ksql.Config{})
@@ -93,11 +90,6 @@ func main() {
 		log.Fatalf("unable connect to database: %s", err)
 	}
 	defer db.Close()
-
-	err = createTablesAndRecords(ctx, db)
-	if err != nil {
-		log.Fatalf("error creating tables: %s", err)
-	}
 
 	// For querying only some attributes you can
 	// create a custom struct like this:
