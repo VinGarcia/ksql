@@ -84,7 +84,7 @@ example_logger: mock
 	go run ./examples/logging_queries/.
 
 example_overview: mock
-	go run ./examples/from_readme/.
+	go run ./examples/overview/.
 
 PG_URL=
 pgxsupport:
