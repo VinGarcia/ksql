@@ -808,6 +808,33 @@ func InsertTest(
 					tt.AssertEqual(t, result.Address, u.Address)
 				})
 
+				t.Run("should insert one user correctly when the ID is a pointer to string", func(t *testing.T) {
+					c := newTestDB(db, dialect)
+
+					type ptrUser struct {
+						Name    *string `ksql:"name"`
+						Address address `ksql:"address,json"`
+					}
+					name := "FernandaIsTheID"
+					u := ptrUser{
+						Name: &name,
+						Address: address{
+							Country: "Brazil",
+						},
+					}
+
+					err := c.Insert(ctx, NewTable("users", "name"), &u)
+					tt.AssertNoErr(t, err)
+					tt.AssertEqual(t, u.Name, &name)
+
+					result := user{}
+					err = getUserByName(db, dialect, &result, "FernandaIsTheID")
+					tt.AssertNoErr(t, err)
+
+					tt.AssertEqual(t, &result.Name, u.Name)
+					tt.AssertEqual(t, result.Address, u.Address)
+				})
+
 				t.Run("should insert ignoring the ID with multiple ids", func(t *testing.T) {
 					if dialect.InsertMethod() != sqldialect.InsertWithLastInsertID {
 						return

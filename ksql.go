@@ -540,6 +540,12 @@ func (c DB) insertWithLastInsertID(
 		// we cannot retrieve it, so we just return:
 		return nil
 
+	case reflect.Pointer:
+		if fieldType.Elem().Kind() == reflect.String {
+			return nil
+		}
+
+		fallthrough
 	default:
 		return fmt.Errorf(
 			"can't convert last insert id of type int64 into field `%s` of type %v",
