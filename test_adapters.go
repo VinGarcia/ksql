@@ -786,6 +786,28 @@ func InsertTest(
 					tt.AssertEqual(t, result.Address, u.Address)
 				})
 
+				t.Run("should insert one user correctly with a string ID", func(t *testing.T) {
+					c := newTestDB(db, dialect)
+
+					u := user{
+						Name: "FernandaIsTheID",
+						Address: address{
+							Country: "Brazil",
+						},
+					}
+
+					err := c.Insert(ctx, NewTable("users", "name"), &u)
+					tt.AssertNoErr(t, err)
+					tt.AssertEqual(t, u.Name, "FernandaIsTheID")
+
+					result := user{}
+					err = getUserByName(db, dialect, &result, "FernandaIsTheID")
+					tt.AssertNoErr(t, err)
+
+					tt.AssertEqual(t, result.Name, u.Name)
+					tt.AssertEqual(t, result.Address, u.Address)
+				})
+
 				t.Run("should insert ignoring the ID with multiple ids", func(t *testing.T) {
 					if dialect.InsertMethod() != sqldialect.InsertWithLastInsertID {
 						return

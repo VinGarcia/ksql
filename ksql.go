@@ -526,21 +526,27 @@ func (c DB) insertWithLastInsertID(
 	}
 
 	vID := reflect.ValueOf(id)
-	tID := vID.Type()
 
 	fieldAddr := v.Elem().Field(info.ByName(idName).Index).Addr()
 	fieldType := fieldAddr.Type().Elem()
 
-	if !tID.ConvertibleTo(fieldType) {
+	switch fieldType.Kind() {
+	case reflect.Int, reflect.Int64, reflect.Uint, reflect.Uint64:
+		fieldAddr.Elem().Set(vID.Convert(fieldType))
+		return nil
+
+	case reflect.String:
+		// In case the record's ID is a string,
+		// we cannot retrieve it, so we just return:
+		return nil
+
+	default:
 		return fmt.Errorf(
 			"can't convert last insert id of type int64 into field `%s` of type %v",
 			idName,
 			fieldType,
 		)
 	}
-
-	fieldAddr.Elem().Set(vID.Convert(fieldType))
-	return nil
 }
 
 func (c DB) insertWithNoIDRetrieval(
