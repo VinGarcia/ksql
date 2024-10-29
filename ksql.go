@@ -574,17 +574,16 @@ func assertStructPtr(t reflect.Type) error {
 //
 // The examples below should work for both types of tables:
 //
-//     err := c.Delete(ctx, UsersTable, user)
+//	err := c.Delete(ctx, UsersTable, user)
 //
-//     err := c.Delete(ctx, UserPostsTable, map[string]interface{}{
-//         "user_id": user.ID,
-//         "post_id": post.ID,
-//     })
+//	err := c.Delete(ctx, UserPostsTable, map[string]interface{}{
+//	    "user_id": user.ID,
+//	    "post_id": post.ID,
+//	})
 //
 // The example below is shorter but will only work for tables with a single primary key:
 //
-//     err := c.Delete(ctx, UsersTable, user.ID)
-//
+//	err := c.Delete(ctx, UsersTable, user.ID)
 func (c DB) Delete(
 	ctx context.Context,
 	table Table,
