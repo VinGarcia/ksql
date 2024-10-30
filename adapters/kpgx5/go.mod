@@ -9,7 +9,7 @@ require (
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/ory/dockertest/v3 v3.10.0
 	github.com/stretchr/testify v1.8.4 // indirect
-	github.com/vingarcia/ksql v1.12.0
+	github.com/vingarcia/ksql v1.12.1
 	golang.org/x/crypto v0.12.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
 )
