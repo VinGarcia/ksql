@@ -789,11 +789,17 @@ func InsertTest(
 				t.Run("should insert one user correctly with a string ID", func(t *testing.T) {
 					c := newTestDB(db, dialect)
 
-					u := user{
+					type strIDUser struct {
+						Name    string  `ksql:"name"`
+						Age     int     `ksql:"age"`
+						Address address `ksql:"address,json"`
+					}
+					u := strIDUser{
 						Name: "FernandaIsTheID",
 						Address: address{
 							Country: "Brazil",
 						},
+						Age: 42,
 					}
 
 					ctx = InjectLogger(ctx, Logger)
