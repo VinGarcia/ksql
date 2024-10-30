@@ -76,6 +76,9 @@ func startSQLServerDB(dbName string) (databaseURL string, closer func()) {
 	}
 	sqlDB.Close()
 
+	// SQLServer keeps failing frequently, lets try to wait a little before returning:
+	time.Sleep(500 * time.Millisecond)
+
 	return databaseUrl, func() {
 		if err := pool.Purge(resource); err != nil {
 			fmt.Printf("Could not purge resource: %s\n", err)

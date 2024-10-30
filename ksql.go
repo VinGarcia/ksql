@@ -548,7 +548,7 @@ func (c DB) insertWithLastInsertID(
 		fallthrough
 	default:
 		return fmt.Errorf(
-			"can't convert last insert id of type int64 into field `%s` of type %v",
+			"error scanning field `%s` cannot assign last insert id of type int64 into field of type %v",
 			idName,
 			fieldType,
 		)

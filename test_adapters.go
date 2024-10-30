@@ -789,11 +789,17 @@ func InsertTest(
 				t.Run("should insert one user correctly with a string ID", func(t *testing.T) {
 					c := newTestDB(db, dialect)
 
-					u := user{
+					type strIDUser struct {
+						Name    string  `ksql:"name"`
+						Age     int     `ksql:"age"`
+						Address address `ksql:"address,json"`
+					}
+					u := strIDUser{
 						Name: "FernandaIsTheID",
 						Address: address{
 							Country: "Brazil",
 						},
+						Age: 42,
 					}
 
 					err := c.Insert(ctx, NewTable("users", "name"), &u)
@@ -1065,6 +1071,27 @@ func InsertTest(
 			if err != nil {
 				t.Fatal("could not create test table!, reason:", err.Error())
 			}
+
+			t.Run("should report error if the attribute used to retrieve the ID is not supported ", func(t *testing.T) {
+				c := newTestDB(db, dialect)
+
+				type invalidIDUser struct {
+					ID      struct{} `ksql:"id"`
+					Name    string   `ksql:"name"`
+					Age     int      `ksql:"age"`
+					Address address  `ksql:"address,json"`
+				}
+				u := invalidIDUser{
+					Name: "Mauro",
+					Address: address{
+						Country: "Brazil",
+					},
+					Age: 42,
+				}
+
+				err := c.Insert(ctx, usersTable, &u)
+				tt.AssertErrContains(t, err, "error", "scanning", "into", "struct {}")
+			})
 
 			t.Run("should report error for invalid input types", func(t *testing.T) {
 				c := newTestDB(db, dialect)
