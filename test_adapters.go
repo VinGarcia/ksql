@@ -796,6 +796,7 @@ func InsertTest(
 						},
 					}
 
+					ctx = InjectLogger(ctx, Logger)
 					err := c.Insert(ctx, NewTable("users", "name"), &u)
 					tt.AssertNoErr(t, err)
 					tt.AssertEqual(t, u.Name, "FernandaIsTheID")
