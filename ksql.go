@@ -517,22 +517,38 @@ func (c DB) insertWithLastInsertID(
 ) error {
 	result, err := c.db.ExecContext(ctx, query, params...)
 	if err != nil {
-		return err
+		return fmt.Errorf("error running insert query: %w", err)
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
-		return err
+		return fmt.Errorf("error fetching LastInsertId: %w", err)
 	}
 
 	vID := reflect.ValueOf(id)
 
-	fieldAddr := v.Elem().Field(info.ByName(idName).Index).Addr()
-	fieldType := fieldAddr.Type().Elem()
+	fieldValue := v.Elem().Field(info.ByName(idName).Index)
+	fieldType := fieldValue.Type()
 
-	switch fieldType.Kind() {
+	baseFieldKind := fieldType.Kind()
+	leafFieldKind := baseFieldKind
+	if baseFieldKind == reflect.Pointer {
+		leafFieldKind = fieldType.Elem().Kind()
+	}
+
+	switch leafFieldKind {
 	case reflect.Int, reflect.Int64, reflect.Uint, reflect.Uint64:
-		fieldAddr.Elem().Set(vID.Convert(fieldType))
+		if baseFieldKind == reflect.Pointer {
+			// If fieldValue is nil allocate memory for it:
+			if fieldValue.IsNil() {
+				fieldValue.Set(reflect.New(fieldType.Elem()))
+			}
+
+			fieldValue.Elem().Set(vID.Convert(fieldType.Elem()))
+			return nil
+		}
+
+		fieldValue.Set(vID.Convert(fieldType))
 		return nil
 
 	case reflect.String:
@@ -540,12 +556,6 @@ func (c DB) insertWithLastInsertID(
 		// we cannot retrieve it, so we just return:
 		return nil
 
-	case reflect.Pointer:
-		if fieldType.Elem().Kind() == reflect.String {
-			return nil
-		}
-
-		fallthrough
 	default:
 		return fmt.Errorf(
 			"error scanning field `%s` cannot assign last insert id of type int64 into field of type %v",
