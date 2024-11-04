@@ -7,5 +7,5 @@ require (
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/lib/pq v1.10.4
 	github.com/ory/dockertest/v3 v3.10.0
-	github.com/vingarcia/ksql v1.12.1
+	github.com/vingarcia/ksql v1.12.2
 )
