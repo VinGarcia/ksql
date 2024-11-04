@@ -21,7 +21,7 @@ func TestAdapter(t *testing.T) {
 	postgresURL, closePostgres := startPostgresDB(ctx, "ksql")
 	defer closePostgres()
 
-	ksql.RunTestsForAdapter(t, "kpgx", sqldialect.PostgresDialect{}, postgresURL, func(t *testing.T) (ksql.DBAdapter, io.Closer) {
+	ksql.RunTestsForAdapter(t, "kpgx5", sqldialect.PostgresDialect{}, postgresURL, func(t *testing.T) (ksql.DBAdapter, io.Closer) {
 		pool, err := pgxpool.New(ctx, postgresURL)
 		if err != nil {
 			t.Fatal(err.Error())

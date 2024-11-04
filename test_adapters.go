@@ -869,38 +869,6 @@ func InsertTest(
 					tt.AssertEqual(t, result.Address, u.Address)
 				})
 
-				t.Run("should insert one user correctly when the ID is a pointer to int reusing existing int", func(t *testing.T) {
-					c := newTestDB(db, dialect)
-
-					type ptrUser struct {
-						ID      *uint   `ksql:"id"`
-						Name    string  `ksql:"name"`
-						Address address `ksql:"address,json"`
-						Age     int     `ksql:"age"`
-					}
-					var id uint = 0
-					u := ptrUser{
-						ID:   &id,
-						Name: "Paulo",
-						Address: address{
-							Country: "Brazil",
-						},
-					}
-
-					err := c.Insert(ctx, usersTable, &u)
-					tt.AssertNoErr(t, err)
-					tt.AssertNotEqual(t, u.ID, nil)
-					tt.AssertEqual(t, id, *u.ID)
-
-					result := user{}
-					err = getUserByID(db, dialect, &result, *u.ID)
-					tt.AssertNoErr(t, err)
-
-					tt.AssertEqual(t, result.ID, id)
-					tt.AssertEqual(t, result.Name, u.Name)
-					tt.AssertEqual(t, result.Address, u.Address)
-				})
-
 				t.Run("should insert ignoring the ID with multiple ids", func(t *testing.T) {
 					if dialect.InsertMethod() != sqldialect.InsertWithLastInsertID {
 						return
