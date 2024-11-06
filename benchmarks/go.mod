@@ -9,7 +9,7 @@ require (
 	github.com/jackc/pgx/v4 v4.18.1
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/lib/pq v1.10.9
-	github.com/vingarcia/ksql v1.12.2
+	github.com/vingarcia/ksql v1.12.3
 	github.com/vingarcia/ksql/adapters/kpgx v0.0.0-00010101000000-000000000000
 	github.com/volatiletech/sqlboiler/v4 v4.12.0
 	github.com/volatiletech/strmangle v0.0.4
