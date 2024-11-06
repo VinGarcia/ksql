@@ -257,15 +257,16 @@ func getTagNames(t reflect.Type) (_ StructInfo, err error) {
 		byName:  map[string]*FieldInfo{},
 	}
 	for i := 0; i < t.NumField(); i++ {
-		// If this field is private:
-		if t.Field(i).PkgPath != "" {
-			return StructInfo{}, fmt.Errorf("all fields using the ksql tags must be exported, but %v is unexported", t)
-		}
 
 		attrName := t.Field(i).Name
 		name := t.Field(i).Tag.Get("ksql")
 		if name == "" {
 			continue
+		}
+
+		// If this field is private:
+		if t.Field(i).PkgPath != "" {
+			return StructInfo{}, fmt.Errorf("all fields using the ksql tags must be exported, but %v is unexported", t)
 		}
 
 		tags := strings.Split(name, ",")
