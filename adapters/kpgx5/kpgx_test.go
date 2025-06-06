@@ -40,6 +40,8 @@ func (c closerAdapter) Close() error {
 }
 
 func startPostgresDB(ctx context.Context, dbName string) (databaseURL string, closer func()) {
+	startTime := time.Now()
+
 	// uses a sensible default on windows (tcp/http) and linux/osx (socket)
 	pool, err := dockertest.NewPool("")
 	if err != nil {
@@ -78,7 +80,7 @@ func startPostgresDB(ctx context.Context, dbName string) (databaseURL string, cl
 	var sqlDB *pgxpool.Pool
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
 	pool.MaxWait = 10 * time.Second
-	pool.Retry(func() error {
+	err = pool.Retry(func() error {
 		sqlDB, err = pgxpool.New(ctx, databaseUrl)
 		if err != nil {
 			return err
@@ -87,9 +89,11 @@ func startPostgresDB(ctx context.Context, dbName string) (databaseURL string, cl
 		return sqlDB.Ping(ctx)
 	})
 	if err != nil {
-		log.Fatalf("Could not connect to docker: %s", err)
+		log.Fatalf("Could not connect to docker after %v: %s", time.Since(startTime), err)
 	}
 	sqlDB.Close()
+
+	fmt.Printf("db ready to run in %v", time.Since(startTime))
 
 	return databaseUrl, func() {
 		if err := pool.Purge(resource); err != nil {
