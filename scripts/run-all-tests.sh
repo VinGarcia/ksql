@@ -25,5 +25,3 @@ export PATH=$PATH:$(pwd)/scripts
 ( cd adapters/kpostgres ; run-with-replace.sh go test -coverprofile=coverage.txt -covermode=atomic -coverpkg=github.com/vingarcia/ksql ./... )
 ( cd adapters/ksqlserver ; run-with-replace.sh go test -coverprofile=coverage.txt -covermode=atomic -coverpkg=github.com/vingarcia/ksql ./... )
 ( cd adapters/kmysql ; run-with-replace.sh go test -coverprofile=coverage.txt -covermode=atomic -coverpkg=github.com/vingarcia/ksql ./... )
-
-# codecov will find all `coverate.txt` files, so it will work fine.
