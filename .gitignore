@@ -1,5 +1,5 @@
 .make.setup
-**/*coverage.txt
+**/coverage.txt
 go.work
 go.work.sum
 benchmark.tmp

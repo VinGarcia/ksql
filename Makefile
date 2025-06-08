@@ -50,6 +50,8 @@ update:
 	git tag $(version)
 	git push origin master $(version)
 	find adapters -name go.mod -execdir go get github.com/vingarcia/ksql@$(version) \;
+	(cd examples; go get github.com/vingarcia/ksql@$(version))
+	(cd benchmarks; go get github.com/vingarcia/ksql@$(version))
 	make go-mod-tidy
 	git commit -am 'Update adapters to use version $(version)'
 	git push origin master

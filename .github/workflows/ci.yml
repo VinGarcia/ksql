@@ -9,12 +9,11 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: '>=1.23'
-
-      - uses: actions/checkout@v3
       - name: Pull Postgres
         run: docker pull postgres:14.0
       - name: Pull MariaDB
@@ -30,7 +29,6 @@ jobs:
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v5
         with:
-          files: coverage.txt,benchmarks/coverage.txt,examples/coverage.txt,adapters/kpgx/coverage.txt,adapters/kpgx5/coverage.txt,adapters/ksqlite3/coverage.txt,adapters/modernc-ksqlite/coverage.txt,adapters/kpostgres/coverage.txt,adapters/kmysql/coverage.txt
           token: ${{ secrets.CODECOV_TOKEN }}
 
 
