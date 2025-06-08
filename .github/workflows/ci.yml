@@ -24,8 +24,12 @@ jobs:
         run: go version
       - name: Run linters
         run: go vet ./... && go install honnef.co/go/tools/cmd/staticcheck@latest && bash -c "$(go env GOPATH)/bin/staticcheck ./..."
-      - name: Run Tests
+      - name: Run Tests Against current latest versions
         run: ./scripts/run-all-tests.sh
+      - name: Run Tests Against current branch
+        run: |
+          cp go.work.example go.work
+          ./scripts/run-all-tests.sh
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v5
         with:

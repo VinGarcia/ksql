@@ -1,0 +1,14 @@
+go 1.23.1
+
+use (
+	.
+	./adapters/kmysql
+	./adapters/kpgx
+	./adapters/kpgx5
+	./adapters/kpostgres
+	./adapters/ksqlite3
+	./adapters/ksqlserver
+	./adapters/modernc-ksqlite
+	./benchmarks
+	./examples
+)
