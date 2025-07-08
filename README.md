@@ -31,6 +31,10 @@ for more advanced use-cases [please read our Wiki](https://github.com/VinGarcia/
 - Supports `sql.Scanner` and `sql.Valuer` and also all `pgx` special types (when using `kpgx`)
 - And many other features designed to make your life easier
 
+## Open to Work
+
+Hi! I'm currently looking for new opportunities as a Senior Software or Platform Engineer—preferably working with Golang, backend systems, or open-source infrastructure. If you're hiring or know someone who is, feel free to reach out: vingarcia00@gmail.com or on [LinkedIn](https://www.linkedin.com/in/vingarcia00/).
+
 ## Let's start with some Code:
 
 This short example below is a TLDR version to illustrate how easy it is to use KSQL.

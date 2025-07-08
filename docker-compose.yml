@@ -27,16 +27,6 @@ services:
       MARIADB_DATABASE: ksql
 
   sqlserver:
-    image: microsoft/mssql-server-linux:2017-latest
-    restart: always
-    ports:
-      - "127.0.0.1:1433:1433"
-      - "127.0.0.1:1434:1434"
-    environment:
-      SA_PASSWORD: "Sqls3rv3r"
-      ACCEPT_EULA: "Y"
-
-  sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     # The `always` option below will make sure this
     # container is started when you turn on your machine,
