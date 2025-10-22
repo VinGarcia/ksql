@@ -48,6 +48,12 @@ func (q Query) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params 
 	var b strings.Builder
 
 	switch v := q.Select.(type) {
+	case nil:
+		// Omit the select part if Select is nil, i.e. start from the FROM part.
+		// This is useful when kbuilder is used alongside KSQL since the functions `ksql.Query*()`
+		// will automatically build the SELECT part for you, you should probably not do this when using
+		// kbuilder with other database tools.
+
 	case string:
 		b.WriteString("SELECT " + v)
 	default:

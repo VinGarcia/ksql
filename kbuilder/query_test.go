@@ -119,6 +119,23 @@ func TestSelectQuery(t *testing.T) {
 			expectedQuery:  `SELECT "name", "age" FROM users WHERE foo < $1 AND bar LIKE $2 OR bar LIKE $3 LIMIT 10 OFFSET 100`,
 			expectedParams: []interface{}{42, "%ending", "something"},
 		},
+		{
+			desc: "should omit the SELECT part of the query if Select is nil",
+			query: kbuilder.Query{
+				Select: nil,
+				From:   "users",
+				Where: kbuilder.
+					Where("foo < %s", 42).
+					Where("bar LIKE %s", "%ending").
+					WhereIf(nullField != nil, "foobar = %s", nullField),
+
+				OrderBy: "id DESC",
+				Offset:  100,
+				Limit:   10,
+			},
+			expectedQuery:  ` FROM users WHERE foo < $1 AND bar LIKE $2 ORDER BY id DESC LIMIT 10 OFFSET 100`,
+			expectedParams: []interface{}{42, "%ending"},
+		},
 
 		/* * * * * Testing error cases: * * * * */
 		{
