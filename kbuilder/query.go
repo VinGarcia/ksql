@@ -29,7 +29,7 @@ type Query struct {
 
 	Limit   int
 	Offset  int
-	OrderBy OrderByQuery
+	OrderBy string
 }
 
 // Build is a utility function for finding the dialect based on the driver and
@@ -70,11 +70,8 @@ func (q Query) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params 
 		return "", nil, fmt.Errorf("the From field is mandatory for every query")
 	}
 
-	if q.OrderBy.fields != "" {
-		b.WriteString(" ORDER BY " + q.OrderBy.fields)
-		if q.OrderBy.desc {
-			b.WriteString(" DESC")
-		}
+	if q.OrderBy != "" {
+		b.WriteString(" ORDER BY " + q.OrderBy)
 	}
 
 	if q.Limit > 0 {
@@ -163,30 +160,6 @@ func WhereIf(ifCond bool, cond string, params ...interface{}) WhereQueries {
 		cond:   cond,
 		params: params,
 	}}
-}
-
-// OrderByQuery represents the ORDER BY part of the query
-type OrderByQuery struct {
-	fields string
-	desc   bool
-}
-
-// Desc is a setter function for configuring the
-// ORDER BY part of the query as DESC
-func (o OrderByQuery) Desc() OrderByQuery {
-	return OrderByQuery{
-		fields: o.fields,
-		desc:   true,
-	}
-}
-
-// OrderBy is a helper for building the ORDER BY
-// part of the query.
-func OrderBy(fields string) OrderByQuery {
-	return OrderByQuery{
-		fields: fields,
-		desc:   false,
-	}
 }
 
 var cachedSelectQueries = &sync.Map{}

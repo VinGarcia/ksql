@@ -25,7 +25,7 @@ type Query struct {
 
 	Limit   int
 	Offset  int
-	OrderBy OrderByQuery
+	OrderBy string
 }
 
 // Build is a utility function for finding the dialect based on the driver and
@@ -65,20 +65,5 @@ func Where(cond string, params ...interface{}) WhereQueries {
 
 // WhereIf conditionally adds a new boolean expression to the WhereQueries helper
 func WhereIf(ifCond bool, cond string, params ...interface{}) WhereQueries {
-	panic("kbuilder is an experimental package and needs to be explicitly enabled see github.com/vingarcia/ksql/tree/master/kbuilder/README.md")
-}
-
-// OrderByQuery represents the ORDER BY part of the query
-type OrderByQuery struct{}
-
-// Desc is a setter function for configuring the
-// ORDER BY part of the query as DESC
-func (o OrderByQuery) Desc() OrderByQuery {
-	panic("kbuilder is an experimental package and needs to be explicitly enabled see github.com/vingarcia/ksql/tree/master/kbuilder/README.md")
-}
-
-// OrderBy is a helper for building the ORDER BY
-// part of the query.
-func OrderBy(fields string) OrderByQuery {
 	panic("kbuilder is an experimental package and needs to be explicitly enabled see github.com/vingarcia/ksql/tree/master/kbuilder/README.md")
 }

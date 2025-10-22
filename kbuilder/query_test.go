@@ -34,7 +34,7 @@ func TestSelectQuery(t *testing.T) {
 					Where("bar LIKE %s", "%ending").
 					WhereIf(nullField != nil, "foobar = %s", nullField),
 
-				OrderBy: kbuilder.OrderBy("id").Desc(),
+				OrderBy: "id DESC",
 				Offset:  100,
 				Limit:   10,
 			},
@@ -51,7 +51,7 @@ func TestSelectQuery(t *testing.T) {
 					Where("bar LIKE %s", "%ending").
 					WhereIf(nullField != nil, "foobar = %s", nullField),
 
-				OrderBy: kbuilder.OrderBy("id").Desc(),
+				OrderBy: "id DESC",
 				Limit:   10,
 			},
 			expectedQuery:  `SELECT "name", "age" FROM users WHERE foo < $1 AND bar LIKE $2 ORDER BY id DESC LIMIT 10`,
@@ -67,7 +67,7 @@ func TestSelectQuery(t *testing.T) {
 					Where("bar LIKE %s", "%ending").
 					WhereIf(nullField != nil, "foobar = %s", nullField),
 
-				OrderBy: kbuilder.OrderBy("id").Desc(),
+				OrderBy: "id DESC",
 				Offset:  100,
 			},
 			expectedQuery:  `SELECT "name", "age" FROM users WHERE foo < $1 AND bar LIKE $2 ORDER BY id DESC OFFSET 100`,
@@ -95,7 +95,7 @@ func TestSelectQuery(t *testing.T) {
 				Select: &User{},
 				From:   "users",
 
-				OrderBy: kbuilder.OrderBy("id").Desc(),
+				OrderBy: "id DESC",
 				Offset:  100,
 				Limit:   10,
 			},
@@ -130,7 +130,7 @@ func TestSelectQuery(t *testing.T) {
 					Where("bar LIKE %s", "%ending").
 					WhereIf(nullField != nil, "foobar = %s", nullField),
 
-				OrderBy: kbuilder.OrderBy("id").Desc(),
+				OrderBy: "id DESC",
 				Offset:  100,
 				Limit:   10,
 			},
