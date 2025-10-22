@@ -31,11 +31,15 @@ type Query struct {
 // Build is a utility function for finding the dialect based on the driver and
 // then calling BuildQuery(dialect)
 func (q Query) Build(driver string) (sqlQuery string, params []interface{}, _ error) {
+	_ = driver
+
 	panic("kbuilder is an experimental package and needs to be explicitly enabled see github.com/vingarcia/ksql/tree/master/kbuilder/README.md")
 }
 
 // BuildQuery implements the queryBuilder interface
 func (q Query) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params []interface{}, _ error) {
+	_ = dialect
+
 	panic("kbuilder is an experimental package and needs to be explicitly enabled see github.com/vingarcia/ksql/tree/master/kbuilder/README.md")
 }
 
@@ -49,21 +53,29 @@ type WhereQueries []WhereQuery
 // Where adds a new boolean condition to an existing
 // WhereQueries helper.
 func (w WhereQueries) Where(cond string, params ...interface{}) WhereQueries {
+	_, _ = cond, params
+
 	panic("kbuilder is an experimental package and needs to be explicitly enabled see github.com/vingarcia/ksql/tree/master/kbuilder/README.md")
 }
 
 // WhereIf conditionally adds a new boolean expression to the WhereQueries helper.
-func (w WhereQueries) WhereIf(ifConf bool, cond string, params ...interface{}) WhereQueries {
+func (w WhereQueries) WhereIf(ifCond bool, cond string, params ...interface{}) WhereQueries {
+	_, _, _ = ifCond, cond, params
+
 	panic("kbuilder is an experimental package and needs to be explicitly enabled see github.com/vingarcia/ksql/tree/master/kbuilder/README.md")
 }
 
 // Where adds a new boolean condition to an existing
 // WhereQueries helper.
 func Where(cond string, params ...interface{}) WhereQueries {
+	_, _ = cond, params
+
 	panic("kbuilder is an experimental package and needs to be explicitly enabled see github.com/vingarcia/ksql/tree/master/kbuilder/README.md")
 }
 
 // WhereIf conditionally adds a new boolean expression to the WhereQueries helper
 func WhereIf(ifCond bool, cond string, params ...interface{}) WhereQueries {
+	_, _, _ = ifCond, cond, params
+
 	panic("kbuilder is an experimental package and needs to be explicitly enabled see github.com/vingarcia/ksql/tree/master/kbuilder/README.md")
 }

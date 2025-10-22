@@ -22,10 +22,14 @@ type Insert struct {
 // Build is a utility function for finding the dialect based on the driver and
 // then calling BuildQuery(dialect)
 func (i Insert) Build(driver string) (sqlQuery string, params []interface{}, _ error) {
+	_ = driver
+
 	panic("kbuilder is an experimental package and needs to be explicitly enabled see github.com/vingarcia/ksql/tree/master/kbuilder/README.md")
 }
 
 // BuildQuery implements the queryBuilder interface
 func (i Insert) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params []interface{}, _ error) {
+	_ = dialect
+
 	panic("kbuilder is an experimental package and needs to be explicitly enabled see github.com/vingarcia/ksql/tree/master/kbuilder/README.md")
 }
