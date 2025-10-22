@@ -1,8 +1,10 @@
 package kbuilder
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/vingarcia/ksql"
 	"github.com/vingarcia/ksql/sqldialect"
 )
 
@@ -36,4 +38,38 @@ func New(driver string) (Builder, error) {
 // build the query according to its arguments.
 func (builder *Builder) Build(query queryBuilder) (sqlQuery string, params []interface{}, _ error) {
 	return query.BuildQuery(builder.dialect)
+}
+
+// RunAndCount runs a paginated input query once returning the values
+// and then runs it again just for counting the total number of results.
+func (builder *Builder) RunAndCount(ctx context.Context, db ksql.Provider, targetPtr interface{}, queryBuilder Query) (count int, err error) {
+	query, params, err := builder.Build(queryBuilder)
+	if err != nil {
+		return 0, err
+	}
+
+	err = db.Query(ctx, targetPtr, query, params...)
+	if err != nil {
+		return 0, err
+	}
+
+	queryBuilder.Select = "count(*) AS c"
+	queryBuilder.Offset = 0
+	queryBuilder.Limit = 0
+	queryBuilder.OrderBy = ""
+
+	query, params, err = builder.Build(queryBuilder)
+	if err != nil {
+		return 0, err
+	}
+
+	var row struct {
+		C int `ksql:"c"`
+	}
+	err = db.QueryOne(ctx, &row, query, params...)
+	if err != nil {
+		return 0, err
+	}
+
+	return row.C, nil
 }
