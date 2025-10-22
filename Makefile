@@ -1,6 +1,7 @@
 args=
 path=./...
 
+BUILD_TAGS=-tags ksql_enable_kbuilder_experiment
 GOBIN=$(shell go env GOPATH)/bin
 
 TIME=5s
@@ -13,7 +14,7 @@ pre-download-all-images:
 	docker pull mariadb:10.8
 
 test: setup go-mod-tidy
-	$(GOBIN)/richgo test $(path) $(args)
+	$(GOBIN)/richgo test $(BUILD_TAGS) $(path) $(args)
 	@( cd benchmarks ; $(GOBIN)/richgo test $(path) $(args) )
 	@( cd examples ; $(GOBIN)/richgo test $(path) $(args) )
 	@( cd adapters/kpgx ; $(GOBIN)/richgo test $(path) $(args) -timeout=60s )
@@ -34,8 +35,8 @@ readme: benchmark.tmp readme.template.md
 	go run scripts/build-readme-from-template.go readme.template.md
 
 lint: setup go-mod-tidy
-	@$(GOBIN)/staticcheck $(path) $(args)
-	@go vet $(path) $(args)
+	@$(GOBIN)/staticcheck $(BUILD_TAGS) $(path) $(args)
+	@go vet $(BUILD_TAGS) $(path) $(args)
 	@make --no-print-directory -C benchmarks lint
 	@echo "StaticCheck & Go Vet found no problems on your code!"
 

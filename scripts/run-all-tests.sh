@@ -6,7 +6,7 @@ set -ueo pipefail
 # Generate the coverate.txt file for all modules:
 
 # Run ksql root module tests:
-go test -coverprofile=coverage.txt -coverpkg=github.com/vingarcia/ksql ./...
+go test -tags=ksql_enable_kbuilder_experiment -coverprofile=coverage.txt -coverpkg=github.com/vingarcia/ksql ./...
 
 # Run the benchmarks
 ( cd benchmarks ; go test -coverprofile=coverage.txt -coverpkg=github.com/vingarcia/ksql ./... )

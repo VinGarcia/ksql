@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/vingarcia/ksql/internal/kbuilder"
 	tt "github.com/vingarcia/ksql/internal/testtools"
+	"github.com/vingarcia/ksql/kbuilder"
 )
 
 type User struct {
@@ -32,7 +32,7 @@ func TestSelectQuery(t *testing.T) {
 				Where: kbuilder.
 					Where("foo < %s", 42).
 					Where("bar LIKE %s", "%ending").
-					WhereIf("foobar = %s", nullField),
+					WhereIf(nullField != nil, "foobar = %s", nullField),
 
 				OrderBy: kbuilder.OrderBy("id").Desc(),
 				Offset:  100,
@@ -49,7 +49,7 @@ func TestSelectQuery(t *testing.T) {
 				Where: kbuilder.
 					Where("foo < %s", 42).
 					Where("bar LIKE %s", "%ending").
-					WhereIf("foobar = %s", nullField),
+					WhereIf(nullField != nil, "foobar = %s", nullField),
 
 				OrderBy: kbuilder.OrderBy("id").Desc(),
 				Limit:   10,
@@ -65,7 +65,7 @@ func TestSelectQuery(t *testing.T) {
 				Where: kbuilder.
 					Where("foo < %s", 42).
 					Where("bar LIKE %s", "%ending").
-					WhereIf("foobar = %s", nullField),
+					WhereIf(nullField != nil, "foobar = %s", nullField),
 
 				OrderBy: kbuilder.OrderBy("id").Desc(),
 				Offset:  100,
@@ -81,7 +81,7 @@ func TestSelectQuery(t *testing.T) {
 				Where: kbuilder.
 					Where("foo < %s", 42).
 					Where("bar LIKE %s", "%ending").
-					WhereIf("foobar = %s", nullField),
+					WhereIf(nullField != nil, "foobar = %s", nullField),
 
 				Offset: 100,
 				Limit:  10,
@@ -101,6 +101,24 @@ func TestSelectQuery(t *testing.T) {
 			},
 			expectedQuery: `SELECT "name", "age" FROM users ORDER BY id DESC LIMIT 10 OFFSET 100`,
 		},
+		{
+			desc: "should build queries using the WhereIf statement",
+			query: kbuilder.Query{
+				Select: &User{},
+				From:   "users",
+				Where: kbuilder.
+					WhereIf(true, "foo < %s", 42).
+					WhereIf(false, "wont_show != %s", 42).
+					WhereIf(true, "bar LIKE %s OR bar LIKE %s", "%ending", "something").
+					WhereIf(false, "wont_show LIKE %s", "%ending").
+					WhereIf(nullField != nil, "foobar = %s", nullField),
+
+				Offset: 100,
+				Limit:  10,
+			},
+			expectedQuery:  `SELECT "name", "age" FROM users WHERE foo < $1 AND bar LIKE $2 OR bar LIKE $3 LIMIT 10 OFFSET 100`,
+			expectedParams: []interface{}{42, "%ending", "something"},
+		},
 
 		/* * * * * Testing error cases: * * * * */
 		{
@@ -110,7 +128,7 @@ func TestSelectQuery(t *testing.T) {
 				Where: kbuilder.
 					Where("foo < %s", 42).
 					Where("bar LIKE %s", "%ending").
-					WhereIf("foobar = %s", nullField),
+					WhereIf(nullField != nil, "foobar = %s", nullField),
 
 				OrderBy: kbuilder.OrderBy("id").Desc(),
 				Offset:  100,

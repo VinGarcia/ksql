@@ -2,7 +2,7 @@ coverage:
   ignore:
     - "internal/**/*"
     - "examples/**/*"
-    - "internal/kbuilder/*"
+    - "kbuilder/*"
     - "kstructs/*"
     - "test_adapters.go"
     - "internal_mocks.go"

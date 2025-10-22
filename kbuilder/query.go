@@ -1,3 +1,5 @@
+//go:build ksql_enable_kbuilder_experiment
+
 package kbuilder
 
 import (
@@ -131,14 +133,14 @@ func (w WhereQueries) Where(cond string, params ...interface{}) WhereQueries {
 }
 
 // WhereIf conditionally adds a new boolean expression to the WhereQueries helper.
-func (w WhereQueries) WhereIf(cond string, param interface{}) WhereQueries {
-	if param == nil || reflect.ValueOf(param).IsNil() {
+func (w WhereQueries) WhereIf(ifCond bool, cond string, params ...interface{}) WhereQueries {
+	if !ifCond {
 		return w
 	}
 
 	return append(w, WhereQuery{
 		cond:   cond,
-		params: []interface{}{param},
+		params: params,
 	})
 }
 
@@ -152,14 +154,14 @@ func Where(cond string, params ...interface{}) WhereQueries {
 }
 
 // WhereIf conditionally adds a new boolean expression to the WhereQueries helper
-func WhereIf(cond string, param interface{}) WhereQueries {
-	if param == nil || reflect.ValueOf(param).IsNil() {
+func WhereIf(ifCond bool, cond string, params ...interface{}) WhereQueries {
+	if !ifCond {
 		return WhereQueries{}
 	}
 
 	return WhereQueries{{
 		cond:   cond,
-		params: []interface{}{param},
+		params: params,
 	}}
 }
 

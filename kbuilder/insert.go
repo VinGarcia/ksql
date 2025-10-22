@@ -1,3 +1,5 @@
+//go:build ksql_enable_kbuilder_experiment
+
 package kbuilder
 
 import (
