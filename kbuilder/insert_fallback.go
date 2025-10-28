@@ -20,6 +20,10 @@ type Insert struct {
 
 	// OmitColumns informs kbuilder of a set of columns not to use during the insertion
 	OmitColumns []string
+
+	// Returning causes the query to be built in a way that the selected attributes
+	// will be returned after the insertion.
+	Returning []string
 }
 
 // Build is a utility function for finding the dialect based on the driver and

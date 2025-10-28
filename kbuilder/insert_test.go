@@ -32,14 +32,8 @@ func TestInsertQuery(t *testing.T) {
 			query: kbuilder.Insert{
 				Into: "users",
 				Data: []User{
-					{
-						Name: "foo",
-						Age:  42,
-					},
-					{
-						Name: "bar",
-						Age:  43,
-					},
+					{Name: "foo", Age: 42},
+					{Name: "bar", Age: 43},
 				},
 			},
 			expectedQuery:  `INSERT INTO "users" ("name", "age") VALUES ($1, $2), ($3, $4)`,
@@ -50,19 +44,26 @@ func TestInsertQuery(t *testing.T) {
 			query: kbuilder.Insert{
 				Into: "users",
 				Data: []User{
-					{
-						Name: "foo",
-						Age:  42,
-					},
-					{
-						Name: "bar",
-						Age:  43,
-					},
+					{Name: "foo", Age: 42},
+					{Name: "bar", Age: 43},
 				},
 				OmitColumns: []string{"age"},
 			},
 			expectedQuery:  `INSERT INTO "users" ("name") VALUES ($1), ($2)`,
 			expectedParams: []interface{}{"foo", "bar"},
+		},
+		{
+			desc: "should insert returning selected attributes",
+			query: kbuilder.Insert{
+				Into: "users",
+				Data: []User{
+					{Name: "foo", Age: 42},
+					{Name: "bar", Age: 43},
+				},
+				Returning: []string{"age", "name"},
+			},
+			expectedQuery:  `INSERT INTO "users" ("name", "age") VALUES ($1, $2), ($3, $4) RETURNING "age", "name"`,
+			expectedParams: []interface{}{"foo", 42, "bar", 43},
 		},
 
 		/* * * * * Testing error cases: * * * * */

@@ -22,6 +22,10 @@ type Insert struct {
 
 	// OmitColumns informs kbuilder of a set of columns not to use during the insertion
 	OmitColumns []string
+
+	// Returning causes the query to be built in a way that the selected attributes
+	// will be returned after the insertion.
+	Returning []string
 }
 
 // Build is a utility function for finding the dialect based on the driver and
@@ -122,6 +126,22 @@ func (i Insert) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params
 		values = append(values, "("+strings.Join(placeholders, ", ")+")")
 	}
 	b.WriteString(strings.Join(values, ", "))
+
+	if len(i.Returning) > 0 {
+		if dialect.InsertMethod() != sqldialect.InsertWithReturning {
+			return "", nil, fmt.Errorf(
+				"kbuilder: invalid option: driver '%s' does not support Returning values after an insert statement",
+				dialect.DriverName(),
+			)
+		}
+
+		escapedNames := []string{}
+		for _, name := range i.Returning {
+			escapedNames = append(escapedNames, dialect.Escape(name))
+		}
+
+		b.WriteString(" RETURNING " + strings.Join(escapedNames, ", "))
+	}
 
 	return b.String(), params, nil
 }
