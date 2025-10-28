@@ -45,6 +45,25 @@ func TestInsertQuery(t *testing.T) {
 			expectedQuery:  `INSERT INTO "users" ("name", "age") VALUES ($1, $2), ($3, $4)`,
 			expectedParams: []interface{}{"foo", 42, "bar", 43},
 		},
+		{
+			desc: "should omit attributes correctly",
+			query: kbuilder.Insert{
+				Into: "users",
+				Data: []User{
+					{
+						Name: "foo",
+						Age:  42,
+					},
+					{
+						Name: "bar",
+						Age:  43,
+					},
+				},
+				OmitColumns: []string{"age"},
+			},
+			expectedQuery:  `INSERT INTO "users" ("name") VALUES ($1), ($2)`,
+			expectedParams: []interface{}{"foo", "bar"},
+		},
 
 		/* * * * * Testing error cases: * * * * */
 		{

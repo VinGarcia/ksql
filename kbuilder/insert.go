@@ -19,6 +19,9 @@ type Insert struct {
 	// Data expected either a single record annotated with `ksql` tags
 	// or a list of records annotated likewise.
 	Data interface{}
+
+	// OmitColumns informs kbuilder of a set of columns not to use during the insertion
+	OmitColumns []string
 }
 
 // Build is a utility function for finding the dialect based on the driver and
@@ -34,9 +37,6 @@ func (i Insert) Build(driver string) (sqlQuery string, params []interface{}, _ e
 
 // BuildQuery implements the queryBuilder interface
 func (i Insert) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params []interface{}, _ error) {
-	var b strings.Builder
-	b.WriteString("INSERT INTO " + dialect.Escape(i.Into))
-
 	if i.Into == "" {
 		return "", nil, fmt.Errorf(
 			"expected the Into attr to contain the tablename, but got an empty string instead",
@@ -80,10 +80,23 @@ func (i Insert) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params
 		return "", nil, err
 	}
 
+	shouldOmit := map[string]bool{}
+	for _, name := range i.OmitColumns {
+		shouldOmit[name] = true
+	}
+
+	var b strings.Builder
+	b.WriteString("INSERT INTO " + dialect.Escape(i.Into))
+
 	b.WriteString(" (")
 	var escapedNames []string
 	for i := 0; i < info.NumFields(); i++ {
 		name := info.ByIndex(i).ColumnName
+
+		if shouldOmit[name] {
+			continue
+		}
+
 		escapedNames = append(escapedNames, dialect.Escape(name))
 	}
 	b.WriteString(strings.Join(escapedNames, ", "))
@@ -99,6 +112,10 @@ func (i Insert) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params
 
 		placeholders := []string{}
 		for j := 0; j < info.NumFields(); j++ {
+			if shouldOmit[info.ByIndex(j).ColumnName] {
+				continue
+			}
+
 			placeholders = append(placeholders, dialect.Placeholder(len(params)))
 			params = append(params, record.Field(j).Interface())
 		}

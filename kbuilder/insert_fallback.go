@@ -17,6 +17,9 @@ type Insert struct {
 	// Data expected either a single record annotated with `ksql` tags
 	// or a list of records annotated likewise.
 	Data interface{}
+
+	// OmitColumns informs kbuilder of a set of columns not to use during the insertion
+	OmitColumns []string
 }
 
 // Build is a utility function for finding the dialect based on the driver and
