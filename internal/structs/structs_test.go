@@ -52,6 +52,7 @@ func TestGetTagInfo(t *testing.T) {
 						Valid:      true,
 					},
 				},
+				numFields: 4,
 			},
 		},
 		{
@@ -92,6 +93,7 @@ func TestGetTagInfo(t *testing.T) {
 						Valid:      true,
 					},
 				},
+				numFields: 4,
 			},
 		},
 	}
@@ -106,6 +108,7 @@ func TestGetTagInfo(t *testing.T) {
 			tt.AssertNoErr(t, err)
 
 			tt.AssertEqual(t, info, test.expectedInfo)
+			tt.AssertEqual(t, info.NumFields(), test.expectedInfo.numFields)
 		})
 	}
 }

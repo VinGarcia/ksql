@@ -17,6 +17,7 @@ type StructInfo struct {
 	IsNestedStruct bool
 	byIndex        map[int]*FieldInfo
 	byName         map[string]*FieldInfo
+	numFields      int
 }
 
 // FieldInfo contains reflection and tags
@@ -37,6 +38,9 @@ type FieldInfo struct {
 	// Valid will only be set to false if the instance
 	// of this field was not initialized, i.e.
 	// it denotes the zero value of a FieldInfo.
+	//
+	// The zero value of this struct is used by the `ByIndex()` and `ByName()`
+	// to represent a field not found or a field with no `ksql` tag.
 	Valid bool
 
 	// Modifier contains the AttrModifier associated with this field.
@@ -75,9 +79,13 @@ func (s StructInfo) add(field FieldInfo) {
 	}
 }
 
-// NumFields ...
+// NumFields returns the number of fields on the original struct.
+//
+// Note that some of these fields might not have `ksql` tags, meaning
+// that fetching these fields `ByIndex()` or `ByName()` would return
+// a zero value.
 func (s StructInfo) NumFields() int {
-	return len(s.byIndex)
+	return s.numFields
 }
 
 // This cache is kept as a pkg variable
@@ -252,11 +260,14 @@ func (p PtrConverter) Convert(destType reflect.Type) (reflect.Value, error) {
 // This should save several calls to `Field(i).Tag.Get("foo")`
 // which improves performance by a lot.
 func getTagNames(t reflect.Type) (_ StructInfo, err error) {
+	numFields := t.NumField()
+
 	info := StructInfo{
-		byIndex: map[int]*FieldInfo{},
-		byName:  map[string]*FieldInfo{},
+		byIndex:   map[int]*FieldInfo{},
+		byName:    map[string]*FieldInfo{},
+		numFields: numFields,
 	}
-	for i := 0; i < t.NumField(); i++ {
+	for i := 0; i < numFields; i++ {
 
 		attrName := t.Field(i).Name
 		name := t.Field(i).Tag.Get("ksql")
@@ -301,7 +312,7 @@ func getTagNames(t reflect.Type) (_ StructInfo, err error) {
 
 	// If there are no `ksql` tags in the struct, lets assume
 	// it is a struct tagged with `tablename` for allowing JOINs
-	for i := 0; i < t.NumField(); i++ {
+	for i := 0; i < numFields; i++ {
 		name := t.Field(i).Tag.Get("tablename")
 		if name == "" {
 			continue
