@@ -181,13 +181,13 @@ func QueryTest(
 						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
 						tt.AssertNoErr(t, err)
 						var joao user
-						getUserByName(db, dialect, &joao, "João Ribeiro")
+						_ = getUserByName(db, dialect, &joao, "João Ribeiro")
 						tt.AssertNoErr(t, err)
 
 						_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
 						tt.AssertNoErr(t, err)
 						var bia user
-						getUserByName(db, dialect, &bia, "Bia Ribeiro")
+						_ = getUserByName(db, dialect, &bia, "Bia Ribeiro")
 
 						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post1')`))
 						tt.AssertNoErr(t, err)
@@ -301,12 +301,12 @@ func QueryTest(
 						_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
 						tt.AssertNoErr(t, err)
 						var joao user
-						getUserByName(db, dialect, &joao, "João Ribeiro")
+						_ = getUserByName(db, dialect, &joao, "João Ribeiro")
 
 						_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Bia Ribeiro', 0, '{"country":"BR"}')`)
 						tt.AssertNoErr(t, err)
 						var bia user
-						getUserByName(db, dialect, &bia, "Bia Ribeiro")
+						_ = getUserByName(db, dialect, &bia, "Bia Ribeiro")
 
 						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, bia.ID, `, 'Bia Post1')`))
 						tt.AssertNoErr(t, err)
@@ -621,7 +621,7 @@ func QueryOneTest(
 					_, err := db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('João Ribeiro', 0, '{"country":"US"}')`)
 					tt.AssertNoErr(t, err)
 					var joao user
-					getUserByName(db, dialect, &joao, "João Ribeiro")
+					_ = getUserByName(db, dialect, &joao, "João Ribeiro")
 
 					_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, joao.ID, `, 'João Post1')`))
 					tt.AssertNoErr(t, err)
@@ -2488,8 +2488,7 @@ func TransactionTest(
 
 			var users []user
 			err = c.Transaction(ctx, func(db Provider) error {
-				db.Query(ctx, &users, "SELECT * FROM users ORDER BY id ASC")
-				return nil
+				return db.Query(ctx, &users, "SELECT * FROM users ORDER BY id ASC")
 			})
 			tt.AssertNoErr(t, err)
 
@@ -2587,7 +2586,7 @@ func TransactionTest(
 			_ = c.Insert(ctx, usersTable, &u2)
 
 			panicPayload := tt.PanicHandler(func() {
-				c.Transaction(ctx, func(db Provider) error {
+				_ = c.Transaction(ctx, func(db Provider) error {
 					err = db.Insert(ctx, usersTable, &user{Name: "User3"})
 					tt.AssertNoErr(t, err)
 					err = db.Insert(ctx, usersTable, &user{Name: "User4"})
@@ -2632,7 +2631,7 @@ func TransactionTest(
 			c.db = cMock
 
 			panicPayload := tt.PanicHandler(func() {
-				c.Transaction(ctx, func(db Provider) error {
+				_ = c.Transaction(ctx, func(db Provider) error {
 					panic("fakePanicPayload")
 				})
 			})
@@ -3483,7 +3482,7 @@ func ScanRowsTest(
 }
 
 func createTables(ctx context.Context, db DBAdapter, dialect sqldialect.Provider) (err error) {
-	db.ExecContext(ctx, `DROP TABLE users`)
+	_, _ = db.ExecContext(ctx, `DROP TABLE users`)
 
 	switch dialect.DriverName() {
 	case "sqlite3":
@@ -3531,7 +3530,7 @@ func createTables(ctx context.Context, db DBAdapter, dialect sqldialect.Provider
 		return fmt.Errorf("failed to create new users table: %s", err.Error())
 	}
 
-	db.ExecContext(ctx, `DROP TABLE posts`)
+	_, _ = db.ExecContext(ctx, `DROP TABLE posts`)
 
 	switch dialect.DriverName() {
 	case "sqlite3":
@@ -3563,7 +3562,7 @@ func createTables(ctx context.Context, db DBAdapter, dialect sqldialect.Provider
 		return fmt.Errorf("failed to create new posts table: %s", err.Error())
 	}
 
-	db.ExecContext(ctx, `DROP TABLE user_permissions`)
+	_, _ = db.ExecContext(ctx, `DROP TABLE user_permissions`)
 
 	switch dialect.DriverName() {
 	case "sqlite3":
@@ -3626,7 +3625,7 @@ func getUserByID(db DBAdapter, dialect sqldialect.Provider, result *user, id uin
 	}
 	defer rows.Close()
 
-	if rows.Next() == false {
+	if !rows.Next() {
 		if rows.Err() != nil {
 			return rows.Err()
 		}
@@ -3662,7 +3661,7 @@ func getUserByName(db DBAdapter, dialect sqldialect.Provider, result *user, name
 	}
 	defer rows.Close()
 
-	if rows.Next() == false {
+	if !rows.Next() {
 		if rows.Err() != nil {
 			return rows.Err()
 		}
@@ -3702,7 +3701,7 @@ func getUserPermissionBySecondaryKeys(db DBAdapter, dialect sqldialect.Provider,
 	}
 	defer rows.Close()
 
-	if rows.Next() == false {
+	if !rows.Next() {
 		if rows.Err() != nil {
 			return userPermission{}, rows.Err()
 		}
