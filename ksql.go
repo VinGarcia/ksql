@@ -1091,30 +1091,21 @@ func getScanArgsForNestedStructs(
 	v reflect.Value,
 	info structs.StructInfo,
 ) (attrNames []string, scanArgs []interface{}, _ error) {
-	for i := 0; i < v.NumField(); i++ {
-		if !info.ByIndex(i).Valid {
-			continue
-		}
-
+	for _, field := range info.Fields {
 		// TODO(vingarcia00): Handle case where type is pointer
-		nestedStructInfo, err := structs.GetTagInfo(t.Field(i).Type)
+		nestedStructInfo, err := structs.GetTagInfo(t.Field(field.Index).Type)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		nestedStructValue := v.Field(i)
-		for j := 0; j < nestedStructValue.NumField(); j++ {
-			fieldInfo := nestedStructInfo.ByIndex(j)
-			if !fieldInfo.Valid {
-				continue
-			}
-
-			valueScanner := nestedStructValue.Field(fieldInfo.Index).Addr().Interface()
-			if fieldInfo.Modifier.Scan != nil {
+		nestedStructValue := v.Field(field.Index)
+		for _, nestedField := range nestedStructInfo.Fields {
+			valueScanner := nestedStructValue.Field(nestedField.Index).Addr().Interface()
+			if nestedField.Modifier.Scan != nil {
 				valueScanner = &modifiers.AttrScanWrapper{
 					Ctx:     ctx,
 					AttrPtr: valueScanner,
-					ScanFn:  fieldInfo.Modifier.Scan,
+					ScanFn:  nestedField.Modifier.Scan,
 					OpInfo: ksqlmodifiers.OpInfo{
 						DriverName: dialect.DriverName(),
 						// We will not differentiate between Query, QueryOne and QueryChunks
@@ -1125,7 +1116,7 @@ func getScanArgsForNestedStructs(
 			}
 
 			scanArgs = append(scanArgs, valueScanner)
-			attrNames = append(attrNames, info.ByIndex(i).AttrName+"."+fieldInfo.AttrName)
+			attrNames = append(attrNames, info.ByIndex(field.Index).AttrName+"."+nestedField.AttrName)
 		}
 	}
 
@@ -1236,13 +1227,8 @@ func buildSelectQueryForPlainStructs(
 	info structs.StructInfo,
 ) string {
 	var fields []string
-	for i := 0; i < structType.NumField(); i++ {
-		fieldInfo := info.ByIndex(i)
-		if !fieldInfo.Valid {
-			continue
-		}
-
-		fields = append(fields, dialect.Escape(fieldInfo.ColumnName))
+	for _, field := range info.Fields {
+		fields = append(fields, dialect.Escape(field.ColumnName))
 	}
 
 	return "SELECT " + strings.Join(fields, ", ") + " "
@@ -1254,14 +1240,9 @@ func buildSelectQueryForNestedStructs(
 	info structs.StructInfo,
 ) (string, error) {
 	var fields []string
-	for i := 0; i < structType.NumField(); i++ {
-		nestedStructInfo := info.ByIndex(i)
-		if !nestedStructInfo.Valid {
-			continue
-		}
-
-		nestedStructName := nestedStructInfo.ColumnName
-		nestedStructType := structType.Field(i).Type
+	for _, fieldInfo := range info.Fields {
+		nestedStructName := fieldInfo.ColumnName
+		nestedStructType := structType.Field(fieldInfo.Index).Type
 		if nestedStructType.Kind() != reflect.Struct {
 			return "", fmt.Errorf(
 				"expected nested struct with `tablename:\"%s\"` to be a kind of Struct, but got %v",
@@ -1269,20 +1250,15 @@ func buildSelectQueryForNestedStructs(
 			)
 		}
 
-		nestedStructTagInfo, err := structs.GetTagInfo(nestedStructType)
+		structInfo, err := structs.GetTagInfo(nestedStructType)
 		if err != nil {
 			return "", err
 		}
 
-		for j := 0; j < structType.Field(i).Type.NumField(); j++ {
-			fieldInfo := nestedStructTagInfo.ByIndex(j)
-			if !fieldInfo.Valid {
-				continue
-			}
-
+		for _, nestedFieldInfo := range structInfo.Fields {
 			fields = append(
 				fields,
-				dialect.Escape(nestedStructName)+"."+dialect.Escape(fieldInfo.ColumnName),
+				dialect.Escape(nestedStructName)+"."+dialect.Escape(nestedFieldInfo.ColumnName),
 			)
 		}
 	}
