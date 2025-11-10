@@ -10,8 +10,9 @@ import (
 )
 
 type User struct {
-	Name string `ksql:"name"`
-	Age  int    `ksql:"age"`
+	Name            string `ksql:"name"`
+	ShouldBeIgnored *struct{}
+	Age             int `ksql:"age"`
 }
 
 var nullField *int

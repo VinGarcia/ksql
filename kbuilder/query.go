@@ -195,9 +195,8 @@ func buildSelectQuery(obj interface{}, dialect sqldialect.Provider) (string, err
 	}
 
 	var escapedNames []string
-	for i := 0; i < info.NumFields(); i++ {
-		name := info.ByIndex(i).ColumnName
-		escapedNames = append(escapedNames, dialect.Escape(name))
+	for _, field := range info.Fields {
+		escapedNames = append(escapedNames, dialect.Escape(field.ColumnName))
 	}
 
 	query := strings.Join(escapedNames, ", ")

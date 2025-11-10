@@ -52,6 +52,20 @@ func TestGetTagInfo(t *testing.T) {
 						Valid:      true,
 					},
 				},
+				Fields: []*FieldInfo{
+					&FieldInfo{
+						AttrName:   "ShowStr",
+						ColumnName: "show_str",
+						Index:      0,
+						Valid:      true,
+					},
+					&FieldInfo{
+						AttrName:   "ShowInt",
+						ColumnName: "show_int",
+						Index:      2,
+						Valid:      true,
+					},
+				},
 				numFields: 4,
 			},
 		},
@@ -87,6 +101,20 @@ func TestGetTagInfo(t *testing.T) {
 						Valid:      true,
 					},
 					"show_int": &FieldInfo{
+						AttrName:   "ShowInt",
+						ColumnName: "show_int",
+						Index:      2,
+						Valid:      true,
+					},
+				},
+				Fields: []*FieldInfo{
+					&FieldInfo{
+						AttrName:   "ShowStr",
+						ColumnName: "show_str",
+						Index:      0,
+						Valid:      true,
+					},
+					&FieldInfo{
 						AttrName:   "ShowInt",
 						ColumnName: "show_int",
 						Index:      2,

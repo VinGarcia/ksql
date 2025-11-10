@@ -94,14 +94,12 @@ func (i Insert) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params
 
 	b.WriteString(" (")
 	var escapedNames []string
-	for i := 0; i < info.NumFields(); i++ {
-		name := info.ByIndex(i).ColumnName
-
-		if shouldOmit[name] {
+	for _, field := range info.Fields {
+		if shouldOmit[field.ColumnName] {
 			continue
 		}
 
-		escapedNames = append(escapedNames, dialect.Escape(name))
+		escapedNames = append(escapedNames, dialect.Escape(field.ColumnName))
 	}
 	b.WriteString(strings.Join(escapedNames, ", "))
 	b.WriteString(") VALUES ")
@@ -115,13 +113,13 @@ func (i Insert) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params
 		}
 
 		placeholders := []string{}
-		for j := 0; j < info.NumFields(); j++ {
-			if shouldOmit[info.ByIndex(j).ColumnName] {
+		for _, field := range info.Fields {
+			if shouldOmit[info.ByIndex(field.Index).ColumnName] {
 				continue
 			}
 
 			placeholders = append(placeholders, dialect.Placeholder(len(params)))
-			params = append(params, record.Field(j).Interface())
+			params = append(params, record.Field(field.Index).Interface())
 		}
 		values = append(values, "("+strings.Join(placeholders, ", ")+")")
 	}

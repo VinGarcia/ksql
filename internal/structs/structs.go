@@ -18,6 +18,11 @@ type StructInfo struct {
 	byIndex        map[int]*FieldInfo
 	byName         map[string]*FieldInfo
 	numFields      int
+
+	// Fields is a public slice useful for efficiently iterating over the struct fields
+	//
+	// This slice should be treated as a constant, not adding nor removing items from it.
+	Fields []*FieldInfo
 }
 
 // FieldInfo contains reflection and tags
@@ -67,10 +72,11 @@ func (s StructInfo) ByName(name string) *FieldInfo {
 	return field
 }
 
-func (s StructInfo) add(field FieldInfo) {
+func (s *StructInfo) add(field FieldInfo) {
 	field.Valid = true
 	s.byIndex[field.Index] = &field
 	s.byName[field.ColumnName] = &field
+	s.Fields = append(s.Fields, &field)
 
 	// Make sure to save a lowercased version because
 	// some databases will set these keys to lowercase.
