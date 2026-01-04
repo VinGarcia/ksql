@@ -78,7 +78,7 @@ func startMySQLDB(dbName string) (databaseURL string, closer func()) {
 	}
 	sqlDB.Close()
 
-	fmt.Printf("db ready to run in %v", time.Since(startTime))
+	fmt.Printf("db ready to run in %v\n", time.Since(startTime))
 
 	return databaseUrl, func() {
 		if err := pool.Purge(resource); err != nil {

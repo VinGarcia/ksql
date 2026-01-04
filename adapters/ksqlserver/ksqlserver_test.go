@@ -78,7 +78,7 @@ func startSQLServerDB(dbName string) (databaseURL string, closer func()) {
 	}
 	sqlDB.Close()
 
-	fmt.Printf("db ready to run in %v", time.Since(startTime))
+	fmt.Printf("db ready to run in %v\n", time.Since(startTime))
 
 	// SQLServer keeps failing frequently, lets try to wait a little before returning:
 	time.Sleep(500 * time.Millisecond)

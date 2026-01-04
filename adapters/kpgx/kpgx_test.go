@@ -93,7 +93,7 @@ func startPostgresDB(ctx context.Context, dbName string) (databaseURL string, cl
 	}
 	sqlDB.Close()
 
-	fmt.Printf("db ready to run in %v", time.Since(startTime))
+	fmt.Printf("db ready to run in %v\n", time.Since(startTime))
 
 	return databaseUrl, func() {
 		if err := dockerPool.Purge(resource); err != nil {
