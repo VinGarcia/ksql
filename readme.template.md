@@ -282,3 +282,4 @@ make test
   - Have a new Modifier `skipNullUpdates` so that the Update function will do the job of the `Patch`
   - Remove the `Patch` function.
 - Rename `NewTable()` to just `Table()` so it feels right to declare it inline when convenient
+- Fix insert behavior where null slices are not skipped as null pointers are.
