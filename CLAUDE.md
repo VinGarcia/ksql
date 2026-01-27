@@ -190,11 +190,24 @@ db.Transaction(ctx, func(db ksql.Provider) error {
 
 ## kbuilder Package (Experimental)
 
-The query builder is experimental and subject to breaking changes. It provides fluent API for programmatic query construction:
+The query builder is experimental and subject to breaking changes. It uses struct literals for building queries:
 
 ```go
-builder.Insert().Into("users").Data(users).BuildQuery(dialect)
-builder.Query().Select("*").From("users").Where("id = ?").BuildQuery(dialect)
+// Insert example
+db.ExecFromBuilder(ctx, kbuilder.Insert{
+    Into: "users",
+    Data: &user,
+})
+
+// Query example
+db.QueryFromBuilder(ctx, &results, kbuilder.Query{
+    Select: &User{},
+    From:   "users",
+    Where: kbuilder.Where("id = $1", 42).Where("age > $2", 18),
+    OrderBy: "created_at DESC",
+    Limit:  10,
+    Offset: 20,
+})
 ```
 
 Current limitations: Only supports SELECT and INSERT. Update and Delete support are TODO items.
