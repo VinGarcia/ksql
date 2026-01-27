@@ -47,6 +47,9 @@ type Provider interface {
 
 	Exec(ctx context.Context, query string, params ...interface{}) (Result, error)
 	Transaction(ctx context.Context, fn func(Provider) error) error
+
+	QueryFromBuilder(ctx context.Context, records interface{}, builder QueryBuilder) (err error)
+	ExecFromBuilder(ctx context.Context, builder QueryBuilder) (_ Result, err error)
 }
 
 // Table describes the required information for inserting, updating and
@@ -133,4 +136,10 @@ type ChunkParser struct {
 	// Where the actual Record type should be of a struct
 	// representing the rows you are expecting to receive.
 	ForEachChunk interface{}
+}
+
+// QueryBuilder describes the interface a query builder needs to implement
+// to be used with the QueryFromBuilder and ExecFromBuilder functions.
+type QueryBuilder interface {
+	BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params []interface{}, _ error)
 }

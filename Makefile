@@ -1,7 +1,7 @@
 args=
 path=./...
 
-BUILD_TAGS=-tags ksql_enable_kbuilder_experiment
+BUILD_TAGS=
 GOBIN=$(shell go env GOPATH)/bin
 
 TIME=5s
@@ -17,6 +17,7 @@ test: setup go-mod-tidy
 	$(GOBIN)/richgo test $(BUILD_TAGS) $(path) $(args)
 	@( cd benchmarks ; $(GOBIN)/richgo test $(path) $(args) )
 	@( cd examples ; $(GOBIN)/richgo test $(path) $(args) )
+	@( cd kbuilder ; $(GOBIN)/richgo test $(path) $(args) )
 	@( cd adapters/kpgx ; $(GOBIN)/richgo test $(path) $(args) -timeout=60s )
 	@( cd adapters/kpgx5 ; $(GOBIN)/richgo test $(path) $(args) -timeout=60s )
 	@( cd adapters/kmysql ; $(GOBIN)/richgo test $(path) $(args) -timeout=60s )

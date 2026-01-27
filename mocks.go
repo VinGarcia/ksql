@@ -47,7 +47,6 @@ var _ Provider = Mock{}
 //		user2,
 //	}
 //	assert.Equal(t, expectedInsertedRecords, insertRecords)
-//
 type Mock struct {
 	InsertFn func(ctx context.Context, table Table, record interface{}) error
 	PatchFn  func(ctx context.Context, table Table, record interface{}) error
@@ -59,6 +58,9 @@ type Mock struct {
 
 	ExecFn        func(ctx context.Context, query string, params ...interface{}) (Result, error)
 	TransactionFn func(ctx context.Context, fn func(db Provider) error) error
+
+	QueryFromBuilderFn func(ctx context.Context, records interface{}, builder QueryBuilder) (err error)
+	ExecFromBuilderFn  func(ctx context.Context, builder QueryBuilder) (_ Result, err error)
 }
 
 // MockResult implements the Result interface returned by the Exec function
@@ -125,6 +127,13 @@ func (m Mock) SetFallbackDatabase(db Provider) Mock {
 	}
 	if m.TransactionFn == nil {
 		m.TransactionFn = db.Transaction
+	}
+
+	if m.QueryFromBuilderFn == nil {
+		m.QueryFromBuilderFn = db.QueryFromBuilder
+	}
+	if m.ExecFromBuilderFn == nil {
+		m.ExecFromBuilderFn = db.ExecFromBuilder
 	}
 
 	return m
@@ -209,6 +218,26 @@ func (m Mock) Transaction(ctx context.Context, fn func(db Provider) error) error
 		return fn(m)
 	}
 	return m.TransactionFn(ctx, fn)
+}
+
+// QueryFromBuilder mocks the behavior of the QueryFromBuilder method.
+// If QueryFromBuilderFn is set it will just call it returning the same return values.
+// If QueryFromBuilderFn is unset it will panic with an appropriate error message.
+func (m Mock) QueryFromBuilder(ctx context.Context, records interface{}, builder QueryBuilder) (err error) {
+	if m.QueryFromBuilderFn == nil {
+		panic(fmt.Errorf("ksql.Mock.QueryFromBuilder(ctx, %+v) called but the ksql.Mock.QueryFromBuilderFn() is not set", builder))
+	}
+	return m.QueryFromBuilderFn(ctx, records, builder)
+}
+
+// ExecFromBuilder mocks the behavior of the ExecFromBuilder method.
+// If ExecFromBuilderFn is set it will just call it returning the same return values.
+// If ExecFromBuilderFn is unset it will panic with an appropriate error message.
+func (m Mock) ExecFromBuilder(ctx context.Context, builder QueryBuilder) (_ Result, err error) {
+	if m.ExecFromBuilderFn == nil {
+		panic(fmt.Errorf("ksql.Mock.ExecFromBuilder(ctx, %+v) called but the ksql.Mock.ExecFromBuilderFn() is not set", builder))
+	}
+	return m.ExecFromBuilderFn(ctx, builder)
 }
 
 // NewMockResult returns a simple implementation of the Result interface.

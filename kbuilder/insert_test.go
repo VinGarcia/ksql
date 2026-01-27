@@ -1,10 +1,14 @@
 package kbuilder_test
 
 import (
+	"context"
 	"testing"
 
+	"github.com/vingarcia/ksql"
 	tt "github.com/vingarcia/ksql/internal/testtools"
 	"github.com/vingarcia/ksql/kbuilder"
+	"github.com/vingarcia/ksql/kbuilder/internal"
+	"github.com/vingarcia/ksql/sqldialect"
 )
 
 func TestInsertQuery(t *testing.T) {
@@ -109,4 +113,35 @@ func TestInsertQuery(t *testing.T) {
 			tt.AssertEqual(t, params, test.expectedParams)
 		})
 	}
+}
+
+func TestExecFromBuilder(t *testing.T) {
+	ctx := context.Background()
+
+	var capturedQuery string
+	var capturedArgs []interface{}
+
+	db, err := ksql.NewWithAdapter(
+		internal.MockDBAdapter{
+			ExecContextFn: func(ctx context.Context, query string, args ...interface{}) (ksql.Result, error) {
+				capturedQuery = query
+				capturedArgs = args
+				return internal.MockResult{}, nil
+			},
+		},
+		sqldialect.SupportedDialects["postgres"],
+	)
+	tt.AssertNoErr(t, err)
+
+	_, err = db.ExecFromBuilder(ctx, kbuilder.Insert{
+		Into: "users",
+		Data: &User{
+			Name: "foo",
+			Age:  42,
+		},
+	})
+	tt.AssertNoErr(t, err)
+
+	tt.AssertEqual(t, capturedQuery, `INSERT INTO "users" ("name", "age") VALUES ($1, $2)`)
+	tt.AssertEqual(t, capturedArgs, []interface{}{"foo", 42})
 }

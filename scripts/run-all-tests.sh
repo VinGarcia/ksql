@@ -6,7 +6,7 @@ set -ueo pipefail
 # Generate the coverate.txt file for all modules:
 
 # Run ksql root module tests:
-go test -tags=ksql_enable_kbuilder_experiment -coverprofile=coverage.txt -coverpkg=github.com/vingarcia/ksql ./...
+go test -coverprofile=coverage.txt -coverpkg=github.com/vingarcia/ksql ./...
 
 # Run the benchmarks
 ( cd benchmarks ; go test -coverprofile=coverage.txt -coverpkg=github.com/vingarcia/ksql ./... )
@@ -16,6 +16,9 @@ go test -tags=ksql_enable_kbuilder_experiment -coverprofile=coverage.txt -coverp
 
 # Make sure the run-with-replace.sh is on PATH:
 export PATH=$PATH:$(pwd)/scripts
+
+# Run the tests for the kbuilder module:
+( cd kbuilder ; run-with-replace.sh go test -coverprofile=coverage.txt -coverpkg=github.com/vingarcia/ksql ./... )
 
 # Then for each adapter run the tests with the replace directive:
 ( cd adapters/kpgx ; run-with-replace.sh go test -coverprofile=coverage.txt -coverpkg=github.com/vingarcia/ksql ./... )

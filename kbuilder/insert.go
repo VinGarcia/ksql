@@ -1,5 +1,3 @@
-//go:build ksql_enable_kbuilder_experiment
-
 package kbuilder
 
 import (
@@ -12,6 +10,9 @@ import (
 )
 
 // Insert is the struct template for building INSERT queries
+//
+// Experimental warning: This package is still experimental and
+// might be subject to breaking changes in future versions.
 type Insert struct {
 	// Into expects a table name, e.g. "users"
 	Into string

@@ -10,6 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	ksql "github.com/vingarcia/ksql"
+	sqldialect "github.com/vingarcia/ksql/sqldialect"
 )
 
 // MockProvider is a mock of Provider interface.
@@ -67,6 +68,21 @@ func (mr *MockProviderMockRecorder) Exec(ctx, query interface{}, params ...inter
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, query}, params...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exec", reflect.TypeOf((*MockProvider)(nil).Exec), varargs...)
+}
+
+// ExecFromBuilder mocks base method.
+func (m *MockProvider) ExecFromBuilder(ctx context.Context, builder ksql.QueryBuilder) (ksql.Result, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExecFromBuilder", ctx, builder)
+	ret0, _ := ret[0].(ksql.Result)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExecFromBuilder indicates an expected call of ExecFromBuilder.
+func (mr *MockProviderMockRecorder) ExecFromBuilder(ctx, builder interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecFromBuilder", reflect.TypeOf((*MockProvider)(nil).ExecFromBuilder), ctx, builder)
 }
 
 // Insert mocks base method.
@@ -130,6 +146,20 @@ func (mr *MockProviderMockRecorder) QueryChunks(ctx, parser interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryChunks", reflect.TypeOf((*MockProvider)(nil).QueryChunks), ctx, parser)
 }
 
+// QueryFromBuilder mocks base method.
+func (m *MockProvider) QueryFromBuilder(ctx context.Context, records interface{}, builder ksql.QueryBuilder) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryFromBuilder", ctx, records, builder)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// QueryFromBuilder indicates an expected call of QueryFromBuilder.
+func (mr *MockProviderMockRecorder) QueryFromBuilder(ctx, records, builder interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryFromBuilder", reflect.TypeOf((*MockProvider)(nil).QueryFromBuilder), ctx, records, builder)
+}
+
 // QueryOne mocks base method.
 func (m *MockProvider) QueryOne(ctx context.Context, record interface{}, query string, params ...interface{}) error {
 	m.ctrl.T.Helper()
@@ -161,4 +191,43 @@ func (m *MockProvider) Transaction(ctx context.Context, fn func(ksql.Provider) e
 func (mr *MockProviderMockRecorder) Transaction(ctx, fn interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Transaction", reflect.TypeOf((*MockProvider)(nil).Transaction), ctx, fn)
+}
+
+// MockQueryBuilder is a mock of QueryBuilder interface.
+type MockQueryBuilder struct {
+	ctrl     *gomock.Controller
+	recorder *MockQueryBuilderMockRecorder
+}
+
+// MockQueryBuilderMockRecorder is the mock recorder for MockQueryBuilder.
+type MockQueryBuilderMockRecorder struct {
+	mock *MockQueryBuilder
+}
+
+// NewMockQueryBuilder creates a new mock instance.
+func NewMockQueryBuilder(ctrl *gomock.Controller) *MockQueryBuilder {
+	mock := &MockQueryBuilder{ctrl: ctrl}
+	mock.recorder = &MockQueryBuilderMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockQueryBuilder) EXPECT() *MockQueryBuilderMockRecorder {
+	return m.recorder
+}
+
+// BuildQuery mocks base method.
+func (m *MockQueryBuilder) BuildQuery(dialect sqldialect.Provider) (string, []interface{}, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BuildQuery", dialect)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].([]interface{})
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// BuildQuery indicates an expected call of BuildQuery.
+func (mr *MockQueryBuilderMockRecorder) BuildQuery(dialect interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BuildQuery", reflect.TypeOf((*MockQueryBuilder)(nil).BuildQuery), dialect)
 }

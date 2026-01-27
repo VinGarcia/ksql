@@ -1265,3 +1265,32 @@ func buildSelectQueryForNestedStructs(
 
 	return "SELECT " + strings.Join(fields, ", ") + " ", nil
 }
+
+// QueryFromBuilder is a helper for making it easier to use a QueryBuilder,
+// it builds a query using the builder param and forwards the results to Query()
+//
+// The input struct should be a reference to a slice of structs or struct pointers
+// just like for the Query function.
+//
+// Note: it is very important to make sure the query will
+// return a small known number of results, otherwise you risk
+// of overloading the available memory.
+func (c DB) QueryFromBuilder(ctx context.Context, records interface{}, builder QueryBuilder) (err error) {
+	query, params, err := builder.BuildQuery(c.dialect)
+	if err != nil {
+		return err
+	}
+
+	return c.Query(ctx, records, query, params...)
+}
+
+// ExecFromBuilder is a helper for making it easier to use a QueryBuilder,
+// it builds a query using the builder param and forwards the results to Exec()
+func (c DB) ExecFromBuilder(ctx context.Context, builder QueryBuilder) (_ Result, err error) {
+	query, params, err := builder.BuildQuery(c.dialect)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.Exec(ctx, query, params...)
+}
