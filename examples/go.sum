@@ -317,8 +317,8 @@ github.com/tv42/httpunix v0.0.0-20191220191345-2ba4b9c3382c/go.mod h1:hzIxponao9
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/urfave/cli v1.22.1/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=
 github.com/vingarcia/ksql v1.10.0/go.mod h1:b2hDFu+P/Ei7sf2Jh39ajnoOMmj9lzPmDq2QYIqD+dg=
-github.com/vingarcia/ksql v1.12.4 h1:Kmxqs+ZIHmDCp+GZqG55DnSXeozDwhhZ7k27JOccKYw=
-github.com/vingarcia/ksql v1.12.4/go.mod h1:DHp/nhVu1nHpBBXH/FRw6JLgIcvcM3+uo2+PfUNdo0g=
+github.com/vingarcia/ksql v1.13.0 h1:92Ko48ClJcAW1nyioKxWgD8ijS2+hW/UIZxM9zy/m+k=
+github.com/vingarcia/ksql v1.13.0/go.mod h1:DHp/nhVu1nHpBBXH/FRw6JLgIcvcM3+uo2+PfUNdo0g=
 github.com/vingarcia/ksql/adapters/kmysql v1.10.0 h1:mOW5I5Tce4tuLhbGuF4en8Lou8tK+3TZgJtqr3+PURI=
 github.com/vingarcia/ksql/adapters/kmysql v1.10.0/go.mod h1:0XfdHKGbbs0LO+mLPLjZ8668pnJgWX/WdWM17XFdmqw=
 github.com/vingarcia/ksql/adapters/kpgx v1.10.0 h1:HL08okK/0mxk7thiNu/kasDgkUNuSg2zQwbA1/lu720=
