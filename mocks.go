@@ -3,6 +3,8 @@ package ksql
 import (
 	"context"
 	"fmt"
+
+	"github.com/vingarcia/ksql/sqldialect"
 )
 
 var _ Provider = Mock{}
@@ -262,4 +264,34 @@ func (m MockResult) RowsAffected() (int64, error) {
 		panic(fmt.Errorf("ksql.MockResult.RowsAffected() called but ksql.MockResult.RowsAffectedFn is not set"))
 	}
 	return m.RowsAffectedFn()
+}
+
+// MockQueryBuilder implements the QueryBuilder interface in order to allow users
+// to easily mock the behavior of a ksql.QueryBuilder.
+//
+// To mock the BuildQuery method, you just need to set the BuildQueryFn attribute.
+//
+// NOTE: This mock should be instantiated inside each unit test not globally.
+//
+// Example Usage:
+//
+//	var capturedDialect sqldialect.Provider
+//	mockBuilder := MockQueryBuilder{
+//		BuildQueryFn: func(dialect sqldialect.Provider) (string, []interface{}, error) {
+//			capturedDialect = dialect
+//			return "SELECT * FROM users WHERE id = ?", []interface{}{42}, nil
+//		},
+//	}
+type MockQueryBuilder struct {
+	BuildQueryFn func(dialect sqldialect.Provider) (sqlQuery string, params []interface{}, _ error)
+}
+
+// BuildQuery mocks the behavior of the BuildQuery method.
+// If BuildQueryFn is set it will just call it returning the same return values.
+// If BuildQueryFn is unset it will panic with an appropriate error message.
+func (m MockQueryBuilder) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params []interface{}, _ error) {
+	if m.BuildQueryFn == nil {
+		panic(fmt.Errorf("ksql.MockQueryBuilder.BuildQuery(dialect) called but ksql.MockQueryBuilder.BuildQueryFn is not set"))
+	}
+	return m.BuildQueryFn(dialect)
 }

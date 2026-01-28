@@ -8,6 +8,7 @@ import (
 
 	"github.com/vingarcia/ksql"
 	tt "github.com/vingarcia/ksql/internal/testtools"
+	"github.com/vingarcia/ksql/sqldialect"
 )
 
 func TestMock(t *testing.T) {
@@ -141,6 +142,33 @@ func TestMock(t *testing.T) {
 
 			tt.AssertEqual(t, panicPayload, nil)
 			tt.AssertEqual(t, executed, true)
+		})
+
+		t.Run("QueryFromBuilder should panic", func(t *testing.T) {
+			ctx := context.Background()
+			mock := ksql.Mock{}
+			panicPayload := tt.PanicHandler(func() {
+				var users []User
+				builder := ksql.MockQueryBuilder{}
+				mock.QueryFromBuilder(ctx, &users, builder)
+			})
+
+			err, ok := panicPayload.(error)
+			tt.AssertEqual(t, ok, true)
+			tt.AssertErrContains(t, err, "ksql.Mock.QueryFromBuilder(", "ksql.Mock.QueryFromBuilderFn", "not set")
+		})
+
+		t.Run("ExecFromBuilder should panic", func(t *testing.T) {
+			ctx := context.Background()
+			mock := ksql.Mock{}
+			panicPayload := tt.PanicHandler(func() {
+				builder := ksql.MockQueryBuilder{}
+				mock.ExecFromBuilder(ctx, builder)
+			})
+
+			err, ok := panicPayload.(error)
+			tt.AssertEqual(t, ok, true)
+			tt.AssertErrContains(t, err, "ksql.Mock.ExecFromBuilder(", "ksql.Mock.ExecFromBuilderFn", "not set")
 		})
 	})
 
@@ -376,6 +404,72 @@ func TestMock(t *testing.T) {
 			tt.AssertEqual(t, executingMockedTransaction, true)
 			tt.AssertEqual(t, executed, false)
 		})
+
+		t.Run("QueryFromBuilder", func(t *testing.T) {
+			ctx := context.Background()
+			var capturedArgs struct {
+				ctx     context.Context
+				records interface{}
+			}
+			var builderCalled bool
+			mock := ksql.Mock{
+				QueryFromBuilderFn: func(ctx context.Context, records interface{}, builder ksql.QueryBuilder) error {
+					capturedArgs.ctx = ctx
+					capturedArgs.records = records
+					// Call the builder to verify it was passed correctly
+					_, _, _ = builder.BuildQuery(nil)
+					return fmt.Errorf("fake-error")
+				},
+			}
+
+			var users []User
+			testBuilder := ksql.MockQueryBuilder{
+				BuildQueryFn: func(dialect sqldialect.Provider) (string, []interface{}, error) {
+					builderCalled = true
+					return "SELECT * FROM users WHERE age = $1", []interface{}{42}, nil
+				},
+			}
+			err := mock.QueryFromBuilder(ctx, &users, testBuilder)
+
+			tt.AssertErrContains(t, err, "fake-error")
+			tt.AssertEqual(t, capturedArgs.ctx, ctx)
+			tt.AssertEqual(t, capturedArgs.records, &users)
+			tt.AssertEqual(t, builderCalled, true)
+		})
+
+		t.Run("ExecFromBuilder", func(t *testing.T) {
+			ctx := context.Background()
+			var capturedArgs struct {
+				ctx context.Context
+			}
+			var builderCalled bool
+			mock := ksql.Mock{
+				ExecFromBuilderFn: func(ctx context.Context, builder ksql.QueryBuilder) (ksql.Result, error) {
+					capturedArgs.ctx = ctx
+					// Call the builder to verify it was passed correctly
+					_, _, _ = builder.BuildQuery(nil)
+					return ksql.NewMockResult(42, 42), fmt.Errorf("fake-error")
+				},
+			}
+
+			testBuilder := ksql.MockQueryBuilder{
+				BuildQueryFn: func(dialect sqldialect.Provider) (string, []interface{}, error) {
+					builderCalled = true
+					return `INSERT INTO "users" ("name", "age") VALUES ($1, $2)`, []interface{}{"foo", 42}, nil
+				},
+			}
+			r, err := mock.ExecFromBuilder(ctx, testBuilder)
+
+			tt.AssertErrContains(t, err, "fake-error")
+			rowsAffected, err := r.RowsAffected()
+			tt.AssertNoErr(t, err)
+			tt.AssertEqual(t, rowsAffected, int64(42))
+			lastInsertID, err := r.LastInsertId()
+			tt.AssertNoErr(t, err)
+			tt.AssertEqual(t, lastInsertID, int64(42))
+			tt.AssertEqual(t, capturedArgs.ctx, ctx)
+			tt.AssertEqual(t, builderCalled, true)
+		})
 	})
 
 	t.Run("SetFallbackDatabase", func(t *testing.T) {
@@ -405,6 +499,12 @@ func TestMock(t *testing.T) {
 			TransactionFn: func(ctx context.Context, fn func(db ksql.Provider) error) error {
 				return fmt.Errorf("called from TransactionFn")
 			},
+			QueryFromBuilderFn: func(ctx context.Context, records interface{}, builder ksql.QueryBuilder) error {
+				return fmt.Errorf("called from QueryFromBuilderFn")
+			},
+			ExecFromBuilderFn: func(ctx context.Context, builder ksql.QueryBuilder) (ksql.Result, error) {
+				return nil, fmt.Errorf("called from ExecFromBuilderFn")
+			},
 		}
 
 		ctx := context.Background()
@@ -431,6 +531,10 @@ func TestMock(t *testing.T) {
 			return nil
 		})
 		tt.AssertErrContains(t, err, "called from TransactionFn")
+		err = testMock.QueryFromBuilder(ctx, &users, ksql.MockQueryBuilder{})
+		tt.AssertErrContains(t, err, "called from QueryFromBuilderFn")
+		_, err = testMock.ExecFromBuilder(ctx, ksql.MockQueryBuilder{})
+		tt.AssertErrContains(t, err, "called from ExecFromBuilderFn")
 	})
 }
 
@@ -474,6 +578,46 @@ func TestMockResult(t *testing.T) {
 			err, ok := panicPayload.(error)
 			tt.AssertEqual(t, ok, true)
 			tt.AssertErrContains(t, err, "ksql.MockResult.RowsAffected(", "ksql.MockResult.RowsAffectedFn", "not set")
+		})
+	})
+}
+
+func TestMockQueryBuilder(t *testing.T) {
+	t.Run("BuildQuery", func(t *testing.T) {
+		t.Run("should call the provided function correctly", func(t *testing.T) {
+			builder := ksql.MockQueryBuilder{
+				BuildQueryFn: func(dialect sqldialect.Provider) (string, []interface{}, error) {
+					return "SELECT * FROM users WHERE age = $1", []interface{}{42}, nil
+				},
+			}
+
+			query, params, err := builder.BuildQuery(nil)
+			tt.AssertNoErr(t, err)
+			tt.AssertEqual(t, query, "SELECT * FROM users WHERE age = $1")
+			tt.AssertEqual(t, params, []interface{}{42})
+		})
+
+		t.Run("should propagate errors from the BuildQueryFn", func(t *testing.T) {
+			builder := ksql.MockQueryBuilder{
+				BuildQueryFn: func(dialect sqldialect.Provider) (string, []interface{}, error) {
+					return "", nil, fmt.Errorf("build query error")
+				},
+			}
+
+			_, _, err := builder.BuildQuery(nil)
+			tt.AssertErrContains(t, err, "build query error")
+		})
+
+		t.Run("should panic if BuildQueryFn is not set", func(t *testing.T) {
+			builder := ksql.MockQueryBuilder{}
+
+			panicPayload := tt.PanicHandler(func() {
+				builder.BuildQuery(nil)
+			})
+
+			err, ok := panicPayload.(error)
+			tt.AssertEqual(t, ok, true)
+			tt.AssertErrContains(t, err, "ksql.MockQueryBuilder.BuildQuery(", "ksql.MockQueryBuilder.BuildQueryFn", "not set")
 		})
 	})
 }

@@ -402,3 +402,174 @@ func TestInjectLogger(t *testing.T) {
 		})
 	}
 }
+
+func TestQueryFromBuilder(t *testing.T) {
+	ctx := context.Background()
+
+	type testUser struct {
+		Name string `ksql:"name"`
+		Age  int    `ksql:"age"`
+	}
+
+	t.Run("should build query and pass correct query and params to the adapter", func(t *testing.T) {
+		var capturedQuery string
+		var capturedParams []interface{}
+
+		c := DB{
+			dialect: sqldialect.SupportedDialects["postgres"],
+			db: mockDBAdapter{
+				QueryContextFn: func(ctx context.Context, query string, args ...interface{}) (Rows, error) {
+					capturedQuery = query
+					capturedParams = args
+					return mockRows{
+						NextFn: func() bool { return false },
+					}, nil
+				},
+			},
+		}
+
+		testBuilder := MockQueryBuilder{
+			BuildQueryFn: func(dialect sqldialect.Provider) (string, []interface{}, error) {
+				return `SELECT "name", "age" FROM users WHERE id = $1`, []interface{}{42}, nil
+			},
+		}
+
+		var results []testUser
+		err := c.QueryFromBuilder(ctx, &results, testBuilder)
+
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, capturedQuery, `SELECT "name", "age" FROM users WHERE id = $1`)
+		tt.AssertEqual(t, capturedParams, []interface{}{42})
+	})
+
+	t.Run("should propagate errors from BuildQuery", func(t *testing.T) {
+		c := DB{
+			dialect: sqldialect.SupportedDialects["postgres"],
+			db: mockDBAdapter{
+				QueryContextFn: func(ctx context.Context, query string, args ...interface{}) (Rows, error) {
+					return mockRows{
+						NextFn: func() bool { return false },
+					}, nil
+				},
+			},
+		}
+
+		testBuilder := MockQueryBuilder{
+			BuildQueryFn: func(dialect sqldialect.Provider) (string, []interface{}, error) {
+				return "", nil, fmt.Errorf("build query error")
+			},
+		}
+
+		var results []testUser
+		err := c.QueryFromBuilder(ctx, &results, testBuilder)
+
+		tt.AssertErrContains(t, err, "build query error")
+	})
+
+	t.Run("should propagate errors from the adapter QueryContext", func(t *testing.T) {
+		c := DB{
+			dialect: sqldialect.SupportedDialects["postgres"],
+			db: mockDBAdapter{
+				QueryContextFn: func(ctx context.Context, query string, args ...interface{}) (Rows, error) {
+					return nil, fmt.Errorf("adapter query error")
+				},
+			},
+		}
+
+		testBuilder := MockQueryBuilder{
+			BuildQueryFn: func(dialect sqldialect.Provider) (string, []interface{}, error) {
+				return `SELECT "name", "age" FROM users`, []interface{}{}, nil
+			},
+		}
+
+		var results []testUser
+		err := c.QueryFromBuilder(ctx, &results, testBuilder)
+
+		tt.AssertErrContains(t, err, "adapter query error")
+	})
+}
+
+func TestExecFromBuilder(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("should build query and pass correct query and params to the adapter", func(t *testing.T) {
+		var capturedQuery string
+		var capturedParams []interface{}
+
+		c := DB{
+			dialect: sqldialect.SupportedDialects["postgres"],
+			db: mockDBAdapter{
+				ExecContextFn: func(ctx context.Context, query string, args ...interface{}) (Result, error) {
+					capturedQuery = query
+					capturedParams = args
+					return mockResult{
+						LastInsertIdFn: func() (int64, error) { return 1, nil },
+						RowsAffectedFn: func() (int64, error) { return 1, nil },
+					}, nil
+				},
+			},
+		}
+
+		testBuilder := MockQueryBuilder{
+			BuildQueryFn: func(dialect sqldialect.Provider) (string, []interface{}, error) {
+				return `INSERT INTO "users" ("name", "age") VALUES ($1, $2)`, []interface{}{"foo", 42}, nil
+			},
+		}
+
+		result, err := c.ExecFromBuilder(ctx, testBuilder)
+
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, capturedQuery, `INSERT INTO "users" ("name", "age") VALUES ($1, $2)`)
+		tt.AssertEqual(t, capturedParams, []interface{}{"foo", 42})
+
+		lastID, err := result.LastInsertId()
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, lastID, int64(1))
+
+		rowsAffected, err := result.RowsAffected()
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, rowsAffected, int64(1))
+	})
+
+	t.Run("should propagate errors from BuildQuery", func(t *testing.T) {
+		c := DB{
+			dialect: sqldialect.SupportedDialects["postgres"],
+			db: mockDBAdapter{
+				ExecContextFn: func(ctx context.Context, query string, args ...interface{}) (Result, error) {
+					return mockResult{}, nil
+				},
+			},
+		}
+
+		testBuilder := MockQueryBuilder{
+			BuildQueryFn: func(dialect sqldialect.Provider) (string, []interface{}, error) {
+				return "", nil, fmt.Errorf("build query error")
+			},
+		}
+
+		_, err := c.ExecFromBuilder(ctx, testBuilder)
+
+		tt.AssertErrContains(t, err, "build query error")
+	})
+
+	t.Run("should propagate errors from the adapter ExecContext", func(t *testing.T) {
+		c := DB{
+			dialect: sqldialect.SupportedDialects["postgres"],
+			db: mockDBAdapter{
+				ExecContextFn: func(ctx context.Context, query string, args ...interface{}) (Result, error) {
+					return nil, fmt.Errorf("adapter exec error")
+				},
+			},
+		}
+
+		testBuilder := MockQueryBuilder{
+			BuildQueryFn: func(dialect sqldialect.Provider) (string, []interface{}, error) {
+				return `INSERT INTO users VALUES ($1)`, []interface{}{42}, nil
+			},
+		}
+
+		_, err := c.ExecFromBuilder(ctx, testBuilder)
+
+		tt.AssertErrContains(t, err, "adapter exec error")
+	})
+}
