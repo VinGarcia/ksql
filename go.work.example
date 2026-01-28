@@ -11,4 +11,5 @@ use (
 	./adapters/modernc-ksqlite
 	./benchmarks
 	./examples
+	./kbuilder
 )
