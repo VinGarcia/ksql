@@ -213,6 +213,54 @@ func TestQueryFromBuilder(t *testing.T) {
 	tt.AssertEqual(t, capturedArgs, []interface{}{42, `%ending`})
 }
 
+func TestQueryBuild(t *testing.T) {
+	t.Run("should build query correctly with valid driver", func(t *testing.T) {
+		q := kbuilder.Query{
+			Select: &User{},
+			From:   "users",
+			Where:  kbuilder.Where("age > %s", 18),
+			Limit:  10,
+		}
+
+		query, params, err := q.Build("postgres")
+
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, query, `SELECT "name", "age" FROM users WHERE age > $1 LIMIT 10`)
+		tt.AssertEqual(t, params, []interface{}{18})
+	})
+
+	t.Run("should return error for unsupported driver", func(t *testing.T) {
+		q := kbuilder.Query{
+			Select: &User{},
+			From:   "users",
+		}
+
+		_, _, err := q.Build("invalid-driver")
+
+		tt.AssertErrContains(t, err, "unsupported driver", "invalid-driver")
+	})
+
+	t.Run("should work with different dialects", func(t *testing.T) {
+		q := kbuilder.Query{
+			Select: &User{},
+			From:   "users",
+			Where:  kbuilder.Where("age > %s", 18),
+		}
+
+		// Test MySQL (uses ?)
+		query, params, err := q.Build("mysql")
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, query, `SELECT "name", "age" FROM users WHERE age > ?`)
+		tt.AssertEqual(t, params, []interface{}{18})
+
+		// Test SQLServer (uses @p1, @p2, etc.)
+		query, params, err = q.Build("sqlserver")
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, query, `SELECT "name", "age" FROM users WHERE age > @p1`)
+		tt.AssertEqual(t, params, []interface{}{18})
+	})
+}
+
 func expectError(t *testing.T, expect bool, err error) {
 	if expect {
 		require.Equal(t, true, err != nil, "expected an error, but got nothing")
