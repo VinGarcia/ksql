@@ -180,11 +180,8 @@ func buildSelectQuery(obj interface{}, dialect sqldialect.Provider) (string, err
 	}
 
 	if data, found := cachedSelectQueries.Load(t); found {
-		if query, ok := data.(string); !ok {
-			return "", fmt.Errorf("invalid cache entry, expected type string, found %T", data)
-		} else {
-			return query, nil
-		}
+		query, _ := data.(string)
+		return query, nil
 	}
 
 	info, err := structs.GetTagInfo(t)

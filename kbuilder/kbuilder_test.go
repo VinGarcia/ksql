@@ -6,10 +6,53 @@ import (
 	"testing"
 
 	"github.com/vingarcia/ksql"
-	"github.com/vingarcia/ksql/ksqltest"
 	tt "github.com/vingarcia/ksql/internal/testtools"
 	"github.com/vingarcia/ksql/kbuilder"
+	"github.com/vingarcia/ksql/ksqltest"
 )
+
+func TestNewBuilder(t *testing.T) {
+	t.Run("should build with no errors for valid dialects", func(t *testing.T) {
+		tests := []struct {
+			desc               string
+			dialectName        string
+			expectErrToContain []string
+		}{
+			{
+				desc:               "should report error for invalid dialects",
+				dialectName:        "invalid dialect",
+				expectErrToContain: []string{"unsupported", "driver"},
+			},
+			{
+				desc:        "should work for the postgres dialect",
+				dialectName: "postgres",
+			},
+			{
+				desc:        "should work for the mysql dialect",
+				dialectName: "mysql",
+			},
+			{
+				desc:        "should work for the sqlite3 dialect",
+				dialectName: "sqlite3",
+			},
+			{
+				desc:        "should work for the sqlserver dialect",
+				dialectName: "sqlserver",
+			},
+		}
+
+		for _, test := range tests {
+			t.Run(test.desc, func(t *testing.T) {
+				_, err := kbuilder.New(test.dialectName)
+				if test.expectErrToContain != nil {
+					tt.AssertErrContains(t, err, test.expectErrToContain...)
+					return
+				}
+				tt.AssertNoErr(t, err)
+			})
+		}
+	})
+}
 
 func TestBuilderRunAndCount(t *testing.T) {
 	ctx := context.Background()

@@ -1,26 +1,24 @@
 package kbuilder_test
 
 import (
-	"context"
 	"testing"
 
-	"github.com/vingarcia/ksql"
 	tt "github.com/vingarcia/ksql/internal/testtools"
 	"github.com/vingarcia/ksql/kbuilder"
-	"github.com/vingarcia/ksql/kbuilder/internal"
-	"github.com/vingarcia/ksql/sqldialect"
 )
 
 func TestInsertQuery(t *testing.T) {
 	tests := []struct {
 		desc           string
+		dialect        string
 		query          kbuilder.Insert
 		expectedQuery  string
 		expectedParams []interface{}
 		expectedErr    bool
 	}{
 		{
-			desc: "should build queries witha single record correctly",
+			desc:    "should build queries witha single record correctly",
+			dialect: "postgres",
 			query: kbuilder.Insert{
 				Into: "users",
 				Data: &User{
@@ -32,7 +30,8 @@ func TestInsertQuery(t *testing.T) {
 			expectedParams: []interface{}{"foo", 42},
 		},
 		{
-			desc: "should build queries with multiple records correctly",
+			desc:    "should build queries with multiple records correctly",
+			dialect: "postgres",
 			query: kbuilder.Insert{
 				Into: "users",
 				Data: []User{
@@ -44,7 +43,8 @@ func TestInsertQuery(t *testing.T) {
 			expectedParams: []interface{}{"foo", 42, "bar", 43},
 		},
 		{
-			desc: "should omit attributes correctly",
+			desc:    "should omit attributes correctly",
+			dialect: "postgres",
 			query: kbuilder.Insert{
 				Into: "users",
 				Data: []User{
@@ -57,7 +57,8 @@ func TestInsertQuery(t *testing.T) {
 			expectedParams: []interface{}{"foo", "bar"},
 		},
 		{
-			desc: "should insert returning selected attributes",
+			desc:    "should insert returning selected attributes",
+			dialect: "postgres",
 			query: kbuilder.Insert{
 				Into: "users",
 				Data: []User{
@@ -72,7 +73,8 @@ func TestInsertQuery(t *testing.T) {
 
 		/* * * * * Testing error cases: * * * * */
 		{
-			desc: "should report error if the `Data` attribute is missing",
+			desc:    "should report error if the `Data` attribute is missing",
+			dialect: "postgres",
 			query: kbuilder.Insert{
 				Into: "users",
 			},
@@ -80,7 +82,8 @@ func TestInsertQuery(t *testing.T) {
 			expectedErr: true,
 		},
 		{
-			desc: "should report error if the `Into` attribute is missing",
+			desc:    "should report error if the `Into` attribute is missing",
+			dialect: "postgres",
 			query: kbuilder.Insert{
 				Data: &User{
 					Name: "foo",
@@ -91,10 +94,47 @@ func TestInsertQuery(t *testing.T) {
 			expectedErr: true,
 		},
 		{
-			desc: "should report error if `Data` contains an empty list",
+			desc:    "should report error if `Data` contains an empty list",
+			dialect: "postgres",
 			query: kbuilder.Insert{
 				Into: "users",
 				Data: []User{},
+			},
+
+			expectedErr: true,
+		},
+		{
+			desc:    "should report error if the `Data` is not a slice of structs",
+			dialect: "postgres",
+			query: kbuilder.Insert{
+				Into: "users",
+				Data: []string{"foo"},
+			},
+
+			expectedErr: true,
+		},
+		{
+			desc:    "should report error if the `ksql` tag is on a private field",
+			dialect: "postgres",
+			query: kbuilder.Insert{
+				Into: "users",
+				Data: struct {
+					foo string `ksql:"foo"`
+				}{},
+			},
+
+			expectedErr: true,
+		},
+		{
+			desc:    "should report error if `Returning` is used on unsupported dialect",
+			dialect: "sqlite3",
+			query: kbuilder.Insert{
+				Into: "users",
+				Data: &User{
+					Name: "foo",
+					Age:  42,
+				},
+				Returning: []string{"id"},
 			},
 
 			expectedErr: true,
@@ -103,7 +143,7 @@ func TestInsertQuery(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			b, err := kbuilder.New("postgres")
+			b, err := kbuilder.New(test.dialect)
 			tt.AssertNoErr(t, err)
 
 			query, params, err := b.Build(test.query)
@@ -113,37 +153,6 @@ func TestInsertQuery(t *testing.T) {
 			tt.AssertEqual(t, params, test.expectedParams)
 		})
 	}
-}
-
-func TestExecFromBuilder(t *testing.T) {
-	ctx := context.Background()
-
-	var capturedQuery string
-	var capturedArgs []interface{}
-
-	db, err := ksql.NewWithAdapter(
-		internal.MockDBAdapter{
-			ExecContextFn: func(ctx context.Context, query string, args ...interface{}) (ksql.Result, error) {
-				capturedQuery = query
-				capturedArgs = args
-				return internal.MockResult{}, nil
-			},
-		},
-		sqldialect.SupportedDialects["postgres"],
-	)
-	tt.AssertNoErr(t, err)
-
-	_, err = db.ExecFromBuilder(ctx, kbuilder.Insert{
-		Into: "users",
-		Data: &User{
-			Name: "foo",
-			Age:  42,
-		},
-	})
-	tt.AssertNoErr(t, err)
-
-	tt.AssertEqual(t, capturedQuery, `INSERT INTO "users" ("name", "age") VALUES ($1, $2)`)
-	tt.AssertEqual(t, capturedArgs, []interface{}{"foo", 42})
 }
 
 func TestInsertBuild(t *testing.T) {

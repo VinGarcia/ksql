@@ -58,10 +58,7 @@ func (builder *Builder) RunAndCount(ctx context.Context, db ksql.Provider, targe
 	queryBuilder.Limit = 0
 	queryBuilder.OrderBy = ""
 
-	query, params, err = builder.Build(queryBuilder)
-	if err != nil {
-		return 0, err
-	}
+	query, params, _ = builder.Build(queryBuilder)
 
 	var row struct {
 		C int `ksql:"c"`

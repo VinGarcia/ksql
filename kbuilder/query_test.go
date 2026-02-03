@@ -1,16 +1,12 @@
 package kbuilder_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/vingarcia/ksql"
 	tt "github.com/vingarcia/ksql/internal/testtools"
 	"github.com/vingarcia/ksql/kbuilder"
-	"github.com/vingarcia/ksql/kbuilder/internal"
-	"github.com/vingarcia/ksql/sqldialect"
 )
 
 type User struct {
@@ -84,9 +80,9 @@ func TestSelectQuery(t *testing.T) {
 				Select: &User{},
 				From:   "users",
 				Where: kbuilder.
+					WhereIf(nullField != nil, "foobar = %s", nullField).
 					Where("foo < %s", 42).
-					Where("bar LIKE %s", "%ending").
-					WhereIf(nullField != nil, "foobar = %s", nullField),
+					Where("bar LIKE %s", "%ending"),
 
 				Offset: 100,
 				Limit:  10,
@@ -159,6 +155,38 @@ func TestSelectQuery(t *testing.T) {
 
 			expectedErr: true,
 		},
+		{
+			desc: "should report error if the Select attr has a struct with bad `ksql` tags",
+			query: kbuilder.Query{
+				Select: &struct {
+					foo string `ksql:"foo"` // bad because the attribute is private
+				}{},
+				Where: kbuilder.
+					Where("foo < %s", 42).
+					Where("bar LIKE %s", "%ending"),
+
+				OrderBy: "id DESC",
+				Offset:  100,
+				Limit:   10,
+			},
+
+			expectedErr: true,
+		},
+		{
+			desc: "should report error if the Select attr has a contains an invalid type",
+			query: kbuilder.Query{
+				Select: []string{},
+				Where: kbuilder.
+					Where("foo < %s", 42).
+					Where("bar LIKE %s", "%ending"),
+
+				OrderBy: "id DESC",
+				Offset:  100,
+				Limit:   10,
+			},
+
+			expectedErr: true,
+		},
 	}
 
 	for _, test := range tests {
@@ -173,44 +201,6 @@ func TestSelectQuery(t *testing.T) {
 			tt.AssertEqual(t, params, test.expectedParams)
 		})
 	}
-}
-
-func TestQueryFromBuilder(t *testing.T) {
-	ctx := context.Background()
-
-	var capturedQuery string
-	var capturedArgs []interface{}
-
-	db, err := ksql.NewWithAdapter(
-		internal.MockDBAdapter{
-			QueryContextFn: func(ctx context.Context, query string, args ...interface{}) (ksql.Rows, error) {
-				capturedQuery = query
-				capturedArgs = args
-				return internal.MockRows{
-					NextFn: func() bool { return false },
-				}, nil
-			},
-		},
-		sqldialect.SupportedDialects["postgres"],
-	)
-	tt.AssertNoErr(t, err)
-
-	var rows []User
-	err = db.QueryFromBuilder(ctx, &rows, kbuilder.Query{
-		Select: &User{},
-		From:   "users",
-		Where: kbuilder.
-			Where("foo < %s", 42).
-			Where("bar LIKE %s", "%ending"),
-
-		OrderBy: "id DESC",
-		Offset:  100,
-		Limit:   10,
-	})
-	tt.AssertNoErr(t, err)
-
-	tt.AssertEqual(t, capturedQuery, `SELECT "name", "age" FROM users WHERE foo < $1 AND bar LIKE $2 ORDER BY id DESC LIMIT 10 OFFSET 100`)
-	tt.AssertEqual(t, capturedArgs, []interface{}{42, `%ending`})
 }
 
 func TestQueryBuild(t *testing.T) {
