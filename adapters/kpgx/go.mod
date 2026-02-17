@@ -9,6 +9,6 @@ require (
 	github.com/jackc/pgx/v4 v4.18.1
 	github.com/ory/dockertest/v3 v3.10.0
 	github.com/stretchr/testify v1.8.4 // indirect
-	github.com/vingarcia/ksql v1.13.0
+	github.com/vingarcia/ksql v1.13.1
 	golang.org/x/crypto v0.12.0 // indirect
 )
