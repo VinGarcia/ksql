@@ -752,8 +752,10 @@ func buildInsertQuery(
 			continue
 		}
 
+		hasValueModifier := info.ByName(fieldName).Modifier.Value != nil
+
 		// Remove any ID field that was not set:
-		if reflect.ValueOf(field).IsZero() {
+		if reflect.ValueOf(field).IsZero() && !hasValueModifier {
 			delete(recordMap, fieldName)
 		}
 	}

@@ -927,6 +927,29 @@ func InsertTest(
 					tt.AssertEqual(t, inserted.Age, 5455)
 				})
 
+				t.Run("should not ignore empty IDs if they have a value modifiers", func(t *testing.T) {
+					c := newTestDB(db, dialect)
+
+					ksqlmodifiers.RegisterAttrModifier("insertTestValueModifier", ksqlmodifiers.AttrModifier{
+						Value: func(ctx context.Context, opInfo ksqlmodifiers.OpInfo, inputValue interface{}) (outputValue interface{}, _ error) {
+							return "Generated Name", nil
+						},
+					})
+
+					usersByName := NewTable("users", "name")
+
+					err = c.Insert(ctx, usersByName, &struct {
+						Name string `ksql:"name,insertTestValueModifier"`
+						Age  int    `ksql:"age"`
+					}{Name: "", Age: 42})
+					tt.AssertNoErr(t, err)
+
+					var inserted user
+					err := getUserByName(db, dialect, &inserted, "Generated Name")
+					tt.AssertNoErr(t, err)
+					tt.AssertEqual(t, inserted.Age, 42)
+				})
+
 				t.Run("should work and retrieve the ID for structs with no attributes", func(t *testing.T) {
 					c := newTestDB(db, dialect)
 
