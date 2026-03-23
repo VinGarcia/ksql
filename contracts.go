@@ -107,6 +107,10 @@ func (t Table) validate() error {
 	return nil
 }
 
+func (t Table) Name() string {
+	return t.name
+}
+
 func (t Table) insertMethodFor(dialect sqldialect.Provider) sqldialect.InsertMethod {
 	if len(t.idColumns) == 1 {
 		return dialect.InsertMethod()
