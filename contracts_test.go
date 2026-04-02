@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tt "github.com/vingarcia/ksql/internal/testtools"
+	"github.com/vingarcia/ksql/sqldialect"
 )
 
 func TestTable(t *testing.T) {
@@ -71,6 +72,59 @@ func TestTable(t *testing.T) {
 			t.Run(test.desc, func(t *testing.T) {
 				name := test.table.Name()
 				tt.AssertEqual(t, name, test.expectedName)
+			})
+		}
+	})
+
+	t.Run("test insertMethodFor()", func(t *testing.T) {
+		tests := []struct {
+			desc                 string
+			table                Table
+			dialectInsertMethod  sqldialect.InsertMethod
+			expectedInsertMethod sqldialect.InsertMethod
+		}{
+			{
+				desc:                 "should return dialect's InsertMethod when table has single ID column",
+				table:                Table{name: "users", idColumns: []string{"id"}},
+				dialectInsertMethod:  sqldialect.InsertWithLastInsertID,
+				expectedInsertMethod: sqldialect.InsertWithLastInsertID,
+			},
+			{
+				desc:                 "should return dialect's InsertMethod when table has single ID column (returning variant)",
+				table:                Table{name: "users", idColumns: []string{"id"}},
+				dialectInsertMethod:  sqldialect.InsertWithReturning,
+				expectedInsertMethod: sqldialect.InsertWithReturning,
+			},
+			{
+				desc:                 "should return InsertWithNoIDRetrieval when table has multiple ID columns and dialect uses LastInsertID",
+				table:                Table{name: "users", idColumns: []string{"id", "tenant_id"}},
+				dialectInsertMethod:  sqldialect.InsertWithLastInsertID,
+				expectedInsertMethod: sqldialect.InsertWithNoIDRetrieval,
+			},
+			{
+				desc:                 "should return dialect's InsertMethod when table has multiple ID columns and dialect uses Returning",
+				table:                Table{name: "users", idColumns: []string{"id", "tenant_id"}},
+				dialectInsertMethod:  sqldialect.InsertWithReturning,
+				expectedInsertMethod: sqldialect.InsertWithReturning,
+			},
+			{
+				desc:                 "should return dialect's InsertMethod when table has multiple ID columns and dialect uses NoIDRetrieval",
+				table:                Table{name: "users", idColumns: []string{"id", "tenant_id"}},
+				dialectInsertMethod:  sqldialect.InsertWithNoIDRetrieval,
+				expectedInsertMethod: sqldialect.InsertWithNoIDRetrieval,
+			},
+		}
+
+		for _, test := range tests {
+			t.Run(test.desc, func(t *testing.T) {
+				mockDialect := &mockDialectProvider{
+					InsertMethodFn: func() sqldialect.InsertMethod {
+						return test.dialectInsertMethod
+					},
+				}
+
+				result := test.table.insertMethodFor(mockDialect)
+				tt.AssertEqual(t, result, test.expectedInsertMethod)
 			})
 		}
 	})

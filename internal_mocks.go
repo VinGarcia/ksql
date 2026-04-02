@@ -2,6 +2,8 @@ package ksql
 
 import (
 	"context"
+
+	"github.com/vingarcia/ksql/sqldialect"
 )
 
 // mockTxBeginner mocks the ksql.TxBeginner interface
@@ -104,4 +106,28 @@ type mockCloser struct {
 
 func (m mockCloser) Close() error {
 	return m.CloseFn()
+}
+
+// mockDialectProvider mocks the sqldialect.Provider interface
+type mockDialectProvider struct {
+	InsertMethodFn func() sqldialect.InsertMethod
+	EscapeFn       func(str string) string
+	PlaceholderFn  func(idx int) string
+	DriverNameFn   func() string
+}
+
+func (m *mockDialectProvider) InsertMethod() sqldialect.InsertMethod {
+	return m.InsertMethodFn()
+}
+
+func (m *mockDialectProvider) Escape(str string) string {
+	return m.EscapeFn(str)
+}
+
+func (m *mockDialectProvider) Placeholder(idx int) string {
+	return m.PlaceholderFn(idx)
+}
+
+func (m *mockDialectProvider) DriverName() string {
+	return m.DriverNameFn()
 }
