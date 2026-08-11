@@ -124,6 +124,16 @@ func TestGetTagInfo(t *testing.T) {
 				numFields: 4,
 			},
 		},
+		{
+			desc:                "should return an error instead of panicking when the input is not a struct",
+			obj:                 42,
+			expecteErrToContain: []string{"struct", "int"},
+		},
+		{
+			desc:                "should return an error instead of panicking when the input is a pointer to struct",
+			obj:                 &struct{}{},
+			expecteErrToContain: []string{"struct", "ptr"},
+		},
 	}
 
 	for _, test := range tests {
