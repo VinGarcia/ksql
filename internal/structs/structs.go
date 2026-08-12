@@ -266,6 +266,12 @@ func (p PtrConverter) Convert(destType reflect.Type) (reflect.Value, error) {
 // This should save several calls to `Field(i).Tag.Get("foo")`
 // which improves performance by a lot.
 func getTagNames(t reflect.Type) (_ StructInfo, err error) {
+	if t.Kind() != reflect.Struct {
+		return StructInfo{}, fmt.Errorf(
+			"expected input to be a struct but got type '%v' of kind '%v'", t, t.Kind(),
+		)
+	}
+
 	numFields := t.NumField()
 
 	info := StructInfo{
