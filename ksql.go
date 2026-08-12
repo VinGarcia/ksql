@@ -1054,11 +1054,12 @@ func scanRowsFromType(
 
 	var attrNames []string
 	var scanArgs []interface{}
+	var nestedPtrGroups []nestedPtrGroup
 	if info.IsNestedStruct {
 		// This version is positional meaning that it expect the arguments
 		// to follow an specific order. It's ok because we don't allow the
 		// user to type the "SELECT" part of the query for nested structs.
-		attrNames, scanArgs, err = getScanArgsForNestedStructs(ctx, dialect, rows, t, v, info)
+		attrNames, scanArgs, nestedPtrGroups, err = getScanArgsForNestedStructs(ctx, dialect, rows, t, v, info)
 		if err != nil {
 			return err
 		}
@@ -1082,7 +1083,56 @@ func scanRowsFromType(
 		}
 		return fmt.Errorf("KSQL: scan error: %w", err)
 	}
+
+	if len(nestedPtrGroups) > 0 {
+		if err := materializeNestedPtrGroups(v, nestedPtrGroups); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// nestedPtrField carries the temporaries needed to materialize a single field
+// of an optional joined struct (`*Struct`) after rows.Scan.
+type nestedPtrField struct {
+	// index is the position of this field within the nested struct.
+	index int
+
+	// isPtr is true when the nested field is itself a pointer (`*T`).
+	isPtr bool
+
+	// temp holds the value scanned from the database:
+	//   - without modifier: a `**base`, so temp.Elem() is the `*base` slot the
+	//     driver sets to nil on NULL;
+	//   - with modifier: a `*T` written by the modifier, whose nullness is read
+	//     from wrapper.WasNull instead.
+	temp reflect.Value
+
+	// wrapper is non-nil when the field uses a modifier; WasNull then tells
+	// whether the column was NULL.
+	wrapper *modifiers.AttrScanWrapper
+
+	// name is the "Outer.Field" attribute name, used for error messages.
+	name string
+}
+
+func (f nestedPtrField) wasNull() bool {
+	if f.wrapper != nil {
+		return f.wrapper.WasNull
+	}
+	return f.temp.Elem().IsNil()
+}
+
+// nestedPtrGroup collects everything needed to materialize one optional joined
+// struct field after rows.Scan.
+type nestedPtrGroup struct {
+	// fieldIndex is the index of the `*Struct` field on the outer record.
+	fieldIndex int
+
+	// elemType is the struct type pointed to by the field (the deref of `*Struct`).
+	elemType reflect.Type
+
+	fields []nestedPtrField
 }
 
 func getScanArgsForNestedStructs(
@@ -1092,37 +1142,144 @@ func getScanArgsForNestedStructs(
 	t reflect.Type,
 	v reflect.Value,
 	info structs.StructInfo,
-) (attrNames []string, scanArgs []interface{}, _ error) {
+) (attrNames []string, scanArgs []interface{}, nestedPtrGroups []nestedPtrGroup, _ error) {
 	for _, field := range info.Fields {
-		// TODO(vingarcia00): Handle case where type is pointer
-		nestedStructInfo, err := structs.GetTagInfo(t.Field(field.Index).Type)
-		if err != nil {
-			return nil, nil, err
+		fieldType := t.Field(field.Index).Type
+		isOptional := fieldType.Kind() == reflect.Ptr
+		nestedStructType := fieldType
+		if isOptional {
+			nestedStructType = fieldType.Elem()
 		}
 
-		nestedStructValue := v.Field(field.Index)
-		for _, nestedField := range nestedStructInfo.Fields {
-			valueScanner := nestedStructValue.Field(nestedField.Index).Addr().Interface()
-			if nestedField.Modifier.Scan != nil {
-				valueScanner = &modifiers.AttrScanWrapper{
-					Ctx:     ctx,
-					AttrPtr: valueScanner,
-					ScanFn:  nestedField.Modifier.Scan,
-					OpInfo: ksqlmodifiers.OpInfo{
-						DriverName: dialect.DriverName(),
-						// We will not differentiate between Query, QueryOne and QueryChunks
-						// if we did this could lead users to make very strange modifiers
-						Method: "Query",
-					},
+		nestedStructInfo, err := structs.GetTagInfo(nestedStructType)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		outerAttrName := info.ByIndex(field.Index).AttrName
+
+		if !isOptional {
+			// Value struct: unchanged path, scan straight into the fields.
+			nestedStructValue := v.Field(field.Index)
+			for _, nestedField := range nestedStructInfo.Fields {
+				valueScanner := nestedStructValue.Field(nestedField.Index).Addr().Interface()
+				if nestedField.Modifier.Scan != nil {
+					valueScanner = &modifiers.AttrScanWrapper{
+						Ctx:     ctx,
+						AttrPtr: valueScanner,
+						ScanFn:  nestedField.Modifier.Scan,
+						OpInfo: ksqlmodifiers.OpInfo{
+							DriverName: dialect.DriverName(),
+							// We will not differentiate between Query, QueryOne and QueryChunks
+							// if we did this could lead users to make very strange modifiers
+							Method: "Query",
+						},
+					}
 				}
+
+				scanArgs = append(scanArgs, valueScanner)
+				attrNames = append(attrNames, outerAttrName+"."+nestedField.AttrName)
+			}
+			continue
+		}
+
+		// Optional joined struct (`*Struct`): the outer pointer is nil, so we
+		// scan into temporaries and materialize the struct after rows.Scan.
+		group := nestedPtrGroup{
+			fieldIndex: field.Index,
+			elemType:   nestedStructType,
+		}
+		for _, nestedField := range nestedStructInfo.Fields {
+			nestedFieldType := nestedStructType.Field(nestedField.Index).Type
+			ptrField := nestedPtrField{
+				index: nestedField.Index,
+				isPtr: nestedFieldType.Kind() == reflect.Ptr,
+				name:  outerAttrName + "." + nestedField.AttrName,
 			}
 
-			scanArgs = append(scanArgs, valueScanner)
-			attrNames = append(attrNames, info.ByIndex(field.Index).AttrName+"."+nestedField.AttrName)
+			if nestedField.Modifier.Scan != nil {
+				// The modifier writes into a real T; nullness is tracked apart.
+				ptrField.temp = reflect.New(nestedFieldType)
+				ptrField.wrapper = &modifiers.AttrScanWrapper{
+					Ctx:       ctx,
+					AttrPtr:   ptrField.temp.Interface(),
+					ScanFn:    nestedField.Modifier.Scan,
+					TrackNull: true,
+					OpInfo: ksqlmodifiers.OpInfo{
+						DriverName: dialect.DriverName(),
+						Method:     "Query",
+					},
+				}
+				scanArgs = append(scanArgs, ptrField.wrapper)
+			} else {
+				// Design B2: use a `**base` temporary so the driver sets the
+				// inner `*base` to nil on NULL. A field that is already a pointer
+				// reuses its own indirection so we never pass triple indirection
+				// (`***U`) to the driver, which many drivers cannot handle.
+				tempType := nestedFieldType
+				if !ptrField.isPtr {
+					tempType = reflect.PtrTo(nestedFieldType)
+				}
+				ptrField.temp = reflect.New(tempType)
+				scanArgs = append(scanArgs, ptrField.temp.Interface())
+			}
+
+			group.fields = append(group.fields, ptrField)
+			attrNames = append(attrNames, ptrField.name)
 		}
+		nestedPtrGroups = append(nestedPtrGroups, group)
 	}
 
-	return attrNames, scanArgs, nil
+	return attrNames, scanArgs, nestedPtrGroups, nil
+}
+
+// materializeNestedPtrGroups fills each optional joined struct field after
+// rows.Scan: all columns NULL ⇒ nil (reset explicitly, since Query/QueryChunks
+// reuse slice elements); some column non-NULL ⇒ allocate and copy; a NULL in a
+// non-nullable field of an otherwise present struct ⇒ error naming the field.
+func materializeNestedPtrGroups(v reflect.Value, groups []nestedPtrGroup) error {
+	for _, group := range groups {
+		anyNonNull := false
+		for _, f := range group.fields {
+			if !f.wasNull() {
+				anyNonNull = true
+				break
+			}
+		}
+
+		fieldVal := v.Field(group.fieldIndex)
+		if !anyNonNull {
+			fieldVal.Set(reflect.Zero(fieldVal.Type()))
+			continue
+		}
+
+		newStruct := reflect.New(group.elemType)
+		elem := newStruct.Elem()
+		for _, f := range group.fields {
+			dst := elem.Field(f.index)
+			switch {
+			case f.wrapper != nil:
+				// The modifier owns its own NULL semantics; on NULL we leave the
+				// destination at its zero value.
+				if !f.wrapper.WasNull {
+					dst.Set(f.temp.Elem())
+				}
+			case f.isPtr:
+				dst.Set(f.temp.Elem()) // *base, possibly nil for a nullable field
+			default:
+				if f.temp.Elem().IsNil() {
+					return fmt.Errorf(
+						"KSQL: unexpected null value for non-nullable field '%s' of an optional joined struct",
+						f.name,
+					)
+				}
+				dst.Set(f.temp.Elem().Elem())
+			}
+		}
+		fieldVal.Set(newStruct)
+	}
+
+	return nil
 }
 
 func getScanArgsFromNames(
@@ -1245,6 +1402,11 @@ func buildSelectQueryForNestedStructs(
 	for _, fieldInfo := range info.Fields {
 		nestedStructName := fieldInfo.ColumnName
 		nestedStructType := structType.Field(fieldInfo.Index).Type
+		// An optional joined struct (`*Struct`) selects the exact same
+		// columns as its value counterpart, so we just deref the type here.
+		if nestedStructType.Kind() == reflect.Ptr {
+			nestedStructType = nestedStructType.Elem()
+		}
 		if nestedStructType.Kind() != reflect.Struct {
 			return "", fmt.Errorf(
 				"expected nested struct with `tablename:\"%s\"` to be a kind of Struct, but got %v",
