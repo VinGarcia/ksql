@@ -1239,6 +1239,10 @@ func getScanArgsForNestedStructs(
 // non-nullable field of an otherwise present struct ⇒ error naming the field.
 func materializeNestedPtrGroups(v reflect.Value, groups []nestedPtrGroup) error {
 	for _, group := range groups {
+		// "Present" is inferred from any column being non-NULL. A matched row
+		// whose every selected column is NULL is thus treated as absent (nil);
+		// in practice the joined struct always selects a non-nullable PK, so
+		// this ambiguity cannot arise for a real join.
 		anyNonNull := false
 		for _, f := range group.fields {
 			if !f.wasNull() {
