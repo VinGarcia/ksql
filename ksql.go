@@ -1212,10 +1212,10 @@ func getScanArgsForNestedStructs(
 				}
 				scanArgs = append(scanArgs, ptrField.wrapper)
 			} else {
-				// Design B2: use a `**base` temporary so the driver sets the
-				// inner `*base` to nil on NULL. A field that is already a pointer
-				// reuses its own indirection so we never pass triple indirection
-				// (`***U`) to the driver, which many drivers cannot handle.
+				// Use a `**base` temporary so the driver sets the inner `*base`
+				// to nil on NULL. A field that is already a pointer reuses its
+				// own indirection so we never pass triple indirection (`***U`)
+				// to the driver, which many drivers cannot handle.
 				tempType := nestedFieldType
 				if !ptrField.isPtr {
 					tempType = reflect.PtrTo(nestedFieldType)
