@@ -233,6 +233,146 @@ func QueryTest(
 					})
 				})
 
+				t.Run("using optional joined structs", func(t *testing.T) {
+					// This feature only makes sense when KSQL builds the SELECT,
+					// i.e. with no query prefix.
+					if variation.queryPrefix != "" {
+						return
+					}
+
+					db, closer := newDBAdapter(t)
+					defer closer.Close()
+					err := createTables(ctx, db, dialect)
+					if err != nil {
+						t.Fatal("could not create test table!, reason:", err.Error())
+					}
+
+					_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Ana Nascimento', 0, '{"country":"BR"}')`)
+					tt.AssertNoErr(t, err)
+					var ana user
+					_ = getUserByName(db, dialect, &ana, "Ana Nascimento")
+
+					_, err = db.ExecContext(ctx, `INSERT INTO users (name, age, address) VALUES ('Leo Nascimento', 0, '{"country":"US"}')`)
+					tt.AssertNoErr(t, err)
+					var leo user
+					_ = getUserByName(db, dialect, &leo, "Leo Nascimento")
+
+					_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, ana.ID, `, 'Ana Post1')`))
+					tt.AssertNoErr(t, err)
+
+					t.Run("should leave an optional joined struct nil when the LEFT JOIN has no match", func(t *testing.T) {
+						c := newTestDB(db, dialect)
+						var rows []struct {
+							User user  `tablename:"u"`
+							Post *post `tablename:"p"`
+						}
+						err = c.Query(ctx, &rows, fmt.Sprint(
+							`FROM users u LEFT JOIN posts p ON p.user_id = u.id`,
+							` WHERE u.name like `, c.dialect.Placeholder(0),
+							` ORDER BY u.id, p.id`,
+						), "% Nascimento")
+
+						tt.AssertNoErr(t, err)
+						tt.AssertEqual(t, len(rows), 2)
+
+						// Ana has a matching post, so the optional struct is present:
+						tt.AssertEqual(t, rows[0].User.Name, "Ana Nascimento")
+						tt.AssertNotEqual(t, rows[0].Post, (*post)(nil))
+						tt.AssertEqual(t, rows[0].Post.Title, "Ana Post1")
+						tt.AssertNotEqual(t, rows[0].Post.ID, 0)
+
+						// Leo has no post, so the whole optional struct is nil:
+						tt.AssertEqual(t, rows[1].User.Name, "Leo Nascimento")
+						tt.AssertEqual(t, rows[1].Post, (*post)(nil))
+					})
+
+					t.Run("should run the field modifier (json) on an optional joined struct", func(t *testing.T) {
+						// Insert a post whose user_id matches no user so that the
+						// LEFT JOIN to users produces an all-NULL (nil) *user, which
+						// also exercises the modifier null-tracking path.
+						_, err = db.ExecContext(ctx, `INSERT INTO posts (user_id, title) VALUES (999999, 'Orphan Post')`)
+						tt.AssertNoErr(t, err)
+
+						c := newTestDB(db, dialect)
+						var rows []struct {
+							Post   post  `tablename:"p"`
+							Author *user `tablename:"u"`
+						}
+						err = c.Query(ctx, &rows, fmt.Sprint(
+							`FROM posts p LEFT JOIN users u ON u.id = p.user_id`,
+							` WHERE p.title like `, c.dialect.Placeholder(0),
+							` ORDER BY p.id`,
+						), "%Post%")
+
+						tt.AssertNoErr(t, err)
+						tt.AssertEqual(t, len(rows), 2)
+
+						// The matched author is materialized and its json field decoded:
+						tt.AssertEqual(t, rows[0].Post.Title, "Ana Post1")
+						tt.AssertNotEqual(t, rows[0].Author, (*user)(nil))
+						tt.AssertEqual(t, rows[0].Author.Name, "Ana Nascimento")
+						tt.AssertEqual(t, rows[0].Author.Address.Country, "BR")
+
+						// The orphan post has no author, so the whole struct is nil
+						// even though it carries a json-modified field:
+						tt.AssertEqual(t, rows[1].Post.Title, "Orphan Post")
+						tt.AssertEqual(t, rows[1].Author, (*user)(nil))
+					})
+
+					t.Run("should handle three chained tables with the middle optional struct nil", func(t *testing.T) {
+						// Give Leo (who has no post) a permission, so that the middle
+						// optional struct (*post) is nil while the last one
+						// (*userPermission) is present on the same row.
+						_, err = db.ExecContext(ctx, fmt.Sprint(
+							`INSERT INTO user_permissions (user_id, perm_id, type) VALUES (`, leo.ID, `, 42, 'admin')`,
+						))
+						tt.AssertNoErr(t, err)
+
+						c := newTestDB(db, dialect)
+						var rows []struct {
+							User user            `tablename:"u"`
+							Post *post           `tablename:"p"`
+							Perm *userPermission `tablename:"perms"`
+						}
+						err = c.Query(ctx, &rows, fmt.Sprint(
+							`FROM users u`,
+							` LEFT JOIN posts p ON p.user_id = u.id`,
+							` LEFT JOIN user_permissions perms ON perms.user_id = u.id`,
+							` WHERE u.name = `, c.dialect.Placeholder(0),
+						), "Leo Nascimento")
+
+						tt.AssertNoErr(t, err)
+						tt.AssertEqual(t, len(rows), 1)
+						tt.AssertEqual(t, rows[0].User.Name, "Leo Nascimento")
+						tt.AssertEqual(t, rows[0].Post, (*post)(nil))
+						tt.AssertNotEqual(t, rows[0].Perm, (*userPermission)(nil))
+						tt.AssertEqual(t, rows[0].Perm.PermID, 42)
+						tt.AssertEqual(t, rows[0].Perm.Type, "admin")
+					})
+
+					t.Run("should report error on a partial NULL in a non-nullable field", func(t *testing.T) {
+						// posts.title can be NULL in the DB, but the post.Title field
+						// is a non-nullable string. A row where the post is present
+						// (id non-NULL) but title is NULL must error instead of
+						// silently zeroing the field.
+						_, err = db.ExecContext(ctx, fmt.Sprint(`INSERT INTO posts (user_id, title) VALUES (`, ana.ID, `, NULL)`))
+						tt.AssertNoErr(t, err)
+
+						c := newTestDB(db, dialect)
+						var rows []struct {
+							User user  `tablename:"u"`
+							Post *post `tablename:"p"`
+						}
+						err = c.Query(ctx, &rows, fmt.Sprint(
+							`FROM users u JOIN posts p ON p.user_id = u.id`,
+							` WHERE u.name = `, c.dialect.Placeholder(0),
+							` AND p.title IS NULL`,
+						), "Ana Nascimento")
+
+						tt.AssertErrContains(t, err, "null", "Title")
+					})
+				})
+
 				t.Run("using slice of pointers to structs", func(t *testing.T) {
 					db, closer := newDBAdapter(t)
 					defer closer.Close()
@@ -421,10 +561,12 @@ func QueryTest(
 					tt.AssertErrContains(t, err, "foo", "int")
 				})
 
-				t.Run("*struct", func(t *testing.T) {
+				t.Run("*int", func(t *testing.T) {
+					// A pointer to a non-struct is still invalid: only a pointer
+					// to a struct is accepted as an optional joined struct.
 					c := newTestDB(db, dialect)
 					var rows []struct {
-						Foo *user `tablename:"foo"`
+						Foo *int `tablename:"foo"`
 					}
 					err := c.Query(ctx, &rows, fmt.Sprint(
 						`FROM users u JOIN posts p ON p.user_id = u.id`,
@@ -432,7 +574,7 @@ func QueryTest(
 						` ORDER BY u.id, p.id`,
 					), "% Ribeiro")
 
-					tt.AssertErrContains(t, err, "foo", "*ksql.user")
+					tt.AssertErrContains(t, err, "foo", "int")
 				})
 			})
 
