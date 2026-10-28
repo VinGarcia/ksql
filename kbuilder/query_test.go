@@ -238,6 +238,21 @@ func TestQueryBuild(t *testing.T) {
 		tt.AssertEqual(t, params, []interface{}{18})
 	})
 
+	t.Run("should not reuse a cached select query across dialects", func(t *testing.T) {
+		q := kbuilder.Query{
+			Select: &User{},
+			From:   "users",
+		}
+
+		query, _, err := q.Build("postgres")
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, query, `SELECT "name", "age" FROM users`)
+
+		query, _, err = q.Build("mysql")
+		tt.AssertNoErr(t, err)
+		tt.AssertEqual(t, query, "SELECT `name`, `age` FROM users")
+	})
+
 	t.Run("should return error for unsupported driver", func(t *testing.T) {
 		q := kbuilder.Query{
 			Select: &User{},
@@ -256,16 +271,16 @@ func TestQueryBuild(t *testing.T) {
 			Where:  kbuilder.Where("age > %s", 18),
 		}
 
-		// Test MySQL (uses ?)
+		// Test MySQL (uses ? and backtick escaping)
 		query, params, err := q.Build("mysql")
 		tt.AssertNoErr(t, err)
-		tt.AssertEqual(t, query, `SELECT "name", "age" FROM users WHERE age > ?`)
+		tt.AssertEqual(t, query, "SELECT `name`, `age` FROM users WHERE age > ?")
 		tt.AssertEqual(t, params, []interface{}{18})
 
-		// Test SQLServer (uses @p1, @p2, etc.)
+		// Test SQLServer (uses @p1, @p2, etc. and bracket escaping)
 		query, params, err = q.Build("sqlserver")
 		tt.AssertNoErr(t, err)
-		tt.AssertEqual(t, query, `SELECT "name", "age" FROM users WHERE age > @p1`)
+		tt.AssertEqual(t, query, `SELECT [name], [age] FROM users WHERE age > @p1`)
 		tt.AssertEqual(t, params, []interface{}{18})
 
 		// Test that HAVING placeholders continue numbering after the WHERE ones
@@ -274,7 +289,7 @@ func TestQueryBuild(t *testing.T) {
 		q.Having = kbuilder.Where("count(*) > %s", 2)
 		query, params, err = q.Build("sqlserver")
 		tt.AssertNoErr(t, err)
-		tt.AssertEqual(t, query, `SELECT "name", "age" FROM users WHERE age > @p1 GROUP BY name HAVING count(*) > @p2`)
+		tt.AssertEqual(t, query, `SELECT [name], [age] FROM users WHERE age > @p1 GROUP BY name HAVING count(*) > @p2`)
 		tt.AssertEqual(t, params, []interface{}{18, 2})
 	})
 }
