@@ -186,6 +186,12 @@ func WhereIf(ifCond bool, cond string, params ...interface{}) WhereQueries {
 	}}
 }
 
+// selectQueryCacheKey partitions the cache per dialect because column escaping varies between them.
+type selectQueryCacheKey struct {
+	structType reflect.Type
+	driver     string
+}
+
 var cachedSelectQueries = &sync.Map{}
 
 // Builds the select query using cached info so that its efficient
@@ -199,7 +205,8 @@ func buildSelectQuery(obj interface{}, dialect sqldialect.Provider) (string, err
 		return "", fmt.Errorf("expected to receive a pointer to struct, but got: %T", obj)
 	}
 
-	if data, found := cachedSelectQueries.Load(t); found {
+	cacheKey := selectQueryCacheKey{structType: t, driver: dialect.DriverName()}
+	if data, found := cachedSelectQueries.Load(cacheKey); found {
 		query, _ := data.(string)
 		return query, nil
 	}
@@ -215,6 +222,6 @@ func buildSelectQuery(obj interface{}, dialect sqldialect.Provider) (string, err
 	}
 
 	query := strings.Join(escapedNames, ", ")
-	cachedSelectQueries.Store(t, query)
+	cachedSelectQueries.Store(cacheKey, query)
 	return query, nil
 }
