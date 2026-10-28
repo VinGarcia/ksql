@@ -28,6 +28,10 @@ type Query struct {
 	// GroupBy expects any string compatible with the contents of `GROUP BY <contents>`
 	GroupBy string
 
+	// Having expects a list of WhereQuery instances built
+	// by the public Where() function, rendered after the GROUP BY clause.
+	Having WhereQueries
+
 	Limit   int
 	Offset  int
 	OrderBy string
@@ -69,7 +73,7 @@ func (q Query) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params 
 
 	if len(q.Where) > 0 {
 		var whereQuery string
-		whereQuery, params = q.Where.build(dialect)
+		whereQuery, params = q.Where.build(dialect, 0)
 		b.WriteString(" WHERE " + whereQuery)
 	}
 
@@ -79,6 +83,12 @@ func (q Query) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params 
 
 	if q.GroupBy != "" {
 		b.WriteString(" GROUP BY " + q.GroupBy)
+	}
+
+	if len(q.Having) > 0 {
+		havingQuery, havingParams := q.Having.build(dialect, len(params))
+		b.WriteString(" HAVING " + havingQuery)
+		params = append(params, havingParams...)
 	}
 
 	if q.OrderBy != "" {
@@ -116,12 +126,15 @@ type WhereQuery struct {
 // in a dynamic way.
 type WhereQueries []WhereQuery
 
-func (w WhereQueries) build(dialect sqldialect.Provider) (query string, params []interface{}) {
+// build renders the conditions joined by AND. numPreviousParams is the number of
+// placeholders already present in the surrounding query, so that numbered
+// placeholders (e.g. postgres `$N`) continue from the right index.
+func (w WhereQueries) build(dialect sqldialect.Provider, numPreviousParams int) (query string, params []interface{}) {
 	var conds []string
 	for _, whereQuery := range w {
 		var placeholders []interface{}
 		for i := range whereQuery.params {
-			placeholders = append(placeholders, dialect.Placeholder(len(params)+i))
+			placeholders = append(placeholders, dialect.Placeholder(numPreviousParams+len(params)+i))
 		}
 
 		conds = append(conds, fmt.Sprintf(whereQuery.cond, placeholders...))
