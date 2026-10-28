@@ -35,11 +35,12 @@ func TestSelectQuery(t *testing.T) {
 					Where("bar LIKE %s", "%ending").
 					WhereIf(nullField != nil, "foobar = %s", nullField),
 
+				GroupBy: "name, age",
 				OrderBy: "id DESC",
 				Offset:  100,
 				Limit:   10,
 			},
-			expectedQuery:  `SELECT "name", "age" FROM users WHERE foo < $1 AND bar LIKE $2 ORDER BY id DESC LIMIT 10 OFFSET 100`,
+			expectedQuery:  `SELECT "name", "age" FROM users WHERE foo < $1 AND bar LIKE $2 GROUP BY name, age ORDER BY id DESC LIMIT 10 OFFSET 100`,
 			expectedParams: []interface{}{42, "%ending"},
 		},
 		{
@@ -203,6 +204,8 @@ func TestSelectQuery(t *testing.T) {
 	}
 }
 
+// The tests below are mostly testing if the builder works with different drivers
+// For testing if the queries are being built correctly use the TestSelectQuery above.
 func TestQueryBuild(t *testing.T) {
 	t.Run("should build query correctly with valid driver", func(t *testing.T) {
 		q := kbuilder.Query{

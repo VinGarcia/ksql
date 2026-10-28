@@ -25,6 +25,9 @@ type Query struct {
 	// by the public Where() function.
 	Where WhereQueries
 
+	// GroupBy expects any string compatible with the contents of `GROUP BY <contents>`
+	GroupBy string
+
 	Limit   int
 	Offset  int
 	OrderBy string
@@ -72,6 +75,10 @@ func (q Query) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params 
 
 	if strings.TrimSpace(q.From) == "" {
 		return "", nil, fmt.Errorf("the From field is mandatory for every query")
+	}
+
+	if q.GroupBy != "" {
+		b.WriteString(" GROUP BY " + q.GroupBy)
 	}
 
 	if q.OrderBy != "" {
