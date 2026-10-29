@@ -91,6 +91,7 @@ func (q Query) BuildQuery(dialect sqldialect.Provider) (sqlQuery string, params 
 		params = append(params, havingParams...)
 	}
 
+	q.OrderBy = strings.TrimSpace(q.OrderBy)
 	if q.OrderBy != "" {
 		b.WriteString(" ORDER BY " + q.OrderBy)
 	}
