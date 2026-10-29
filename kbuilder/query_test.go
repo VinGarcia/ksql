@@ -37,8 +37,8 @@ func TestSelectQuery(t *testing.T) {
 
 				GroupBy: "name, age",
 				Having: kbuilder.
-					Where("count(*) > %s", 2).
-					WhereIf(nullField != nil, "sum(score) > %s", nullField),
+					Having("count(*) > %s", 2).
+					HavingIf(nullField != nil, "sum(score) > %s", nullField),
 
 				OrderBy: "id DESC",
 				Offset:  100,
@@ -54,10 +54,26 @@ func TestSelectQuery(t *testing.T) {
 				From:   "users",
 
 				GroupBy: "name",
-				Having:  kbuilder.Where("count(*) > %s", 10),
+				Having:  kbuilder.Having("count(*) > %s", 10),
 			},
 			expectedQuery:  `SELECT "name", "age" FROM users GROUP BY name HAVING count(*) > $1`,
 			expectedParams: []interface{}{10},
+		},
+		{
+			desc: "should build queries with multiple chained HAVING conditions",
+			query: kbuilder.Query{
+				Select: &User{},
+				From:   "users",
+				Where:  kbuilder.Where("foo < %s", 42),
+
+				GroupBy: "name",
+				Having: kbuilder.
+					Having("count(*) > %s", 2).
+					Having("sum(score) > %s", 10).
+					HavingIf(false, "wont_show > %s", 1),
+			},
+			expectedQuery:  `SELECT "name", "age" FROM users WHERE foo < $1 GROUP BY name HAVING count(*) > $2 AND sum(score) > $3`,
+			expectedParams: []interface{}{42, 2, 10},
 		},
 		{
 			desc: "should build queries omitting the OFFSET",
@@ -286,7 +302,7 @@ func TestQueryBuild(t *testing.T) {
 		// Test that HAVING placeholders continue numbering after the WHERE ones
 		// on dialects with numbered placeholders:
 		q.GroupBy = "name"
-		q.Having = kbuilder.Where("count(*) > %s", 2)
+		q.Having = kbuilder.Having("count(*) > %s", 2)
 		query, params, err = q.Build("sqlserver")
 		tt.AssertNoErr(t, err)
 		tt.AssertEqual(t, query, `SELECT [name], [age] FROM users WHERE age > @p1 GROUP BY name HAVING count(*) > @p2`)

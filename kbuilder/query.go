@@ -28,9 +28,9 @@ type Query struct {
 	// GroupBy expects any string compatible with the contents of `GROUP BY <contents>`
 	GroupBy string
 
-	// Having expects a list of WhereQuery instances built
-	// by the public Where() function, rendered after the GROUP BY clause.
-	Having WhereQueries
+	// Having expects a list of HavingQuery instances built
+	// by the public Having() function, rendered after the GROUP BY clause.
+	Having HavingQueries
 
 	Limit   int
 	Offset  int
@@ -165,8 +165,7 @@ func (w WhereQueries) WhereIf(ifCond bool, cond string, params ...interface{}) W
 	})
 }
 
-// Where adds a new boolean condition to an existing
-// WhereQueries helper.
+// Where creates a new WhereQueries helper containing a single boolean condition.
 func Where(cond string, params ...interface{}) WhereQueries {
 	return WhereQueries{{
 		cond:   cond,
@@ -174,7 +173,8 @@ func Where(cond string, params ...interface{}) WhereQueries {
 	}}
 }
 
-// WhereIf conditionally adds a new boolean expression to the WhereQueries helper
+// WhereIf creates a new WhereQueries helper containing a single
+// boolean condition, but only if ifCond is true.
 func WhereIf(ifCond bool, cond string, params ...interface{}) WhereQueries {
 	if !ifCond {
 		return WhereQueries{}
@@ -184,6 +184,41 @@ func WhereIf(ifCond bool, cond string, params ...interface{}) WhereQueries {
 		cond:   cond,
 		params: params,
 	}}
+}
+
+// HavingQuery represents a single condition in a HAVING expression.
+type HavingQuery = WhereQuery
+
+// HavingQueries is the helper for creating complex HAVING
+// conditions in a dynamic way. It mirrors the WhereQueries API,
+// so new WhereQueries features should get a counterpart here.
+type HavingQueries []HavingQuery
+
+// build delegates to WhereQueries.build; HAVING conditions render identically to WHERE ones.
+func (h HavingQueries) build(dialect sqldialect.Provider, numPreviousParams int) (query string, params []interface{}) {
+	return WhereQueries(h).build(dialect, numPreviousParams)
+}
+
+// Having adds a new boolean condition to an existing
+// HavingQueries helper.
+func (h HavingQueries) Having(cond string, params ...interface{}) HavingQueries {
+	return HavingQueries(WhereQueries(h).Where(cond, params...))
+}
+
+// HavingIf conditionally adds a new boolean expression to the HavingQueries helper.
+func (h HavingQueries) HavingIf(ifCond bool, cond string, params ...interface{}) HavingQueries {
+	return HavingQueries(WhereQueries(h).WhereIf(ifCond, cond, params...))
+}
+
+// Having creates a new HavingQueries helper containing a single boolean condition.
+func Having(cond string, params ...interface{}) HavingQueries {
+	return HavingQueries(Where(cond, params...))
+}
+
+// HavingIf creates a new HavingQueries helper containing a single
+// boolean condition, but only if ifCond is true.
+func HavingIf(ifCond bool, cond string, params ...interface{}) HavingQueries {
+	return HavingQueries(WhereIf(ifCond, cond, params...))
 }
 
 // selectQueryCacheKey partitions the cache per dialect because column escaping varies between them.
