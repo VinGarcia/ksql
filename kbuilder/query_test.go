@@ -124,6 +124,19 @@ func TestSelectQuery(t *testing.T) {
 			expectedParams: []interface{}{42, "%ending"},
 		},
 		{
+			desc: "should omit the ORDER BY clause when OrderBy contains only whitespace",
+			query: kbuilder.Query{
+				Select: &User{},
+				From:   "users",
+
+				// This happens easily when callers assemble OrderBy from
+				// optional parts, e.g. `filter.OrderBy + " " + filter.SortOrder`:
+				OrderBy: " ",
+				Limit:   10,
+			},
+			expectedQuery: `SELECT "name", "age" FROM users LIMIT 10`,
+		},
+		{
 			desc: "should build queries omitting the WHERE clause",
 			query: kbuilder.Query{
 				Select: &User{},

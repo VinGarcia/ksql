@@ -12,4 +12,5 @@ use (
 	./benchmarks
 	./examples
 	./kbuilder
+	./kbuilder/examples
 )

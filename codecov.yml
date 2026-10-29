@@ -5,3 +5,4 @@ coverage:
     - "kstructs/*"
     - "test_adapters.go"
     - "internal_mocks.go"
+    - "kbuilder/examples/**/*"

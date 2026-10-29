@@ -19,6 +19,7 @@ export PATH=$PATH:$(pwd)/scripts
 
 # Run the tests for the kbuilder module:
 ( cd kbuilder ; KSQL_ROOT_PATH=../ run-with-replace.sh go test -coverprofile=coverage.txt ./... )
+( cd kbuilder/examples ; KSQL_ROOT_PATH=../../ run-with-replace.sh go vet ./... )
 
 # Then for each adapter run the tests with the replace directive:
 ( cd adapters/kpgx ; run-with-replace.sh go test -coverprofile=coverage.txt -coverpkg=github.com/vingarcia/ksql ./... )
